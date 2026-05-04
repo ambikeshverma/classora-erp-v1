@@ -1,0 +1,258 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Arial, sans-serif;
+  background: #f4f6fb;
+}
+
+.admission-form-page {
+  padding: 22px;
+}
+
+.form-header {
+  background: white;
+  padding: 18px 22px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  margin-bottom: 22px;
+}
+
+.form-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #1f2937;
+}
+
+.form-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.back-btn {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.session-badge {
+  margin-left: auto;
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 10px 15px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.form-section {
+  background: white;
+  padding: 22px;
+  border-radius: 18px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+
+.form-section h2 {
+  margin: 0 0 16px;
+  color: #1f2937;
+  font-size: 19px;
+  border-left: 5px solid #4f46e5;
+  padding-left: 10px;
+}
+
+.section-title-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title-line h2 {
+  margin: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.form-group label span {
+  color: #ef4444;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid #dbe3ef;
+  outline: none;
+  background: #f8fafc;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #4f46e5;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.13);
+}
+
+.same-check,
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #374151;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.subject-note {
+  color: #6b7280;
+  background: #f8fafc;
+  padding: 14px;
+  border-radius: 12px;
+  margin: 0;
+}
+
+.subject-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.subject-item {
+  background: #f8fafc;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+
+.subject-item:hover {
+  background: #eef2ff;
+  border-color: #4f46e5;
+}
+
+.form-actions {
+  background: white;
+  padding: 18px;
+  border-radius: 18px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.save-btn,
+.back-action-btn {
+  padding: 12px 22px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.save-btn {
+  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+  color: white;
+}
+
+.back-action-btn {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+@media (max-width: 1200px) {
+  .form-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .subject-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .subject-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-header {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 600px) {
+  .admission-form-page {
+    padding: 12px;
+  }
+
+  .form-header {
+    flex-direction: column;
+  }
+
+  .session-badge {
+    margin-left: 0;
+  }
+
+  .form-grid,
+  .subject-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title-line {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .save-btn,
+  .back-action-btn {
+    width: 100%;
+  }
+}

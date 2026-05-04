@@ -1,0 +1,142 @@
+.subject-page {
+  padding: 20px;
+}
+
+.subject-header,
+.subject-form-card,
+.subject-table-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 22px rgba(0,0,0,0.06);
+  border: 1px solid #e5e7eb;
+}
+
+.subject-header {
+  padding: 15px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.subject-header h1,
+.subject-form-card h2,
+.subject-table-card h2 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.subject-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.subject-form-card,
+.subject-table-card {
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.subject-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  padding: 0 12px;
+  outline: none;
+}
+
+.save-btn {
+  margin-top: 16px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.table-wrap {
+  margin-top: 15px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+}
+
+th {
+  background: #f8fafc;
+  color: #374151;
+}
+
+.empty-row {
+  text-align: center;
+  color: #6b7280;
+}
+
+.edit-btn,
+.delete-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-right: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.edit-btn {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.delete-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+@media (max-width: 800px) {
+  .subject-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .subject-page {
+    padding: 12px;
+  }
+
+  .subject-header {
+    align-items: flex-start;
+  }
+}
+/* Fix spacing between input and button */
+.subject-form-card .save-btn {
+  margin-top: 16px;   /* 👈 space add */
+}

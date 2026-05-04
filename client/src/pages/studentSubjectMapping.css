@@ -1,0 +1,270 @@
+.student-subject-page {
+  padding: 20px;
+}
+
+.student-subject-header,
+.mapping-filter-card,
+.student-list-card,
+.mapping-result-card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+}
+
+.student-subject-header {
+  padding: 15px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.student-subject-header h1,
+.mapping-filter-card h2,
+.student-list-card h2,
+.mapping-result-card h2 {
+  margin: 0;
+  color: #1f2937;
+}
+
+.student-subject-header p {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.mapping-filter-card,
+.student-list-card,
+.mapping-result-card {
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.mapping-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 180px;
+  gap: 15px;
+  align-items: end;
+  margin-top: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: #374151;
+}
+
+.form-group select {
+  width: 100%;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  padding: 0 12px;
+  outline: none;
+}
+
+.load-btn,
+.assign-btn,
+.save-btn,
+.cancel-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.load-btn,
+.assign-btn,
+.save-btn {
+  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+  color: white;
+}
+
+.cancel-btn {
+  background: #e5e7eb;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-message,
+.empty-row {
+  text-align: center;
+  color: #6b7280;
+  padding: 14px;
+}
+
+.table-wrap {
+  margin-top: 15px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 850px;
+}
+
+th,
+td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+}
+
+th {
+  background: #f8fafc;
+  color: #374151;
+}
+
+.edit-btn,
+.delete-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-right: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.edit-btn {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.delete-btn {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 14px;
+  z-index: 9999;
+}
+
+.subject-popup {
+  width: 420px;
+  max-width: 100%;
+  background: white;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+}
+
+.popup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.popup-head h2 {
+  margin: 0;
+}
+
+.popup-head button {
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-subtitle {
+  color: #6b7280;
+  margin: 10px 0;
+}
+
+.subject-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.subject-options label {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  padding: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.subject-options input {
+  margin-right: 6px;
+}
+
+.popup-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.popup-actions button {
+  width: auto;
+  min-width: 120px;
+}
+
+@media (max-width: 800px) {
+  .student-subject-page {
+    padding: 12px;
+  }
+
+  .student-subject-header {
+    align-items: flex-start;
+  }
+
+  .mapping-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .list-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .assign-btn,
+  .load-btn {
+    width: 100%;
+  }
+
+  .subject-options {
+    grid-template-columns: 1fr;
+  }
+
+  .popup-actions {
+    flex-direction: column;
+  }
+
+  .popup-actions button {
+    width: 100%;
+  }
+}
