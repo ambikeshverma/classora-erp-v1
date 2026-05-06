@@ -8,11 +8,18 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.15.2",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
+    "file-server": "^2.2.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "react-select": "^5.10.2",
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",

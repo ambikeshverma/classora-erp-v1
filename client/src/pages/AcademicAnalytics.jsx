@@ -1,5 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./academicAnalytics.css";
+import { exportToPDF } from "../utils/exportPDF";
+import { exportToExcel } from "../utils/exportExcel";
+import AppButton from "../components/AppButton";
 
 function AcademicAnalytics() {
   const [activeReport, setActiveReport] = useState("");
@@ -8,16 +11,28 @@ function AcademicAnalytics() {
   const [className, setClassName] = useState("");
   const [section, setSection] = useState("");
   const [showExport, setShowExport] = useState(false);
-const schoolProfile = {
-  name: "Chandra Shekhar Azad Inter College",
-  address: "Rasauli, Barabanki",
-  logo: "🏫",
-  contact: "8840248644"
-};
-  // Demo Data
+
+  const resetReports = () => {
+    setReportClass("All Classes");
+    setShowClassReport(false);
+    setClassName("");
+    setSection("");
+    setShowExport(false);
+  };
+
+  useEffect(() => {
+    resetReports();
+  }, []);
+
+  const schoolProfile = {
+    name: "Chandra Shekhar Azad Inter College",
+    address: "Rasauli, Barabanki",
+    contact: "8840248644",
+  };
+
   const classData = [
     { className: "Class 9", subjects: ["Hindi", "English", "Math"] },
-    { className: "Class 10", subjects: ["Hindi", "English", "Math", "Science"] }
+    { className: "Class 10", subjects: ["Hindi", "English", "Math", "Science"] },
   ];
 
   const studentData = [
@@ -26,67 +41,151 @@ const schoolProfile = {
       admissionNo: "ADM001",
       className: "Class 10",
       section: "A",
-      subjects: ["Math", "Science"]
+      subjects: ["Math", "Science"],
     },
     {
       name: "Riya",
       admissionNo: "ADM002",
       className: "Class 10",
       section: "A",
-      subjects: ["English", "Math"]
-    }
+      subjects: ["English", "Math"],
+    },
   ];
 
   const filteredClassData =
     reportClass === "All Classes"
       ? classData
-      : classData.filter((c) => c.className === reportClass);
+      : classData.filter((item) => item.className === reportClass);
 
   const filteredStudents = studentData.filter(
     (s) => s.className === className && s.section === section
   );
-const handlePrint = () => {
-  window.print();
-};
+
+  const getCurrentReportData = () => {
+    if (activeReport === "class") return filteredClassData;
+    if (activeReport === "student") return filteredStudents;
+    return [];
+  };
+
+  const getReportTitle = () => {
+    return activeReport === "class"
+      ? "Class-wise Subject Report"
+      : "Student-wise Subject Report";
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportPDF = () => {
+    const data = getCurrentReportData();
+
+    const columns =
+      activeReport === "class"
+        ? ["S.No", "Class", "Subjects"]
+        : ["S.No", "Name", "Adm No", "Class", "Section", "Subjects"];
+
+    const rows =
+      activeReport === "class"
+        ? data.map((item, i) => [i + 1, item.className, item.subjects.join(", ")])
+        : data.map((item, i) => [
+            i + 1,
+            item.name,
+            item.admissionNo,
+            item.className,
+            item.section,
+            item.subjects.join(", "),
+          ]);
+
+    exportToPDF({
+      title: getReportTitle(),
+      columns,
+      data: rows,
+      schoolProfile,
+    });
+
+    setShowExport(false);
+  };
+
+  const handleExportExcel = () => {
+    const data = getCurrentReportData();
+
+    const columns =
+      activeReport === "class"
+        ? ["S.No", "Class", "Subjects"]
+        : ["S.No", "Name", "Adm No", "Class", "Section", "Subjects"];
+
+    const rows =
+      activeReport === "class"
+        ? data.map((item, i) => [i + 1, item.className, item.subjects.join(", ")])
+        : data.map((item, i) => [
+            i + 1,
+            item.name,
+            item.admissionNo,
+            item.className,
+            item.section,
+            item.subjects.join(", "),
+          ]);
+
+    exportToExcel({
+      title: getReportTitle(),
+      columns,
+      data: rows,
+      schoolProfile,
+    });
+
+    setShowExport(false);
+  };
+
   return (
     <div className="analytics-page">
-
-      {/* HEADER */}
-      <div className="analytics-header">
-        <button
-  className="back-btn"
-  onClick={() => {
-    if (activeReport) {
-      setActiveReport("");
-    } else {
-      window.location.href = "/academic-zone";
-    }
-  }}
->
+      <div className="common-page-header">
+        <AppButton
+          type="back"
+          onClick={() => {
+            if (activeReport) {
+              resetReports();
+              setActiveReport("");
+            } else {
+              window.location.href = "/academic-zone";
+            }
+          }}
+        >
           ←
-        </button>
+        </AppButton>
+
         <div>
           <h1>Analytics & Reports</h1>
           <p>Generate and export academic reports</p>
         </div>
       </div>
 
-      {/* MAIN OPTIONS */}
       {!activeReport && (
         <div className="report-list">
-          <div className="report-card" onClick={() => setActiveReport("class")}>
+          <div
+            className="report-card"
+            onClick={() => {
+              resetReports();
+              setActiveReport("class");
+            }}
+          >
             Class-wise Subject Report
           </div>
 
-          <div className="report-card" onClick={() => setActiveReport("student")}>
+          <div
+            className="report-card"
+            onClick={() => {
+              resetReports();
+              setActiveReport("student");
+            }}
+          >
             Student-wise Subject Report
           </div>
         </div>
       )}
 
-      {/* CLASS REPORT */}
       {activeReport === "class" && (
-        <div className="report-card-box">
+        <div className="common-card">
           <h2>Class-wise Subject Report</h2>
 
           <div className="filters">
@@ -98,31 +197,30 @@ const handlePrint = () => {
               }}
             >
               <option value="All Classes">All Classes</option>
-              {classData.map((c, i) => (
-                <option key={i} value={c.className}>
-                  {c.className}
+              {classData.map((item, index) => (
+                <option key={index} value={item.className}>
+                  {item.className}
                 </option>
               ))}
             </select>
 
-            <button className="view-btn" onClick={() => setShowClassReport(true)}>
+            <AppButton type="view" onClick={() => setShowClassReport(true)}>
               View
-            </button>
+            </AppButton>
           </div>
 
           {showClassReport && (
             <>
-            <div className="print-header">
-  <div className="logo">{schoolProfile.logo}</div>
+              <div className="print-header">
+                <div className="school-details">
+                  <h2>{schoolProfile.name}</h2>
+                  <p>{schoolProfile.address}</p>
+                  <p>{schoolProfile.contact}</p>
+                </div>
+              </div>
 
-  <div className="school-details">
-    <h2>{schoolProfile.name}</h2>
-    <p>{schoolProfile.address}</p>
-    <p>{schoolProfile.contact}</p>
-  </div>
-</div>
+              <h3 className="report-title">Class-wise Subject Report</h3>
 
-<h3 className="report-title">Class-wise Subject Report</h3>
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -132,38 +230,39 @@ const handlePrint = () => {
                       <th>Assigned Subjects</th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {filteredClassData.map((c, i) => (
-                      <tr key={i}>
-                        <td>{i + 1}</td>
-                        <td>{c.className}</td>
-                        <td>{c.subjects.join(", ")}</td>
+                    {filteredClassData.map((item, index) => (
+                      <tr key={index}>
+                        <td>{index + 1}</td>
+                        <td>{item.className}</td>
+                        <td>{item.subjects.join(", ")}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-<div className="print-footer">
-  <span className="print-date">
-  {new Date().toLocaleString()}
-</span>
-</div>
+
               <div className="actions">
-                <button className="print-btn" onClick={handlePrint}>
-  Print
-</button>
-                <button className="export-btn" onClick={() => setShowExport(true)}>
+                <AppButton type="print" onClick={handlePrint}>
+                  Print
+                </AppButton>
+
+                <AppButton type="export" onClick={() => setShowExport(true)}>
                   Export
-                </button>
+                </AppButton>
+              </div>
+
+              <div className="print-footer">
+                <span className="print-date">{new Date().toLocaleString()}</span>
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* STUDENT REPORT */}
       {activeReport === "student" && (
-        <div className="report-card-box">
+        <div className="common-card">
           <h2>Student-wise Subject Report</h2>
 
           <div className="filters">
@@ -180,27 +279,38 @@ const handlePrint = () => {
 
           {className && section && (
             <>
+              <div className="print-header">
+                <div className="school-details">
+                  <h2>{schoolProfile.name}</h2>
+                  <p>{schoolProfile.address}</p>
+                  <p>{schoolProfile.contact}</p>
+                </div>
+              </div>
+
+              <h3 className="report-title">Student-wise Subject Report</h3>
+
               <div className="table-wrap">
-                <table>
+                <table style={{ width: "100%", tableLayout: "fixed" }}>
                   <thead>
                     <tr>
-                      <th>S.No</th>
-                      <th>Name</th>
-                      <th>Admission No</th>
-                      <th>Class</th>
-                      <th>Section</th>
-                      <th>Subjects</th>
+                      <th style={{ width: "8%" }}>S.No</th>
+                      <th style={{ width: "22%" }}>Student Name</th>
+                      <th style={{ width: "18%" }}>Admission No</th>
+                      <th style={{ width: "14%" }}>Class</th>
+                      <th style={{ width: "10%" }}>Section</th>
+                      <th style={{ width: "28%" }}>Assigned Subjects</th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {filteredStudents.map((s, i) => (
-                      <tr key={i}>
-                        <td>{i + 1}</td>
-                        <td>{s.name}</td>
-                        <td>{s.admissionNo}</td>
-                        <td>{s.className}</td>
-                        <td>{s.section}</td>
-                        <td>{s.subjects.join(", ")}</td>
+                    {filteredStudents.map((student, index) => (
+                      <tr key={index}>
+                        <td>{index + 1}</td>
+                        <td>{student.name}</td>
+                        <td>{student.admissionNo}</td>
+                        <td>{student.className}</td>
+                        <td>{student.section}</td>
+                        <td>{student.subjects.join(", ")}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -208,34 +318,39 @@ const handlePrint = () => {
               </div>
 
               <div className="actions">
-                <button className="print-btn">Print</button>
-                <button className="export-btn" onClick={() => setShowExport(true)}>
+                <AppButton type="print" onClick={handlePrint}>
+                  Print
+                </AppButton>
+
+                <AppButton type="export" onClick={() => setShowExport(true)}>
                   Export
-                </button>
+                </AppButton>
               </div>
 
-             <div className="print-footer">
-  <span className="print-date">
-    {new Date().toLocaleString()}
-  </span>
-</div>
+              <div className="print-footer">
+                <span className="print-date">{new Date().toLocaleString()}</span>
+              </div>
             </>
           )}
         </div>
       )}
 
-      {/* EXPORT POPUP */}
       {showExport && (
         <div className="popup-overlay">
           <div className="popup">
             <h3>Select Format</h3>
 
-            <button className="pdf-btn">📄 PDF</button>
-            <button className="excel-btn">📊 Excel</button>
+            <AppButton type="pdf" onClick={handleExportPDF}>
+              PDF
+            </AppButton>
 
-            <button className="cancel-btn" onClick={() => setShowExport(false)}>
+            <AppButton type="excel" onClick={handleExportExcel}>
+              Excel
+            </AppButton>
+
+            <AppButton type="cancel" onClick={() => setShowExport(false)}>
               Cancel
-            </button>
+            </AppButton>
           </div>
         </div>
       )}

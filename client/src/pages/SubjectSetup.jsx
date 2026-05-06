@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import "./subjectSetup.css";
+import AppButton from "../components/AppButton";
 
 function SubjectSetup() {
   const [subject, setSubject] = useState({
     subjectName: "",
     subjectCode: "",
-    subjectType: ""
+    subjectType: "",
   });
 
   const [subjects, setSubjects] = useState([]);
@@ -13,65 +14,77 @@ function SubjectSetup() {
   const handleChange = (e) => {
     setSubject({
       ...subject,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSave = () => {
-   if (!subject.subjectName || !subject.subjectType) {
-  alert("Please fill Subject Name and Subject Type");
-  return;
-}
+    if (!subject.subjectName || !subject.subjectType) {
+      alert("Please fill Subject Name and Subject Type");
+      return;
+    }
 
-const duplicateSubject = subjects.some(
-  (item) =>
-    item.subjectName.trim().toLowerCase() ===
-    subject.subjectName.trim().toLowerCase()
-);
+    const duplicateSubject = subjects.some(
+      (item) =>
+        item.subjectName.toLowerCase() ===
+        subject.subjectName.toLowerCase()
+    );
 
-if (duplicateSubject) {
-  alert("This subject already exists");
-  return;
-}
+    if (duplicateSubject) {
+      alert("Subject already exists");
+      return;
+    }
 
     setSubjects([...subjects, subject]);
 
     setSubject({
       subjectName: "",
       subjectCode: "",
-      subjectType: ""
+      subjectType: "",
     });
-  };
-
-  const handleDelete = (index) => {
-    const updated = subjects.filter((_, i) => i !== index);
-    setSubjects(updated);
   };
 
   const handleEdit = (index) => {
     setSubject(subjects[index]);
-    handleDelete(index);
+    setSubjects(subjects.filter((_, i) => i !== index));
+  };
+
+  const handleDelete = (index) => {
+    const ok = window.confirm("Delete this subject?");
+    if (!ok) return;
+
+    setSubjects(subjects.filter((_, i) => i !== index));
   };
 
   return (
-    <div className="subject-page">
-      <div className="subject-header">
-        <button className="back-btn" onClick={() => window.location.href = "/academic-zone"}>
+    <div className="subject-setup-page">
+      {/* ================= HEADER ================= */}
+
+      <div className="common-page-header">
+        <AppButton
+          type="back"
+          onClick={() => (window.location.href = "/academic-zone")}
+        >
           ←
-        </button>
+        </AppButton>
 
         <div>
           <h1>Subject Setup</h1>
-          <p>Create and manage subjects used across admission, exams and report cards</p>
+          <p>
+            Create and manage subjects used across academic modules
+          </p>
         </div>
       </div>
 
-      <div className="subject-form-card">
+      {/* ================= FORM CARD ================= */}
+
+      <div className="common-card">
         <h2>Add Subject</h2>
 
         <div className="subject-form-grid">
           <div className="form-group">
             <label>Subject Name</label>
+
             <input
               type="text"
               name="subjectName"
@@ -83,6 +96,7 @@ if (duplicateSubject) {
 
           <div className="form-group">
             <label>Subject Code</label>
+
             <input
               type="text"
               name="subjectCode"
@@ -94,6 +108,7 @@ if (duplicateSubject) {
 
           <div className="form-group">
             <label>Subject Type</label>
+
             <select
               name="subjectType"
               value={subject.subjectType}
@@ -106,12 +121,16 @@ if (duplicateSubject) {
           </div>
         </div>
 
-        <button className="save-btn" onClick={handleSave}>
-          Save Subject
-        </button>
+        <div className="form-action">
+          <AppButton type="primary" onClick={handleSave}>
+            Save Subject
+          </AppButton>
+        </div>
       </div>
 
-      <div className="subject-table-card">
+      {/* ================= SUBJECT TABLE ================= */}
+
+      <div className="common-card">
         <h2>Subject List</h2>
 
         <div className="table-wrap">
@@ -137,16 +156,29 @@ if (duplicateSubject) {
                 subjects.map((item, index) => (
                   <tr key={index}>
                     <td>{index + 1}</td>
+
                     <td>{item.subjectName}</td>
+
                     <td>{item.subjectCode}</td>
+
                     <td>{item.subjectType}</td>
+
                     <td>
-                      <button className="edit-btn" onClick={() => handleEdit(index)}>
-                        Edit
-                      </button>
-                      <button className="delete-btn" onClick={() => handleDelete(index)}>
-                        Delete
-                      </button>
+                      <div className="table-actions">
+                        <button
+                          className="table-edit-btn"
+                          onClick={() => handleEdit(index)}
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          className="table-delete-btn"
+                          onClick={() => handleDelete(index)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

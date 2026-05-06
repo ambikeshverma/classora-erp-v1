@@ -1,0 +1,119 @@
+.app-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 22px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+  box-shadow: none !important;
+  outline: none;
+  min-width: 95px;
+}
+
+.app-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
+.app-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* View / Primary */
+.app-btn-primary,
+.app-btn-view {
+  background: linear-gradient(135deg, #0d6efd, #0dcaf0);
+  color: white;
+}
+
+/* Print */
+.app-btn-print {
+  background: #20c997;
+  color: white;
+}
+
+/* Export */
+.app-btn-export {
+  background: #5bc0de;
+  color: white;
+}
+
+/* PDF */
+.app-btn-pdf {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+/* Excel */
+.app-btn-excel {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: white;
+}
+
+/* Cancel */
+.app-btn-cancel {
+  background: #f1f5f9;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+/* Danger / Delete */
+.app-btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+/* Back Button */
+.app-btn-back {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border-radius: 12px;
+  background: #dc3545;
+  color: white;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 22px;
+  line-height: 1;          /* 🔥 important */
+}
+
+/* Mobile friendly */
+@media (max-width: 600px) {
+  .app-btn {
+    width: 100%;
+  }
+
+  .app-btn-back {
+    width: 48px;
+  }
+}
+.tableEdit {
+  background: #dff4ff;
+  color: #2b6cb0;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 8px;
+  min-width: auto;
+}
+
+.tableDelete {
+  background: #ffe3ea;
+  color: #c53030;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: auto;
+}

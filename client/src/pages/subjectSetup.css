@@ -1,142 +1,180 @@
-.subject-page {
-  padding: 20px;
+.subject-setup-page {
+  min-height: 100vh;
+  background: #f3f6fb;
+  padding: 24px;
+  box-sizing: border-box;
 }
 
-.subject-header,
-.subject-form-card,
-.subject-table-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 22px rgba(0,0,0,0.06);
-  border: 1px solid #e5e7eb;
-}
-
-.subject-header {
-  padding: 15px 18px;
+.common-page-header {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 20px;
+  gap: 18px;
+  background: #ffffff;
+  padding: 22px 24px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
 }
 
-.subject-header h1,
-.subject-form-card h2,
-.subject-table-card h2 {
+.common-page-header h1 {
   margin: 0;
-  color: #1f2937;
+  font-size: 30px;
+  font-weight: 800;
+  color: #1e293b;
 }
 
-.subject-header p {
-  margin: 4px 0 0;
-  color: #6b7280;
-  font-size: 13px;
+.common-page-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
 }
 
-.subject-form-card,
-.subject-table-card {
-  padding: 18px;
-  margin-bottom: 20px;
+.common-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.common-card h2 {
+  margin: 0 0 20px;
+  font-size: 24px;
+  color: #1e293b;
 }
 
 .subject-form-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-top: 15px;
+  gap: 18px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
 }
 
 .form-group label {
-  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
   font-weight: 700;
-  font-size: 13px;
-  margin-bottom: 6px;
-  color: #374151;
+  color: #334155;
 }
 
 .form-group input,
 .form-group select {
-  width: 100%;
-  height: 42px;
+  height: 46px;
+  border: 1px solid #d7dee8;
   border-radius: 12px;
-  border: 1px solid #d1d5db;
-  padding: 0 12px;
+  padding: 0 14px;
+  font-size: 14px;
   outline: none;
+  background: #ffffff;
 }
 
-.save-btn {
-  margin-top: 16px;
-  padding: 11px 22px;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+}
+
+.form-action {
+  margin-top: 20px;
 }
 
 .table-wrap {
-  margin-top: 15px;
+  width: 100%;
   overflow-x: auto;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 650px;
+}
+
+thead {
+  background: #eef3f8;
 }
 
 th,
 td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 14px;
   text-align: left;
   font-size: 14px;
 }
 
 th {
-  background: #f8fafc;
-  color: #374151;
+  color: #1e293b;
+  font-weight: 800;
+}
+
+td {
+  color: #475569;
+  border-bottom: 1px solid #edf2f7;
 }
 
 .empty-row {
   text-align: center;
-  color: #6b7280;
+  color: #94a3b8;
+  padding: 30px;
 }
 
-.edit-btn,
-.delete-btn {
+.table-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-edit-btn,
+.table-delete-btn {
   border: none;
-  border-radius: 8px;
-  padding: 7px 10px;
-  margin-right: 6px;
+  border-radius: 10px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: 600;
 }
 
-.edit-btn {
-  background: #dbeafe;
-  color: #1d4ed8;
+.table-edit-btn {
+  background: #dff4ff;
+  color: #2563eb;
 }
 
-.delete-btn {
-  background: #fee2e2;
-  color: #b91c1c;
+.table-delete-btn {
+  background: #ffe3ea;
+  color: #dc2626;
 }
 
-@media (max-width: 800px) {
+@media (max-width: 992px) {
+  .subject-form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .subject-setup-page {
+    padding: 16px;
+  }
+
+  .common-page-header {
+    padding: 18px;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
   .subject-form-grid {
     grid-template-columns: 1fr;
   }
 
-  .subject-page {
-    padding: 12px;
+  .common-card {
+    padding: 18px;
   }
 
-  .subject-header {
-    align-items: flex-start;
+  th,
+  td {
+    font-size: 13px;
+    padding: 12px;
   }
-}
-/* Fix spacing between input and button */
-.subject-form-card .save-btn {
-  margin-top: 16px;   /* 👈 space add */
 }
