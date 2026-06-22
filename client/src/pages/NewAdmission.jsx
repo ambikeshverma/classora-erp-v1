@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./newAdmission.css";
+import AppButton from "../components/AppButton";
 
 const statesOfIndia = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -14,7 +15,59 @@ const statesOfIndia = [
   "Lakshadweep"
 ];
 
-const classSubjects = {
+const classOptions = [
+  "Nursery", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
+  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
+  "Class 11", "Class 12"
+];
+
+const sectionOptions = ["A", "B", "C", "Hindi Medium", "English Medium"];
+
+const mediumOptions = ["Hindi Medium", "English Medium"];
+
+const feePlans = [
+  { id: 1, className: "Class 6", planName: "6HM", medium: "Hindi Medium", totalFee: 18500 },
+  { id: 2, className: "Class 6", planName: "6EM", medium: "English Medium", totalFee: 22500 },
+  { id: 3, className: "Class 7", planName: "7HM", medium: "Hindi Medium", totalFee: 19500 },
+  { id: 4, className: "Class 7", planName: "7EM", medium: "English Medium", totalFee: 23500 },
+];
+
+const siblingGroups = [
+  "No Siblings",
+  "Rahul Kumar Group",
+  "Priya Singh Group",
+  "Aman Verma Group",
+];
+
+const concessionPlans = [
+  "No Concession Plan",
+  "Staff Child",
+  "Sibling Concession",
+  "Scholarship",
+];
+
+const routeOptions = [
+  "Not Assigned",
+  "Rasauli Route",
+  "Lucknow Route",
+  "Madaran Route",
+];
+
+const vehicleOptions = [
+  "Not Assigned",
+  "UP32AB1234 - Bus 1",
+  "UP41CD5678 - Van 1",
+];
+
+const houseOptions = [
+  "Not Assigned",
+  "Red House",
+  "Blue House",
+  "Green House",
+  "Yellow House",
+];
+
+const classSubjectMappings = {
   Nursery: ["English", "Hindi", "Math", "Drawing"],
   "Class 1": ["English", "Hindi", "Math", "EVS", "Computer"],
   "Class 2": ["English", "Hindi", "Math", "EVS", "Computer"],
@@ -31,7 +84,8 @@ const classSubjects = {
 };
 
 function NewAdmission() {
-  const currentSession = "2026-2027";
+  const currentSession =
+    localStorage.getItem("currentSession") || "2026-2027";
 
   const [form, setForm] = useState({
     className: "", feePlan: "", section: "", admissionDate: "", gender: "",
@@ -61,8 +115,35 @@ function NewAdmission() {
 
   const [sameAddress, setSameAddress] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
+  const [studentImagePreview, setStudentImagePreview] = useState("");
 
-  const subjects = classSubjects[form.className] || [];
+  const subjects = classSubjectMappings[form.className] || [];
+
+  const availableFeePlans = feePlans.filter(
+    (item) => item.className === form.className
+  );
+
+  const selectedFeePlan = feePlans.find(
+    (item) => item.planName === form.feePlan
+  );
+
+  useEffect(() => {
+    if (mediumOptions.length === 1 && !form.medium) {
+      setForm((prev) => ({
+        ...prev,
+        medium: mediumOptions[0],
+      }));
+    }
+  }, [form.medium]);
+
+  useEffect(() => {
+    if (availableFeePlans.length === 1) {
+      setForm((prev) => ({
+        ...prev,
+        feePlan: availableFeePlans[0].planName,
+      }));
+    }
+  }, [form.className]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -74,7 +155,20 @@ function NewAdmission() {
 
     if (name === "className") {
       setSelectedSubjects([]);
+      setForm((prev) => ({
+        ...prev,
+        className: value,
+        feePlan: "",
+      }));
     }
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setStudentImagePreview(URL.createObjectURL(file));
   };
 
   const handleSameAddress = (e) => {
@@ -145,7 +239,8 @@ function NewAdmission() {
       const finalData = {
         ...form,
         session: currentSession,
-        subjects: selectedSubjects
+        subjects: selectedSubjects,
+        totalFee: selectedFeePlan?.totalFee || 0
       };
 
       const res = await axios.post(
@@ -164,10 +259,18 @@ function NewAdmission() {
       alert(err.response?.data?.msg || "Admission save failed ❌");
     }
   };
-
-  const field = (label, name, type = "text", required = false, placeholder = "") => (
+  const field = (
+    label,
+    name,
+    type = "text",
+    required = false,
+    placeholder = ""
+  ) => (
     <div className="form-group" key={name}>
-      <label>{label} {required && <span>*</span>}</label>
+      <label>
+        {label} {required && <span>*</span>}
+      </label>
+
       <input
         type={type}
         name={name}
@@ -178,85 +281,183 @@ function NewAdmission() {
     </div>
   );
 
-  const select = (label, name, options, required = false) => (
-    <div className="form-group" key={name}>
-      <label>{label} {required && <span>*</span>}</label>
-      <select name={name} value={form[name]} onChange={handleChange}>
-        <option value="">{"< Select >"}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    </div>
-  );
+  const select = (
+  label,
+  name,
+  options,
+  required = false
+) => (
+  <div className="form-group" key={name}>
+    <label>
+      {label} {required && <span>*</span>}
+    </label>
+
+    <select
+      name={name}
+      value={form[name]}
+      onChange={handleChange}
+    >
+      <option value="">
+        {"< Select >"}
+      </option>
+
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  </div>
+);
 
   return (
     <div className="admission-form-page">
       <div className="form-header">
-        <button className="back-btn" onClick={() => window.location.href = "/admission"}>←</button>
+        <button
+          className="back-btn"
+          onClick={() =>
+            (window.location.href = "/admissions")
+          }
+        >
+          ←
+        </button>
+
         <div>
           <h1>+ New Student Admission</h1>
-          <p>Complete student admission with class-wise subject selection</p>
+          <p>
+            Complete student admission with class-wise subject selection
+          </p>
         </div>
-        <div className="session-badge">{currentSession}</div>
+
+        {selectedFeePlan && (
+          <div className="total-fee-note">
+            Total Fee: ₹{selectedFeePlan.totalFee}
+          </div>
+        )}
+
+        <div className="session-badge">
+          {currentSession}
+        </div>
       </div>
 
       <section className="form-section">
         <h2>Student Details</h2>
+
         <div className="form-grid">
-          {select("Class Name", "className", Object.keys(classSubjects), true)}
-          {select("Fee Plan", "feePlan", ["Monthly", "Quarterly", "Half Yearly", "Yearly"], true)}
-          {select("Section", "section", ["A", "B", "C", "Hindi Medium", "English Medium"], true)}
+          {select("Class Name", "className", classOptions, true)}
+
+          {select(
+            "Fee Plan",
+            "feePlan",
+            availableFeePlans.map((item) => item.planName),
+            true
+          )}
+
+          {select("Section", "section", sectionOptions, true)}
+
           {field("Admission Date", "admissionDate", "date", true)}
-          {select("Gender", "gender", ["Male", "Female", "Other"], true)}
+
+          {select("Gender", "gender", ["Male", "Female", "Transgender"], true)}
+
           {field("Student Name", "studentName", "text", true)}
+
           {field("Father Name", "fatherName", "text", true)}
+
           {field("Mother Name", "motherName", "text", true)}
+
           {field("DOB", "dob", "date", true)}
+
           {field("Mobile #", "mobile", "text", true)}
+
           {field("Alt. Mobile #", "altMobile")}
+
           {field("Aadhar #", "aadhar")}
+
           {field("SR No.", "srNo")}
+
           <div className="form-group" key="studentImage">
             <label>Student Image</label>
-            <input type="file" />
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleImageChange}
+            />
+
+            {studentImagePreview && (
+              <div className="student-image-preview">
+                <img src={studentImagePreview} alt="Student preview" />
+              </div>
+            )}
           </div>
+
           {field("Email", "email", "email")}
-          {select("Medium", "medium", ["Hindi Medium", "English Medium"], true)}
+
+          {select("Medium", "medium", mediumOptions, true)}
         </div>
       </section>
 
       <section className="form-section">
         <h2>Office Details</h2>
+
         <div className="form-grid">
-          {select("Sibling Group", "siblingGroup", ["No Siblings", "Sibling Group 1", "Sibling Group 2"])}
-          {select("Concession Plan", "concessionPlan", ["No Concession Plan", "Staff Child", "Scholarship", "Special Discount"])}
-          {select("Route Name", "routeName", ["Not Assigned", "Route 1", "Route 2", "Route 3"])}
-          {select("Vehicle Name", "vehicleName", ["Not Assigned", "Bus 1", "Bus 2", "Van 1"])}
+          {select("Sibling Group", "siblingGroup", siblingGroups)}
+
+          {select("Concession Plan", "concessionPlan", concessionPlans)}
+
+          {select("Route Name", "routeName", routeOptions)}
+
+          {select("Vehicle Name", "vehicleName", vehicleOptions)}
+
           {field("UDISE PEN No", "udisePenNo")}
+
           {field("APAAR Id", "apaarId")}
+
           {field("School Admission No", "schoolAdmissionNo")}
+
           {field("Hostel/Room No", "hostelRoomNo")}
-          {select("House", "house", ["Not Assigned", "Red House", "Blue House", "Green House", "Yellow House"])}
+
+          {select("House", "house", houseOptions)}
         </div>
       </section>
 
       <section className="form-section">
         <h2>Student Details (RL/Hindi)</h2>
+
         <div className="form-grid">
           {field("Student Name (RL/Hindi)", "studentNameRL")}
+
           {field("Father Name (RL/Hindi)", "fatherNameRL")}
+
           {field("Mother Name (RL/Hindi)", "motherNameRL")}
         </div>
       </section>
 
       <section className="form-section">
         <h2>Permanent Address</h2>
+
         <div className="form-grid">
-          {field("Address", "permanentAddress", "text", false, "House No / Flat No / Village")}
-          {field("Address1", "permanentAddress1", "text", false, "Locality / Landmark / Post")}
+          {field(
+            "Address",
+            "permanentAddress",
+            "text",
+            false,
+            "House No / Flat No / Village"
+          )}
+
+          {field(
+            "Address1",
+            "permanentAddress1",
+            "text",
+            false,
+            "Locality / Landmark / Post"
+          )}
+
           {field("City", "permanentCity")}
+
           {select("State", "permanentState", statesOfIndia)}
+
           {field("Pin Code", "permanentPin")}
         </div>
       </section>
@@ -264,59 +465,108 @@ function NewAdmission() {
       <section className="form-section">
         <div className="section-title-line">
           <h2>Local Address</h2>
+
           <label className="same-check">
-            <input type="checkbox" checked={sameAddress} onChange={handleSameAddress} />
+            <input
+              type="checkbox"
+              checked={sameAddress}
+              onChange={handleSameAddress}
+            />
             Same as Permanent
           </label>
         </div>
+
         <div className="form-grid">
-          {field("Address", "localAddress", "text", false, "House No / Flat No / Village")}
-          {field("Address1", "localAddress1", "text", false, "Locality / Landmark / Post")}
+          {field(
+            "Address",
+            "localAddress",
+            "text",
+            false,
+            "House No / Flat No / Village"
+          )}
+
+          {field(
+            "Address1",
+            "localAddress1",
+            "text",
+            false,
+            "Locality / Landmark / Post"
+          )}
+
           {field("City", "localCity")}
+
           {select("State", "localState", statesOfIndia)}
+
           {field("Pin Code", "localPin")}
         </div>
       </section>
-
       <section className="form-section">
         <h2>Parents Details</h2>
+
         <div className="form-grid">
           {field("Father Occupation", "fatherOccupation")}
+
           {field("Father Education", "fatherEducation")}
+
           {field("Father Aadhar No", "fatherAadhar")}
+
           {field("Family Yearly Income (₹)", "familyIncome")}
+
           {field("Mother Occupation", "motherOccupation")}
+
           {field("Mother Education", "motherEducation")}
+
           {field("Mother Aadhar No", "motherAadhar")}
         </div>
       </section>
 
       <section className="form-section">
         <h2>Other Details</h2>
+
         <div className="form-grid">
           {field("Last School Joined", "lastSchool")}
+
           {field("Last Class Joined", "lastClass")}
+
           {field("Height (CM)", "height")}
+
           {field("Weight (KG)", "weight")}
-          {select("Blood Group", "bloodGroup", ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"])}
-          {select("Religion", "religion", ["Hindu", "Muslim", "Sikh", "Christian", "Other"])}
-          {select("Community", "community", ["General", "OBC", "SC", "ST", "Other"])}
+
+          {select("Blood Group", "bloodGroup", [
+            "A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-",
+          ])}
+
+          {select("Religion", "religion", [
+            "Hindu", "Muslim", "Sikh", "Christian", "Other",
+          ])}
+
+          {select("Community", "community", [
+            "General", "OBC", "SC", "ST", "Minority", "Other",
+          ])}
+
           {field("Caste", "caste")}
         </div>
       </section>
 
       <section className="form-section">
         <h2>Subjects</h2>
+
         {!form.className ? (
-          <p className="subject-note">Please select class first to load subjects.</p>
+          <p className="subject-note">
+            Please select class first to load subjects.
+          </p>
         ) : (
           <>
             <label className="select-all">
               <input
                 type="checkbox"
-                checked={subjects.length > 0 && selectedSubjects.length === subjects.length}
+                checked={
+                  subjects.length > 0 &&
+                  selectedSubjects.length === subjects.length
+                }
                 onChange={toggleSelectAll}
               />
+
               Select All
             </label>
 
@@ -328,6 +578,7 @@ function NewAdmission() {
                     checked={selectedSubjects.includes(subject)}
                     onChange={() => toggleSubject(subject)}
                   />
+
                   {subject}
                 </label>
               ))}
@@ -337,10 +588,16 @@ function NewAdmission() {
       </section>
 
       <div className="form-actions">
-        <button className="save-btn" onClick={handleSave}>Save</button>
-        <button className="back-action-btn" onClick={() => window.location.href = "/admission"}>
+        <AppButton type="primary" onClick={handleSave}>
+          Save
+        </AppButton>
+
+        <AppButton
+          type="secondary"
+          onClick={() => (window.location.href = "/admission")}
+        >
           Go Back
-        </button>
+        </AppButton>
       </div>
     </div>
   );

@@ -1,0 +1,260 @@
+.concession-plan-page {
+  padding: 20px;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+.common-page-header,
+.common-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.common-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.common-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.common-page-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.top-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.common-card {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(260px, 1fr)
+  );
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.amount-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px
+    rgba(37, 99, 235, 0.12);
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+
+.lock-status {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.list-action-buttons,
+.bottom-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.bottom-action-row {
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+thead th,
+tbody td {
+  padding: 12px 8px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+thead th {
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+tbody td {
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+tbody tr:hover {
+  background: #fafafa;
+}
+
+.amount-input {
+  width: 80px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+  font-size: 13px;
+  outline: none;
+}
+
+.amount-input:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #2563eb;
+}
+
+.fee-section-title {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.empty-row {
+  padding: 30px !important;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+
+  .concession-plan-page {
+    padding: 14px;
+  }
+
+  .common-page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
+  .common-card {
+    padding: 16px;
+  }
+
+  .list-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .list-action-buttons,
+  .bottom-action-row {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .list-action-buttons .app-btn,
+  .bottom-action-row .app-btn,
+  .top-action-bar .app-btn {
+    width: 100%;
+  }
+
+  .top-action-bar {
+    justify-content: stretch;
+  }
+
+  table {
+    min-width: 1100px;
+  }
+
+  thead th,
+  tbody td {
+    font-size: 11px;
+    padding: 10px 6px;
+  }
+
+  .amount-input {
+    width: 65px;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+
+  .common-page-header h1 {
+    font-size: 20px;
+  }
+
+  .common-page-header p {
+    font-size: 12px;
+  }
+}

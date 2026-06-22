@@ -1,0 +1,174 @@
+.position-management-page {
+  padding: 20px;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+.common-page-header,
+.common-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.common-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.common-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.common-page-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.common-card {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.top-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+.position-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  box-sizing: border-box;
+  outline: none;
+  background: #ffffff;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #2563eb;
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.list-action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 700px;
+}
+
+thead th,
+tbody td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 10px 6px;
+  font-size: 12px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+thead th {
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+tbody td {
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.empty-row {
+  padding: 30px !important;
+  color: #6b7280;
+}
+
+@media (max-width: 768px) {
+
+  .position-management-page {
+    padding: 14px;
+  }
+
+  .common-page-header {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
+  .common-card {
+    padding: 16px;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .app-btn {
+    width: 100%;
+  }
+
+  thead th,
+  tbody td {
+    font-size: 11px;
+    padding: 8px 4px;
+  }
+
+}

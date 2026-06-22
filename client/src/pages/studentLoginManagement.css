@@ -1,0 +1,330 @@
+.student-login-page {
+  padding: 20px;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+.common-page-header,
+.common-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.common-page-header {
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.common-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.common-page-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.common-card {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.student-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.top-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.summary-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 18px;
+  border-left: 5px solid #2563eb;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+}
+
+.summary-card h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: #1e3a8a;
+}
+
+.summary-card p {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+
+.list-action-buttons,
+.popup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 14px;
+}
+
+table {
+  width: 100%;
+  min-width: 1100px;
+  border-collapse: collapse;
+}
+
+thead th,
+tbody td {
+  padding: 12px 10px;
+  text-align: center;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+thead th {
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+tbody td {
+  border-bottom: 1px solid #e5e7eb;
+  color: #374151;
+}
+
+.empty-row {
+  padding: 30px !important;
+  color: #6b7280;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.account-created,
+.logged-in {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.not-registered {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.never-logged-in {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.disabled {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  padding: 18px;
+}
+
+.popup-box {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.popup-header {
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+}
+
+.popup-header h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #111827;
+}
+
+.popup-content {
+  display: grid;
+  gap: 16px;
+}
+
+.popup-actions {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.print-slip-page {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.slip-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.login-slip {
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.login-slip p {
+  margin: 7px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+@media (max-width: 768px) {
+  .student-login-page {
+    padding: 14px;
+  }
+
+  .common-page-header,
+  .common-card,
+  .print-slip-page {
+    padding: 16px;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
+  .top-action-bar,
+  .list-action-buttons,
+  .popup-actions {
+    flex-direction: column;
+  }
+
+  .top-action-bar .app-btn,
+  .list-action-buttons .app-btn,
+  .popup-actions .app-btn {
+    width: 100%;
+  }
+
+  .list-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media print {
+  .common-page-header,
+  .common-card,
+  .summary-grid,
+  .popup-actions {
+    display: none;
+  }
+
+  .student-login-page {
+    background: #ffffff;
+    padding: 0;
+  }
+
+  .print-slip-page {
+    box-shadow: none;
+    border-radius: 0;
+  }
+}
+.popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.popup-close-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: #fee2e2;
+  color: #dc2626;
+  font-size: 22px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

@@ -1,0 +1,272 @@
+.app-banners-page {
+  padding: 20px;
+  background: #f4f7fb;
+  min-height: 100vh;
+}
+
+.common-page-header,
+.common-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.common-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.common-page-header h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.common-page-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.top-action-bar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+
+.common-card {
+  padding: 22px;
+  margin-bottom: 20px;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #111827;
+}
+
+.list-action-buttons,
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.banner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 360px);
+  gap: 18px;
+  justify-content: flex-start;
+}
+
+.banner-card {
+  position: relative;
+  width: 360px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.08);
+  
+}
+
+.banner-card img {
+  width: 100%;
+  aspect-ratio: 1200 / 500;
+  object-fit: cover;
+  display: block;
+}
+
+.banner-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  z-index: 2;
+}
+
+.empty-banner-box {
+  padding: 30px;
+  text-align: center;
+  color: #6b7280;
+  font-weight: 600;
+  background: #f8fafc;
+  border-radius: 14px;
+}
+
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+  padding: 18px;
+}
+
+.view-popup {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.popup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  border-bottom: 1px solid #ececec;
+  padding-bottom: 12px;
+}
+
+.popup-head h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #111827;
+}
+
+.popup-close-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.form-group input {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.banner-upload-info {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #dbeafe;
+}
+
+.banner-upload-info p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.banner-upload-info strong {
+  color: #2563eb;
+}
+
+.form-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+@media (max-width: 768px) {
+  .app-banners-page {
+    padding: 14px;
+  }
+
+  .common-page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 16px;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
+  .common-card {
+    padding: 16px;
+  }
+
+  .top-action-bar {
+    justify-content: stretch;
+  }
+
+  .top-action-bar .app-btn,
+  .form-actions .app-btn,
+  .list-action-buttons .app-btn {
+    width: 100%;
+  }
+
+  .list-header,
+  .form-actions,
+  .list-action-buttons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 480px) {
+  .common-page-header h1 {
+    font-size: 20px;
+  }
+
+  .common-page-header p {
+    font-size: 12px;
+  }
+
+  .banner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .view-popup {
+    padding: 18px;
+  }
+}
+@media (max-width: 480px) {
+
+  .banner-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-card {
+    width: 100%;
+  }
+
+}

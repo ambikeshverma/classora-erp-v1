@@ -3,13 +3,27 @@ import "./attendanceSystem.css";
 
 function AttendanceSystem() {
   const cards = [
-    { title: "Student Attendance", icon: "🎓" },
-    { title: "Staff Attendance", icon: "👨‍🏫" },
-    { title: "Bulk Attendance Entry", icon: "📝" },
-    { title: "Leave Management", icon: "📅" },
-    { title: "Attendance Lock / Freeze", icon: "🔒" },
-    { title: "Analytics and Reports", icon: "📊" }
-  ];
+  {
+    title: "Student Attendance",
+    icon: "🎓",
+    path: "/attendance-system/student-attendance",
+  },
+  {
+    title: "Staff Attendance",
+    icon: "👨‍🏫",
+    path: "/attendance-system/staff-attendance",
+  },
+  {
+    title: "Bulk Attendance Entry",
+    icon: "📝",
+    path: "/attendance-system/bulk-attendance-entry",
+  },
+  {
+    title: "Analytics and Reports",
+    icon: "📊",
+    path: "/attendance-system/attendance-analytics",
+  },
+];
 
   return (
     <div className="attendance-page">
@@ -26,7 +40,11 @@ function AttendanceSystem() {
 
       <div className="attendance-grid">
         {cards.map((card, index) => (
-          <div className="attendance-card" key={index}>
+          <div
+  className="attendance-card"
+  key={index}
+  onClick={() => window.location.href = card.path}
+>
             <div className="attendance-icon">{card.icon}</div>
             <h3>{card.title}</h3>
           </div>

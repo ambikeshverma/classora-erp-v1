@@ -1,0 +1,220 @@
+.co-scholastic-subject-page {
+  min-height: 100vh;
+  background: #f3f6fb;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.common-page-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #ffffff;
+  padding: 22px 24px;
+  border-radius: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.common-page-header h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.common-page-header p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.common-card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+}
+
+.common-card h2 {
+  margin: 0;
+  font-size: 24px;
+  color: #1e293b;
+}
+
+.subject-form-grid {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.two-column-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.form-group input {
+  height: 46px;
+  border: 1px solid #d7dee8;
+  border-radius: 12px;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+  background: #ffffff;
+  transition: 0.2s ease;
+}
+
+.form-group input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.form-action {
+  margin-top: 22px;
+  display: flex;
+}
+
+.right-action {
+  justify-content: flex-end;
+}
+
+.table-top-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.top-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+}
+
+thead {
+  background: #eef2ff;
+}
+
+th,
+td {
+  padding: 16px 14px;
+  text-align: left;
+  font-size: 14px;
+}
+
+th {
+  color: #1e293b;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+td {
+  color: #475569;
+  border-bottom: 1px solid #edf2f7;
+  background: #ffffff;
+}
+
+tbody tr:hover td {
+  background: #f8fafc;
+}
+
+.empty-row {
+  text-align: center;
+  color: #94a3b8;
+  padding: 32px !important;
+}
+
+input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  cursor: pointer;
+  accent-color: #4f46e5;
+}
+
+@media (max-width: 992px) {
+
+  .two-column-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (max-width: 768px) {
+
+  .co-scholastic-subject-page {
+    padding: 16px;
+  }
+
+  .common-page-header {
+    padding: 18px;
+    align-items: flex-start;
+  }
+
+  .common-page-header h1 {
+    font-size: 24px;
+  }
+
+  .common-card {
+    padding: 18px;
+  }
+
+  .table-top-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .top-action-buttons {
+    width: 100%;
+  }
+
+  .top-action-buttons .app-btn {
+    flex: 1;
+  }
+
+  th,
+  td {
+    font-size: 13px;
+    padding: 12px;
+  }
+
+}
+
+@media (max-width: 480px) {
+
+  .top-action-buttons {
+    flex-direction: column;
+  }
+
+  .top-action-buttons .app-btn,
+  .right-action .app-btn {
+    width: 100%;
+  }
+
+}

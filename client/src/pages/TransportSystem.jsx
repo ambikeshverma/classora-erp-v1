@@ -3,31 +3,64 @@ import "./transportSystem.css";
 
 function TransportSystem() {
   const cards = [
-    { title: "Route Management", icon: "🛣️" },
-    { title: "Vehicle Management", icon: "🚌" },
-    { title: "Driver Management", icon: "👨‍✈️" },
-    { title: "Student Transport Allocation", icon: "🎒" },
-    { title: "Student Vehicle Allocation", icon: "🚍" },
-    { title: "Analytics and Reports", icon: "📊" }
+    {
+      title: "Route Management",
+      icon: "🛣️",
+      route: "/route-management",
+    },
+
+    {
+      title: "Vehicle Management",
+      icon: "🚌",
+      route: "/vehicle-management",
+    },
+
+    {
+      title: "Student Transport Allocation",
+      icon: "🎒",
+      route: "/student-transport-allocation",
+    },
+
+    {
+      title: "Analytics and Reports",
+      icon: "📊",
+      route: "/transport-analytics-reports",
+    },
   ];
 
   return (
     <div className="transport-page">
       <div className="transport-header">
-        <button className="back-btn" onClick={() => window.location.href = "/dashboard"}>
+        <button
+          className="back-btn"
+          onClick={() => {
+            window.location.href = "/dashboard";
+          }}
+        >
           ←
         </button>
 
         <div>
           <h1>Transport System</h1>
-          <p>Manage routes, vehicles, drivers and student transport allocation</p>
+          <p>
+            Manage routes, vehicles and student transport allocation
+          </p>
         </div>
       </div>
 
       <div className="transport-grid">
         {cards.map((card, index) => (
-          <div className="transport-card" key={index}>
-            <div className="transport-icon">{card.icon}</div>
+          <div
+            className="transport-card"
+            key={index}
+            onClick={() => {
+              window.location.href = card.route;
+            }}
+          >
+            <div className="transport-icon">
+              {card.icon}
+            </div>
+
             <h3>{card.title}</h3>
           </div>
         ))}

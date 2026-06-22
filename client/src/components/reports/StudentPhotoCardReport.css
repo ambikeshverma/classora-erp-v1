@@ -1,0 +1,72 @@
+.student-photo-card-report {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.student-profile-card {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 10px;
+  background: #ffffff;
+  page-break-inside: avoid;
+}
+
+.student-photo-box {
+  width: 90px;
+  height: 110px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f9fafb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.student-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-photo {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+.student-card-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.student-card-column h4 {
+  margin: 0 0 5px;
+  font-size: 12px;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 3px;
+}
+
+.student-card-column p {
+  margin: 2px 0;
+  font-size: 10.5px;
+  line-height: 1.25;
+  color: #374151;
+  word-break: break-word;
+}
+
+.student-card-column strong {
+  color: #111827;
+}
+
+@media print {
+  .student-profile-card {
+    break-inside: avoid;
+  }
+}
