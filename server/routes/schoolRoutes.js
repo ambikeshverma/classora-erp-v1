@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const School = require("../models/School");
+const bcrypt = require("bcryptjs");
+const School = require("../models/schoolAdminSchema");
 const jwt = require("jsonwebtoken");
+const SECRETKEY = process.env.JWT_SECRET
 
 // School Login
 router.post("/login", async (req, res) => {
@@ -17,8 +19,8 @@ router.post("/login", async (req, res) => {
     if (!school.isActive) {
       return res.status(400).json({ msg: "School is deactivated" });
     }
-
-    if (password !== school.password) {
+     const match = await bcrypt.compare(password, school.password);
+    if (!match) {
       return res.status(400).json({ msg: "Invalid password" });
     }
 
@@ -27,14 +29,15 @@ router.post("/login", async (req, res) => {
         schoolId: school._id,
         campusId: school.campusId
       },
-      "SECRETKEY",
+      SECRETKEY,
       { expiresIn: "1d" }
     );
 
     res.json({
       token,
       name: school.schoolName,
-      schoolId: school._id
+      schoolId: school._id,
+      campusId: school.campusId
     });
 
   } catch (err) {
