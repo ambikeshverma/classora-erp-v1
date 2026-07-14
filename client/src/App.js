@@ -86,6 +86,7 @@ import ReceptionReports from "./pages/reception/ReceptionReports";
 import StudentReports from "./pages/student/StudentReports";
 import TransportReports from "./pages/transport/TransportReports";
 import AdminReports from "./pages/adminpanel/AdminReports";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard"
 
 function App() {
   return (
@@ -177,6 +178,7 @@ function App() {
         <Route path="/student-reports" element={<StudentReports />} />
         <Route path="/transport-analytics-reports" element={<TransportReports />} />
         <Route path="/admin-reports" element={<AdminReports />} />
+        <Route path="/super-admin" element={<SuperAdminDashboard></SuperAdminDashboard>} />
 
 
       </Routes>

@@ -1,6 +1,9 @@
 import React, { useMemo, useState } from "react";
 import "./feeCollection.css";
 import AppButton from "../components/AppButton";
+import FeeLedgerView from "../components/fee/FeeLedgerView";
+import FeeReceiptPrint from "../components/fee/FeeReceiptPrint";
+import StudentProfileView from "../components/student/StudentProfileView";
 
 function FeeCollection() {
   const schoolId = localStorage.getItem("schoolId") || "SCH001";
@@ -172,9 +175,15 @@ function FeeCollection() {
     new Date().toISOString().split("T")[0]
   );
 
+  const [totalPaidInput, setTotalPaidInput] = useState("");
+  const [rowPaidAmounts, setRowPaidAmounts] = useState({});
+
   const [showAddFeePopup, setShowAddFeePopup] = useState(false);
   const [showTransportPopup, setShowTransportPopup] = useState(false);
   const [showLedgerPopup, setShowLedgerPopup] = useState(false);
+  const [showProfilePopup, setShowProfilePopup] = useState(false);
+  const [showReceiptPrint, setShowReceiptPrint] = useState(false);
+  const [lastReceipt, setLastReceipt] = useState(null);
 
   const [addFeeForm, setAddFeeForm] = useState({
     feeHeadId: "",
@@ -238,21 +247,6 @@ function FeeCollection() {
     (item) => item.schoolId === schoolId && item.status === "Active"
   );
 
-  const matchedStudents = searchValue.trim()
-    ? demoStudents.filter((student) => {
-        const value = searchValue.toLowerCase();
-
-        return (
-          student.schoolId === schoolId &&
-          (student.studentName.toLowerCase().includes(value) ||
-            student.fatherName.toLowerCase().includes(value) ||
-            student.mobile.includes(searchValue) ||
-            student.srNo.toLowerCase().includes(value) ||
-            student.admissionNo.toLowerCase().includes(value))
-        );
-      })
-    : [];
-
   const currentSession = sessions.find(
     (item) => item.id === Number(selectedSessionId)
   );
@@ -275,6 +269,21 @@ function FeeCollection() {
   const selectedRoute = activeRoutes.find(
     (item) => item.id === selectedTransport?.routeId
   );
+
+  const matchedStudents = searchValue.trim()
+    ? demoStudents.filter((student) => {
+        const value = searchValue.toLowerCase();
+
+        return (
+          student.schoolId === schoolId &&
+          (student.studentName.toLowerCase().includes(value) ||
+            student.fatherName.toLowerCase().includes(value) ||
+            student.mobile.includes(searchValue) ||
+            student.srNo.toLowerCase().includes(value) ||
+            student.admissionNo.toLowerCase().includes(value))
+        );
+      })
+    : [];
 
   const getHeadName = (feeHeadId) => {
     const head = feeHeads.find((item) => item.id === Number(feeHeadId));
@@ -433,19 +442,31 @@ function FeeCollection() {
   });
 
   const totalFee = allFeeRows.reduce((sum, row) => sum + Number(row.fee), 0);
+
   const totalConcession = allFeeRows.reduce(
     (sum, row) => sum + Number(row.concession),
     0
   );
-  const totalPaid = allFeeRows.reduce((sum, row) => sum + Number(row.paid), 0);
-  const outstandingBalance = Math.max(totalFee - totalConcession - totalPaid, 0);
 
-  const totalPayableNow = visibleRows.reduce(
-    (sum, row) => sum + Number(row.payable),
+  const totalPaid = allFeeRows.reduce((sum, row) => sum + Number(row.paid), 0);
+
+  const outstandingBalance = Math.max(
+    totalFee - totalConcession - totalPaid,
     0
   );
 
-  const [totalPaidInput, setTotalPaidInput] = useState("");
+  const getEditablePayable = (row) => {
+    if (rowPaidAmounts[row.id] !== undefined) {
+      return rowPaidAmounts[row.id];
+    }
+
+    return row.payable;
+  };
+
+  const totalPayableNow = visibleRows.reduce(
+    (sum, row) => sum + Number(getEditablePayable(row) || 0),
+    0
+  );
 
   const calculatedPaidInput =
     totalPaidInput === "" ? totalPayableNow : Number(totalPaidInput);
@@ -465,33 +486,16 @@ function FeeCollection() {
     return "upcoming";
   };
 
-  const getProgressPercent = (sessionId) => {
-    if (!selectedStudent) return 0;
-
-    const prevSessionId = selectedSessionId;
-    const targetProfile = selectedStudent.sessionProfiles.find(
-      (item) => item.sessionId === sessionId
-    );
-
-    if (!targetProfile) return 0;
-
-    const sessionRows = allFeeRows.filter(
-      () => Number(prevSessionId) === Number(sessionId)
-    );
-
-    if (Number(sessionId) !== Number(selectedSessionId)) {
-      return 0;
-    }
-
-    const fee = sessionRows.reduce(
+  const getProgressPercent = () => {
+    const fee = allFeeRows.reduce(
       (sum, row) => sum + row.fee - row.concession,
       0
     );
-    const paid = sessionRows.reduce((sum, row) => sum + row.paid, 0);
 
-    return fee > 0 ? Math.min(Math.round((paid / fee) * 100), 100) : 0;
+    return fee > 0 ? Math.min(Math.round((totalPaid / fee) * 100), 100) : 0;
   };
-    const handleStudentSelect = (student) => {
+
+  const handleStudentSelect = (student) => {
     setSelectedStudent(student);
     setSearchValue(student.studentName);
 
@@ -500,6 +504,7 @@ function FeeCollection() {
     setSelectedSessionId(current.id);
     setSelectedMonths([]);
     setTotalPaidInput("");
+    setRowPaidAmounts({});
   };
 
   const handleMonthClick = (monthName) => {
@@ -540,8 +545,7 @@ function FeeCollection() {
       setSelectedFeeHeadIds([]);
     }
   };
-
-  const handleAddManualFee = () => {
+    const handleAddManualFee = () => {
     if (
       !addFeeForm.feeHeadId ||
       !addFeeForm.monthName ||
@@ -577,21 +581,15 @@ function FeeCollection() {
     const ok = window.confirm("Delete selected added fee?");
     if (!ok) return;
 
-    setManualFees(
-      manualFees.filter((item) => item.id !== manualFeeId)
-    );
-  };
-
-  const handleAllocateTransport = () => {
-    if (!selectedStudent || !addFeeForm.routeId) return;
+    setManualFees(manualFees.filter((item) => item.id !== manualFeeId));
   };
 
   const handleTransportRouteChange = (routeId) => {
-    const selectedRoute = activeRoutes.find(
+    const selectedRouteObj = activeRoutes.find(
       (item) => item.id === Number(routeId)
     );
 
-    if (!selectedRoute) return;
+    if (!selectedRouteObj) return;
 
     const existing = transportAllocations.find(
       (item) =>
@@ -606,27 +604,25 @@ function FeeCollection() {
           item.id === existing.id
             ? {
                 ...item,
-                routeId: selectedRoute.id,
-                transportFee: selectedRoute.monthlyFee,
+                routeId: selectedRouteObj.id,
+                transportFee: selectedRouteObj.monthlyFee,
               }
             : item
         )
       );
     } else {
-      const newTransport = {
-        id: Date.now(),
-        schoolId,
-        studentId: selectedStudent.id,
-        sessionId: Number(selectedSessionId),
-        routeId: selectedRoute.id,
-        vehicleId: "",
-        transportFee: selectedRoute.monthlyFee,
-        removedMonths: [],
-      };
-
       setTransportAllocations([
         ...transportAllocations,
-        newTransport,
+        {
+          id: Date.now(),
+          schoolId,
+          studentId: selectedStudent.id,
+          sessionId: Number(selectedSessionId),
+          routeId: selectedRouteObj.id,
+          vehicleId: "",
+          transportFee: selectedRouteObj.monthlyFee,
+          removedMonths: [],
+        },
       ]);
     }
 
@@ -643,9 +639,7 @@ function FeeCollection() {
     if (!ok) return;
 
     setTransportAllocations(
-      transportAllocations.filter(
-        (item) => item.id !== selectedTransport.id
-      )
+      transportAllocations.filter((item) => item.id !== selectedTransport.id)
     );
 
     alert("Full transport removed successfully");
@@ -654,16 +648,25 @@ function FeeCollection() {
   const handleRemoveTransportMonth = (monthName) => {
     if (!selectedTransport) return;
 
+    const paid = getPaidForRow(
+      selectedStudent.id,
+      selectedSessionId,
+      monthName,
+      3
+    );
+
+    if (paid > 0) {
+      alert("This month's transport fee is already paid.");
+      return;
+    }
+
     setTransportAllocations(
       transportAllocations.map((item) =>
         item.id === selectedTransport.id
           ? {
               ...item,
               removedMonths: [
-                ...new Set([
-                  ...(item.removedMonths || []),
-                  monthName,
-                ]),
+                ...new Set([...(item.removedMonths || []), monthName]),
               ],
             }
           : item
@@ -710,15 +713,14 @@ function FeeCollection() {
         item.sessionId === Number(selectedSessionId)
     );
 
-    const receiptNo = String(sessionReceipts.length + 1).padStart(
-      2,
-      "0"
-    );
+    const receiptNo = String(sessionReceipts.length + 1).padStart(2, "0");
 
     let remainingPaid = calculatedPaidInput;
 
     const receiptRows = visibleRows.map((row) => {
-      const rowPaid = Math.min(remainingPaid, row.payable);
+      const editablePayable = Number(getEditablePayable(row) || 0);
+      const rowPaid = Math.min(remainingPaid, editablePayable);
+
       remainingPaid -= rowPaid;
 
       return {
@@ -750,6 +752,8 @@ function FeeCollection() {
     };
 
     setReceipts([...receipts, newReceipt]);
+    setLastReceipt(newReceipt);
+    setShowReceiptPrint(true);
 
     alert("Receipt saved successfully");
 
@@ -759,10 +763,7 @@ function FeeCollection() {
     setPaymentRef("");
     setRemarks("");
     setZeroReceiptConfirmed(false);
-
-    setTimeout(() => {
-      window.print();
-    }, 300);
+    setRowPaidAmounts({});
   };
 
   const handleCloseCollection = () => {
@@ -772,6 +773,7 @@ function FeeCollection() {
     setPaymentRef("");
     setRemarks("");
     setZeroReceiptConfirmed(false);
+    setRowPaidAmounts({});
   };
 
   const studentManualFees = manualFees.filter(
@@ -782,25 +784,53 @@ function FeeCollection() {
       item.sessionId === Number(selectedSessionId)
   );
 
+  const receiptForPrint = lastReceipt
+    ? {
+        receiptNo: lastReceipt.receiptNo,
+        receiptDate: lastReceipt.depositDate,
+        printDateTime: new Date().toLocaleString("en-IN"),
+        feePeriod: lastReceipt.months.join(", "),
+        paymentMode: lastReceipt.paymentMode,
+        paymentRef: lastReceipt.paymentRef,
+        remarks: lastReceipt.remarks,
+        totalFee: lastReceipt.rows.reduce((sum, row) => sum + row.fee, 0),
+        totalConcession: lastReceipt.rows.reduce(
+          (sum, row) => sum + row.concession,
+          0
+        ),
+        totalPrepaid: lastReceipt.rows.reduce(
+          (sum, row) => sum + (row.fee - row.concession - row.paid),
+          0
+        ),
+        totalPaid: lastReceipt.paidAmount,
+        totalBalance: 0,
+        amountInWords: `${lastReceipt.paidAmount} Rupees Only`,
+        collectedByName: lastReceipt.collectedByName,
+        rows: lastReceipt.rows.map((row) => ({
+          headName: getHeadName(row.feeHeadId),
+          fee: row.fee,
+          concession: row.concession,
+          prepaid: 0,
+          paid: row.paid,
+          balance: Math.max(row.fee - row.concession - row.paid, 0),
+        })),
+      }
+    : null;
+
   return (
-    <div className="fee-collection-page">
-      <div className="common-page-header fee-collection-header">
-        <AppButton
-          type="back"
-          onClick={() =>
-            (window.location.href = "/fee-manager")
-          }
-        >
+    <div className="fc-page">
+      <div className="fc-header">
+        <AppButton type="back" onClick={() => (window.location.href = "/fee-manager")}>
           ←
         </AppButton>
 
-        <div className="fee-header-title">
+        <div className="fc-header-title">
           <h1>Fee Collection</h1>
           <p>Search student and collect fee</p>
         </div>
 
-        <div className="fee-header-tools">
-          <div className="fee-search-area">
+        <div className="fc-header-tools">
+          <div className="fc-search-area">
             <input
               type="text"
               placeholder="Search by student, father, mobile, SR no, admission no..."
@@ -808,35 +838,36 @@ function FeeCollection() {
               onChange={(e) => setSearchValue(e.target.value)}
             />
 
-            <span className="search-icon">🔎</span>
+            <span className="fc-search-icon">🔎</span>
 
             {matchedStudents.length > 0 && (
-              <div className="fee-search-suggestion-box">
+              <div className="fc-search-suggestion-box">
                 {matchedStudents.map((student) => (
-                  <div
-                    className="fee-search-suggestion-item"
+                  <button
+                    type="button"
+                    className="fc-search-suggestion-item"
                     key={student.id}
                     onClick={() => handleStudentSelect(student)}
                   >
                     <strong>{student.studentName}</strong>
                     <span>
-                      Father: {student.fatherName} | Mobile:{" "}
-                      {student.mobile} | SR: {student.srNo} | Adm:{" "}
-                      {student.admissionNo}
+                      Father: {student.fatherName} | Mobile: {student.mobile} |
+                      SR: {student.srNo} | Adm: {student.admissionNo}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
           <select
-            className="fee-session-select"
+            className="fc-session-select"
             value={selectedSessionId}
             onChange={(e) => {
               setSelectedSessionId(Number(e.target.value));
               setSelectedMonths([]);
               setTotalPaidInput("");
+              setRowPaidAmounts({});
             }}
           >
             {sessions.map((session) => (
@@ -849,740 +880,25 @@ function FeeCollection() {
       </div>
 
       {!selectedStudent ? (
-        <div className="common-card empty-fee-dashboard">
+        <div className="fc-card fc-empty-card">
           Search and select a student to load fee dashboard
         </div>
       ) : (
-        <>
-          <div className="fee-dashboard-grid">
-            <div className="fee-left-column">
-              <div className="common-card student-info-card">
-                <div className="student-photo-wrap">
-                  <div className="student-photo-box">
-                    {selectedStudent.photo ? (
-                      <img
-                        src={selectedStudent.photo}
-                        alt="Student"
-                      />
-                    ) : (
-                      <span>👤</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="student-info-details">
-                  <h2>Student Information</h2>
-
-                  <div className="student-info-grid">
-                    <p>
-                      <strong>Student Name:</strong>{" "}
-                      {selectedStudent.studentName}
-                    </p>
-
-                    <p>
-                      <strong>Class & Section:</strong>{" "}
-                      {selectedStudentProfile
-                        ? `${selectedStudentProfile.className} - ${selectedStudentProfile.sectionName}`
-                        : "-"}
-                    </p>
-
-                    <p>
-                      <strong>Fee Plan:</strong>{" "}
-                      {selectedFeePlan?.planName || "-"}
-                    </p>
-
-                    <p>
-                      <strong>Father Name:</strong>{" "}
-                      {selectedStudent.fatherName}
-                    </p>
-
-                    <p>
-                      <strong>Mobile Number:</strong>{" "}
-                      {selectedStudent.mobile}
-                    </p>
-
-                    <p>
-                      <strong>SR No:</strong> {selectedStudent.srNo}
-                    </p>
-
-                    <p>
-                      <strong>Admission No:</strong>{" "}
-                      {selectedStudent.admissionNo}
-                    </p>
-
-                    <p>
-                      <strong>Concession Plan:</strong>{" "}
-                      {selectedStudentProfile?.concessionPlanName || "-"}
-                    </p>
-
-                    <p>
-                      <strong>Transport Route 🚌:</strong>{" "}
-                      {selectedRoute?.routeName || "-"}
-                    </p>
-                  </div>
-                </div>
+        <div className="fc-layout">
+          <div className="fc-left-panel">
+            <div className="fc-card fc-student-card">
+              <div className="fc-student-photo">
+                {selectedStudent.photo ? (
+                  <img src={selectedStudent.photo} alt="Student" />
+                ) : (
+                  <span>👤</span>
+                )}
               </div>
 
-              <div className="fee-overview-grid">
-                <div className="fee-overview-card">
-                  <span>Total Fee</span>
-                  <strong>₹{totalFee}</strong>
-                </div>
+              <div className="fc-student-info">
+                <h2>{selectedStudent.studentName}</h2>
 
-                <div className="fee-overview-card">
-                  <span>Total Concession</span>
-                  <strong>₹{totalConcession}</strong>
-                </div>
-
-                <div className="fee-overview-card paid">
-                  <span>Total Paid</span>
-                  <strong>₹{totalPaid}</strong>
-                </div>
-
-                <div className="fee-overview-card balance">
-                  <span>Outstanding Balance</span>
-                  <strong>₹{outstandingBalance}</strong>
-                </div>
-              </div>
-
-              <div className="common-card quick-action-card">
-                <div className="quick-action-row">
-                  <AppButton type="secondary">
-                    Student Profile
-                  </AppButton>
-
-                  <AppButton type="secondary">
-                    Concession
-                  </AppButton>
-
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowLedgerPopup(true)}
-                  >
-                    Fee Ledger
-                  </AppButton>
-
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowAddFeePopup(true)}
-                  >
-                    + Add Fee
-                  </AppButton>
-
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowTransportPopup(true)}
-                  >
-                    Transport Fee
-                  </AppButton>
-                </div>
-              </div>
-            </div>
-
-            <div className="fee-right-column">
-              <div className="common-card fee-status-card">
-                <div className="list-header">
-                  <h2>Fee Status Summary</h2>
-                </div>
-
-                <div className="progress-list">
-                  <div className="progress-item active-session">
-                    <div className="progress-top">
-                      <span>{currentSession?.sessionName}</span>
-                      <strong>{getProgressPercent(selectedSessionId)}% Paid</strong>
-                    </div>
-
-                    <div className="progress-track">
-                      <div
-                        className="progress-fill"
-                        style={{
-                          width: `${getProgressPercent(selectedSessionId)}%`,
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="month-status-grid">
-                  {monthOptions.map((month) => {
-                    const status = getMonthStatus(month.name);
-                    const selected = selectedMonths.includes(month.name);
-
-                    return (
-                      <button
-                        key={month.name}
-                        className={`month-box ${status} ${
-                          selected ? "selected" : ""
-                        }`}
-                        onClick={() => handleMonthClick(month.name)}
-                      >
-                        {month.short}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="fee-main-grid">
-                <div className="common-card fee-head-card">
-                  <div className="fee-head-top">
-                    <label className="checkbox-line">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedFeeHeadIds.length === feeHeads.length
-                        }
-                        onChange={(e) =>
-                          handleToggleAllFeeHeads(e.target.checked)
-                        }
-                      />
-                      <span>All Fee Heads</span>
-                    </label>
-
-                    <label className="checkbox-line">
-                      <input
-                        type="checkbox"
-                        checked={payableOnly}
-                        onChange={(e) =>
-                          setPayableOnly(e.target.checked)
-                        }
-                      />
-                      <span>Payable Only</span>
-                    </label>
-                  </div>
-
-                  <div className="fee-head-list">
-                    {feeHeads.map((head) => (
-                      <label className="fee-head-item" key={head.id}>
-                        <input
-                          type="checkbox"
-                          checked={selectedFeeHeadIds.includes(head.id)}
-                          onChange={() => handleToggleFeeHead(head.id)}
-                        />
-
-                        <span>{head.headName}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="common-card calculation-card">
-                  <div className="list-header">
-                    <h2>Fee Calculation</h2>
-                  </div>
-
-                  <div className="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Fee</th>
-                          <th>Concession</th>
-                          <th>Paid</th>
-                          <th>Payable</th>
-                          <th>Balance</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {visibleRows.length === 0 ? (
-                          <tr>
-                            <td colSpan="5" className="empty-row">
-                              No payable fee found
-                            </td>
-                          </tr>
-                        ) : (
-                          visibleRows.map((row) => (
-                            <tr key={row.id}>
-                              <td>
-                                <strong>{row.monthShort}</strong>{" "}
-                                {row.feeHeadName}
-                              </td>
-
-                              <td>₹{row.concession}</td>
-
-                              <td>
-                                {row.paid > 0 ? (
-                                  <span className="paid-text">
-                                    ₹{row.paid}
-                                  </span>
-                                ) : (
-                                  "₹0"
-                                )}
-                              </td>
-
-                              <td>
-                                {row.payable === 0 ? (
-                                  <span className="paid-badge">PAID</span>
-                                ) : (
-                                  `₹${row.payable}`
-                                )}
-                              </td>
-
-                              <td>₹{row.balance}</td>
-                            </tr>
-                          ))
-                        )}
-
-                        {visibleRows.length > 0 && (
-                          <tr className="total-row">
-                            <td>Total</td>
-                            <td>
-                              ₹
-                              {visibleRows.reduce(
-                                (sum, row) => sum + row.concession,
-                                0
-                              )}
-                            </td>
-                            <td>
-                              ₹
-                              {visibleRows.reduce(
-                                (sum, row) => sum + row.paid,
-                                0
-                              )}
-                            </td>
-                            <td>₹{totalPayableNow}</td>
-                            <td>₹{totalPayableNow}</td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="payment-section">
-                    <h2>Payment Details</h2>
-
-                    <div className="payment-grid">
-                      <div className="form-group">
-                        <label>Payment Mode</label>
-                        <select
-                          value={paymentMode}
-                          onChange={(e) => {
-                            setPaymentMode(e.target.value);
-                            setPaymentRef("");
-                          }}
-                        >
-                          <option>Cash</option>
-                          <option>Cheque</option>
-                          <option>UPI</option>
-                          <option>Bank Transfer</option>
-                          <option>Card</option>
-                        </select>
-                      </div>
-
-                      {paymentMode !== "Cash" && (
-                        <div className="form-group">
-                          <label>Payment Ref #</label>
-                          <input
-                            value={paymentRef}
-                            onChange={(e) =>
-                              setPaymentRef(e.target.value)
-                            }
-                            placeholder="Transaction / cheque / reference no"
-                          />
-                        </div>
-                      )}
-
-                      <div className="form-group">
-                        <label>Remarks</label>
-                        <input
-                          value={remarks}
-                          onChange={(e) =>
-                            setRemarks(e.target.value)
-                          }
-                          placeholder="Enter remarks"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Deposit Date 🔒</label>
-                        <input
-                          type="date"
-                          value={depositDate}
-                          max={new Date().toISOString().split("T")[0]}
-                          onChange={(e) =>
-                            setDepositDate(e.target.value)
-                          }
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Total Paid</label>
-                        <input
-                          type="number"
-                          value={
-                            totalPaidInput === ""
-                              ? totalPayableNow
-                              : totalPaidInput
-                          }
-                          onChange={(e) =>
-                            setTotalPaidInput(e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <label className="zero-receipt-row">
-                      <input
-                        type="checkbox"
-                        checked={zeroReceiptConfirmed}
-                        onChange={(e) =>
-                          setZeroReceiptConfirmed(e.target.checked)
-                        }
-                      />
-                      <span>
-                        I confirm to save ZERO amount receipt
-                      </span>
-                    </label>
-
-                    <div className="form-actions">
-                      <AppButton
-                        type="primary"
-                        onClick={handleSaveReceipt}
-                      >
-                        Save
-                      </AppButton>
-
-                      <AppButton
-                        type="secondary"
-                        onClick={handleCloseCollection}
-                      >
-                        Close
-                      </AppButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {showAddFeePopup && (
-            <div className="popup-overlay">
-              <div className="fee-popup">
-                <div className="popup-head">
-                  <h2>Add Fee</h2>
-
-                  <button
-                    className="popup-close-btn"
-                    onClick={() => setShowAddFeePopup(false)}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="popup-form-grid">
-                  <div className="form-group">
-                    <label>Fee Head</label>
-                    <select
-                      value={addFeeForm.feeHeadId}
-                      onChange={(e) =>
-                        setAddFeeForm({
-                          ...addFeeForm,
-                          feeHeadId: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="">Select Fee Head</option>
-
-                      {feeHeads
-                        .filter((head) => head.type === "SuperAdmin")
-                        .map((head) => (
-                          <option key={head.id} value={head.id}>
-                            {head.headName}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Fee Period</label>
-                    <select
-                      value={addFeeForm.monthName}
-                      onChange={(e) =>
-                        setAddFeeForm({
-                          ...addFeeForm,
-                          monthName: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="">Select Month</option>
-
-                      {monthOptions.map((month) => (
-                        <option key={month.name} value={month.name}>
-                          {month.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Amount</label>
-                    <input
-                      type="number"
-                      value={addFeeForm.amount}
-                      onChange={(e) =>
-                        setAddFeeForm({
-                          ...addFeeForm,
-                          amount: e.target.value,
-                        })
-                      }
-                      placeholder="Enter amount"
-                    />
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <AppButton type="primary" onClick={handleAddManualFee}>
-                    Save
-                  </AppButton>
-                </div>
-
-                <div className="table-wrap popup-table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Del</th>
-                        <th>Fee Schedule</th>
-                        <th>Fee</th>
-                        <th>Paid</th>
-                        <th>Balance</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {studentManualFees.length === 0 ? (
-                        <tr>
-                          <td colSpan="5" className="empty-row">
-                            No added fee found
-                          </td>
-                        </tr>
-                      ) : (
-                        studentManualFees.map((fee) => {
-                          const paid = getPaidForRow(
-                            selectedStudent.id,
-                            selectedSessionId,
-                            fee.monthName,
-                            fee.feeHeadId
-                          );
-
-                          const balance = Math.max(
-                            Number(fee.amount || 0) - paid,
-                            0
-                          );
-
-                          return (
-                            <tr key={fee.id}>
-                              <td>
-                                <button
-                                  className="simple-icon-btn"
-                                  onClick={() =>
-                                    handleDeleteManualFee(fee.id)
-                                  }
-                                >
-                                  🗑
-                                </button>
-                              </td>
-
-                              <td>
-                                {fee.monthName} {getHeadName(fee.feeHeadId)}
-                              </td>
-
-                              <td>₹{fee.amount}</td>
-
-                              <td>₹{paid}</td>
-
-                              <td>₹{balance}</td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="form-actions">
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowAddFeePopup(false)}
-                  >
-                    Close
-                  </AppButton>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showTransportPopup && (
-            <div className="popup-overlay">
-              <div className="fee-popup">
-                <div className="popup-head">
-                  <h2>Transport Fee</h2>
-
-                  <button
-                    className="popup-close-btn"
-                    onClick={() => setShowTransportPopup(false)}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="popup-form-grid">
-                  <div className="form-group">
-                    <label>Route</label>
-                    <select
-                      value={selectedTransport?.routeId || ""}
-                      onChange={(e) =>
-                        handleTransportRouteChange(e.target.value)
-                      }
-                    >
-                      <option value="">Select Route</option>
-
-                      {activeRoutes.map((route) => (
-                        <option key={route.id} value={route.id}>
-                          {route.routeName} - ₹{route.monthlyFee}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="transport-popup-actions">
-                  <AppButton
-                    type="primary"
-                    onClick={() => {
-                      if (!selectedTransport?.routeId) {
-                        alert("Please select route");
-                      } else {
-                        alert("Transport allocated successfully");
-                      }
-                    }}
-                  >
-                    Allocate Transport
-                  </AppButton>
-
-                  <AppButton
-                    type="delete"
-                    onClick={handleRemoveFullTransport}
-                  >
-                    Remove Full Transport
-                  </AppButton>
-                </div>
-
-                <div className="table-wrap popup-table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Del</th>
-                        <th>Month</th>
-                        <th>Route</th>
-                        <th>Fee</th>
-                        <th>Paid</th>
-                        <th>Balance</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {!selectedTransport?.routeId ? (
-                        <tr>
-                          <td colSpan="6" className="empty-row">
-                            Transport is not allocated to this student
-                          </td>
-                        </tr>
-                      ) : (
-                        monthOptions.map((month) => {
-                          const removed =
-                            selectedTransport.removedMonths?.includes(
-                              month.name
-                            );
-
-                          const paid = getPaidForRow(
-                            selectedStudent.id,
-                            selectedSessionId,
-                            month.name,
-                            3
-                          );
-
-                          const fee = removed
-                            ? 0
-                            : Number(selectedTransport.transportFee || 0);
-
-                          const balance = Math.max(fee - paid, 0);
-
-                          return (
-                            <tr key={month.name}>
-                              <td>
-                                {!removed && (
-                                  <button
-                                    className="simple-icon-btn"
-                                    onClick={() =>
-                                      handleRemoveTransportMonth(month.name)
-                                    }
-                                  >
-                                    🗑
-                                  </button>
-                                )}
-                              </td>
-
-                              <td>{month.name}</td>
-
-                              <td>{selectedRoute?.routeName || "-"}</td>
-
-                              <td>₹{fee}</td>
-
-                              <td>₹{paid}</td>
-
-                              <td>
-                                {removed ? (
-                                  <span className="removed-badge">
-                                    Removed
-                                  </span>
-                                ) : balance === 0 && paid > 0 ? (
-                                  <span className="paid-badge">PAID</span>
-                                ) : (
-                                  `₹${balance}`
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="form-actions">
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowTransportPopup(false)}
-                  >
-                    Close
-                  </AppButton>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showLedgerPopup && (
-            <div className="popup-overlay">
-              <div className="fee-ledger-popup">
-                <div className="popup-head">
-                  <h2>
-                    Fee Ledger - {selectedStudent.studentName}
-                  </h2>
-
-                  <button
-                    className="popup-close-btn"
-                    onClick={() => setShowLedgerPopup(false)}
-                  >
-                    ×
-                  </button>
-                </div>
-
-                <div className="ledger-student-info">
-                  <p>
-                    <strong>Session:</strong>{" "}
-                    {currentSession?.sessionName}
-                  </p>
-
+                <div className="fc-student-grid">
                   <p>
                     <strong>Class:</strong>{" "}
                     {selectedStudentProfile
@@ -1591,235 +907,661 @@ function FeeCollection() {
                   </p>
 
                   <p>
-                    <strong>Admission No:</strong>{" "}
-                    {selectedStudent.admissionNo}
+                    <strong>Father:</strong> {selectedStudent.fatherName}
                   </p>
 
                   <p>
-                    <strong>SR No:</strong>{" "}
-                    {selectedStudent.srNo}
+                    <strong>Mobile:</strong> {selectedStudent.mobile}
                   </p>
 
                   <p>
-                    <strong>Father Name:</strong>{" "}
-                    {selectedStudent.fatherName}
+                    <strong>Admission No:</strong> {selectedStudent.admissionNo}
                   </p>
 
                   <p>
-                    <strong>Route:</strong>{" "}
-                    {selectedRoute?.routeName || "-"}
+                    <strong>SR No:</strong> {selectedStudent.srNo}
+                  </p>
+
+                  <p>
+                    <strong>Fee Plan:</strong> {selectedFeePlan?.planName || "-"}
+                  </p>
+
+                  <p>
+                    <strong>Concession:</strong>{" "}
+                    {selectedStudentProfile?.concessionPlanName || "-"}
+                  </p>
+
+                  <p>
+                    <strong>Route:</strong> {selectedRoute?.routeName || "-"}
                   </p>
                 </div>
+              </div>
+            </div>
 
-                <h3>Fee Receipts</h3>
+            <div className="fc-summary-grid">
+              <div className="fc-summary-box">
+                <span>Total Fee</span>
+                <strong>₹{totalFee}</strong>
+              </div>
 
-                <div className="table-wrap popup-table-wrap">
-                  <table>
-                    <thead>
+              <div className="fc-summary-box">
+                <span>Concession</span>
+                <strong>₹{totalConcession}</strong>
+              </div>
+
+              <div className="fc-summary-box fc-paid-box">
+                <span>Paid</span>
+                <strong>₹{totalPaid}</strong>
+              </div>
+
+              <div className="fc-summary-box fc-balance-box">
+                <span>Balance</span>
+                <strong>₹{outstandingBalance}</strong>
+              </div>
+            </div>
+
+            <div className="fc-card fc-head-card">
+              <label className="fc-head-item">
+                <input
+                  type="checkbox"
+                  checked={selectedFeeHeadIds.length === feeHeads.length}
+                  onChange={(e) => handleToggleAllFeeHeads(e.target.checked)}
+                />
+                <span>All Fee Heads</span>
+              </label>
+
+              {feeHeads.map((head) => (
+                <label className="fc-head-item" key={head.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedFeeHeadIds.includes(head.id)}
+                    onChange={() => handleToggleFeeHead(head.id)}
+                  />
+                  <span>{head.headName}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="fc-right-panel">
+            <div className="fc-card fc-month-card">
+              <div className="fc-card-head">
+                <h2>Fee Status Summary</h2>
+                <strong>{getProgressPercent()}% Paid</strong>
+              </div>
+
+              <div className="fc-progress-track">
+                <div
+                  className="fc-progress-fill"
+                  style={{ width: `${getProgressPercent()}%` }}
+                />
+              </div>
+
+              <div className="fc-month-grid">
+                {monthOptions.map((month) => {
+                  const status = getMonthStatus(month.name);
+                  const selected = selectedMonths.includes(month.name);
+
+                  return (
+                    <button
+                      type="button"
+                      key={month.name}
+                      className={`fc-month-box ${status} ${
+                        selected ? "selected" : ""
+                      }`}
+                      onClick={() => handleMonthClick(month.name)}
+                    >
+                      {month.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="fc-action-row">
+              <AppButton type="secondary" onClick={() => setShowProfilePopup(true)}>
+                Student Profile
+              </AppButton>
+
+              <AppButton type="secondary" onClick={() => setShowAddFeePopup(true)}>
+                + Add Fee
+              </AppButton>
+
+              <AppButton type="secondary" onClick={() => alert("Concession popup pending")}>
+                Concession
+              </AppButton>
+
+              <AppButton type="secondary" onClick={() => setShowTransportPopup(true)}>
+                Transport Fee
+              </AppButton>
+
+              <AppButton type="secondary" onClick={() => setShowLedgerPopup(true)}>
+                Fee Ledger
+              </AppButton>
+            </div>
+
+            <div className="fc-card fc-main-card">
+              <div className="fc-table-wrap">
+                <table className="fc-table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <label className="fc-payable-head">
+                          <input
+                            type="checkbox"
+                            checked={payableOnly}
+                            onChange={(e) => setPayableOnly(e.target.checked)}
+                          />
+                          Payable Only
+                        </label>
+                      </th>
+                      <th>Month</th>
+                      <th>Fee</th>
+                      <th>Concession</th>
+                      <th>Paid</th>
+                      <th>Balance</th>
+                      <th>Payable</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {visibleRows.length === 0 ? (
                       <tr>
-                        <th>S.No</th>
-                        <th>Receipt No</th>
-                        <th>Class</th>
-                        <th>Installments</th>
-                        <th>Paid On</th>
-                        <th>Paid Amount</th>
-                        <th>Remarks</th>
-                        <th>Deposit By</th>
-                        <th>Deposit On</th>
+                        <td colSpan="7" className="fc-empty-row">
+                          No payable fee found
+                        </td>
                       </tr>
-                    </thead>
+                    ) : (
+                      visibleRows.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.feeHeadName}</td>
+                          <td>{row.monthShort}</td>
+                          <td>₹{row.fee}</td>
+                          <td>₹{row.concession}</td>
+                          <td>₹{row.paid}</td>
+                          <td>₹{row.balance}</td>
+                          <td>
+                            <input
+                              className="fc-payable-input"
+                              type="number"
+                              min="0"
+                              max={row.payable}
+                              value={getEditablePayable(row)}
+                              onChange={(e) => {
+                                const value = Number(e.target.value || 0);
 
-                    <tbody>
-                      {getStudentSessionReceipts(
-                        selectedStudent.id,
-                        selectedSessionId
-                      ).length === 0 ? (
-                        <tr>
-                          <td colSpan="9" className="empty-row">
-                            No receipt found
+                                if (value > row.payable) {
+                                  alert("Payable amount cannot exceed balance.");
+                                  return;
+                                }
+
+                                setRowPaidAmounts({
+                                  ...rowPaidAmounts,
+                                  [row.id]: value,
+                                });
+
+                                setTotalPaidInput("");
+                              }}
+                            />
                           </td>
                         </tr>
-                      ) : (
-                        getStudentSessionReceipts(
-                          selectedStudent.id,
-                          selectedSessionId
-                        ).map((receipt, index) => (
-                          <tr key={receipt.id}>
-                            <td>{index + 1}</td>
+                      ))
+                    )}
 
-                            <td>{receipt.receiptNo}</td>
+                    {visibleRows.length > 0 && (
+                      <tr className="fc-total-row">
+                        <td colSpan="2">Total</td>
+                        <td>
+                          ₹
+                          {visibleRows.reduce(
+                            (sum, row) => sum + Number(row.fee),
+                            0
+                          )}
+                        </td>
+                        <td>
+                          ₹
+                          {visibleRows.reduce(
+                            (sum, row) => sum + Number(row.concession),
+                            0
+                          )}
+                        </td>
+                        <td>
+                          ₹
+                          {visibleRows.reduce(
+                            (sum, row) => sum + Number(row.paid),
+                            0
+                          )}
+                        </td>
+                        <td>₹{totalPayableNow}</td>
+                        <td>₹{totalPayableNow}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
 
-                            <td>
-                              {selectedStudentProfile
-                                ? `${selectedStudentProfile.className} ${selectedStudentProfile.sectionName}`
-                                : "-"}
-                            </td>
+              <div className="fc-payment-section">
+                <div className="fc-payment-grid">
+                  <div className="fc-form-group">
+                    <label>Payment Mode</label>
+                    <select
+                      value={paymentMode}
+                      onChange={(e) => {
+                        setPaymentMode(e.target.value);
+                        setPaymentRef("");
+                      }}
+                    >
+                      <option>Cash</option>
+                      <option>Cheque</option>
+                      <option>UPI</option>
+                      <option>Bank Transfer</option>
+                      <option>Card</option>
+                    </select>
+                  </div>
 
-                            <td>
-                              {receipt.months.join(", ")}
-                            </td>
+                  {paymentMode !== "Cash" && (
+                    <div className="fc-form-group">
+                      <label>Payment Ref #</label>
+                      <input
+                        value={paymentRef}
+                        onChange={(e) => setPaymentRef(e.target.value)}
+                        placeholder="Transaction / cheque / reference no"
+                      />
+                    </div>
+                  )}
 
-                            <td>{receipt.depositDate}</td>
+                  <div className="fc-form-group">
+                    <label>Remarks</label>
+                    <input
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Enter remarks"
+                    />
+                  </div>
 
-                            <td>₹{receipt.paidAmount}</td>
+                  <div className="fc-form-group">
+                    <label>Deposit Date 🔒</label>
+                    <input
+                      type="date"
+                      value={depositDate}
+                      max={new Date().toISOString().split("T")[0]}
+                      onChange={(e) => setDepositDate(e.target.value)}
+                    />
+                  </div>
 
-                            <td>{receipt.remarks || "-"}</td>
-
-                            <td>{receipt.collectedByName}</td>
-
-                            <td>{receipt.depositDate}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                  <div className="fc-form-group">
+                    <label>Total Paid</label>
+                    <input
+                      type="number"
+                      value={
+                        totalPaidInput === "" ? totalPayableNow : totalPaidInput
+                      }
+                      onChange={(e) => setTotalPaidInput(e.target.value)}
+                    />
+                  </div>
                 </div>
 
-                <h3>Fee Schedule</h3>
+                <label className="fc-zero-row">
+                  <input
+                    type="checkbox"
+                    checked={zeroReceiptConfirmed}
+                    onChange={(e) => setZeroReceiptConfirmed(e.target.checked)}
+                  />
+                  <span>I confirm to save ZERO amount receipt</span>
+                </label>
 
-                <div className="ledger-schedule-wrap">
-                  <table className="ledger-schedule-table">
-                    <thead>
-                      <tr>
-                        <th rowSpan="2">Fee Head</th>
+                <div className="fc-save-row">
+                  <AppButton type="primary" onClick={handleSaveReceipt}>
+                    Save
+                  </AppButton>
 
-                        {monthOptions.map((month) => (
-                          <th key={month.name} colSpan="3">
-                            {month.short}
-                          </th>
-                        ))}
-
-                        <th colSpan="3">Total</th>
-                      </tr>
-
-                      <tr>
-                        {monthOptions.map((month) => (
-                          <React.Fragment key={month.name}>
-                            <th>Fee</th>
-                            <th>Paid</th>
-                            <th>Bal</th>
-                          </React.Fragment>
-                        ))}
-
-                        <th>Fee</th>
-                        <th>Paid</th>
-                        <th>Bal</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {feeHeads
-                        .filter((head) =>
-                          allFeeRows.some(
-                            (row) => row.feeHeadId === head.id
-                          )
-                        )
-                        .map((head) => {
-                          let headFeeTotal = 0;
-                          let headPaidTotal = 0;
-                          let headBalanceTotal = 0;
-
-                          return (
-                            <tr key={head.id}>
-                              <td>{head.headName}</td>
-
-                              {monthOptions.map((month) => {
-                                const row = allFeeRows.find(
-                                  (item) =>
-                                    item.monthName === month.name &&
-                                    item.feeHeadId === head.id
-                                );
-
-                                const fee = row?.fee || 0;
-                                const paid = row?.paid || 0;
-                                const balance =
-                                  Math.max(
-                                    fee -
-                                      (row?.concession || 0) -
-                                      paid,
-                                    0
-                                  ) || 0;
-
-                                headFeeTotal += fee;
-                                headPaidTotal += paid;
-                                headBalanceTotal += balance;
-
-                                return (
-                                  <React.Fragment key={month.name}>
-                                    <td>{fee}</td>
-                                    <td className={paid > 0 ? "green-text" : ""}>
-                                      {paid}
-                                    </td>
-                                    <td className={balance > 0 ? "red-text" : ""}>
-                                      {balance}
-                                    </td>
-                                  </React.Fragment>
-                                );
-                              })}
-
-                              <td>{headFeeTotal}</td>
-                              <td className="green-text">
-                                {headPaidTotal}
-                              </td>
-                              <td className={headBalanceTotal > 0 ? "red-text" : ""}>
-                                {headBalanceTotal}
-                              </td>
-                            </tr>
-                          );
-                        })}
-
-                      <tr className="total-row">
-                        <td>Total</td>
-
-                        {monthOptions.map((month) => {
-                          const monthRows = allFeeRows.filter(
-                            (row) => row.monthName === month.name
-                          );
-
-                          const fee = monthRows.reduce(
-                            (sum, row) => sum + row.fee,
-                            0
-                          );
-
-                          const paid = monthRows.reduce(
-                            (sum, row) => sum + row.paid,
-                            0
-                          );
-
-                          const balance = monthRows.reduce(
-                            (sum, row) => sum + row.balance,
-                            0
-                          );
-
-                          return (
-                            <React.Fragment key={month.name}>
-                              <td>{fee}</td>
-                              <td>{paid}</td>
-                              <td>{balance}</td>
-                            </React.Fragment>
-                          );
-                        })}
-
-                        <td>{totalFee}</td>
-                        <td>{totalPaid}</td>
-                        <td>{outstandingBalance}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="form-actions">
-                  <AppButton
-                    type="secondary"
-                    onClick={() => setShowLedgerPopup(false)}
-                  >
+                  <AppButton type="secondary" onClick={handleCloseCollection}>
                     Close
                   </AppButton>
                 </div>
               </div>
             </div>
-          )}
-        </>
+          </div>
+        </div>
+      )}
+
+      {showProfilePopup && selectedStudent && (
+        <StudentProfileView
+          studentId={selectedStudent.id}
+          onClose={() => setShowProfilePopup(false)}
+        />
+      )}
+
+      {showLedgerPopup && selectedStudent && (
+        <FeeLedgerView
+          student={selectedStudent}
+          studentProfile={selectedStudentProfile}
+          session={currentSession}
+          route={selectedRoute}
+          receipts={getStudentSessionReceipts(selectedStudent.id, selectedSessionId)}
+          feeHeads={feeHeads}
+          monthOptions={monthOptions}
+          feeRows={allFeeRows}
+          totals={{
+            totalFee,
+            totalPaid,
+            outstandingBalance,
+          }}
+          onClose={() => setShowLedgerPopup(false)}
+          onPrint={() => window.print()}
+        />
+      )}
+
+      {showReceiptPrint && receiptForPrint && (
+        <div className="fc-print-overlay">
+          <div className="fc-print-box">
+            <div className="fc-print-actions">
+              <AppButton type="primary" onClick={() => window.print()}>
+                Print
+              </AppButton>
+
+              <AppButton
+                type="secondary"
+                onClick={() => setShowReceiptPrint(false)}
+              >
+                Close
+              </AppButton>
+            </div>
+
+            <FeeReceiptPrint
+              schoolInfo={{
+                schoolName: "CHANDRA SHEKHAR AZAD INTER COLLEGE",
+                address: "Rasouli, Barabanki",
+                email: "",
+                mobile: "",
+                website: "",
+                logo: "",
+              }}
+              receipt={receiptForPrint}
+              student={selectedStudent}
+              studentProfile={{
+                className: selectedStudentProfile?.className,
+                sectionName: selectedStudentProfile?.sectionName,
+                routeName: selectedRoute?.routeName || "-",
+                sessionName: currentSession?.sessionName,
+              }}
+              showOfficeCopy={true}
+            />
+          </div>
+        </div>
+      )}
+            {showAddFeePopup && (
+        <div className="fc-popup-overlay">
+          <div className="fc-popup">
+            <div className="fc-popup-head">
+              <h2>Add Fee</h2>
+
+              <button
+                className="fc-popup-close"
+                onClick={() => setShowAddFeePopup(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="fc-popup-form-grid">
+              <div className="fc-form-group">
+                <label>Fee Head</label>
+                <select
+                  value={addFeeForm.feeHeadId}
+                  onChange={(e) =>
+                    setAddFeeForm({
+                      ...addFeeForm,
+                      feeHeadId: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select Fee Head</option>
+
+                  {feeHeads
+                    .filter((head) => head.type === "SuperAdmin")
+                    .map((head) => (
+                      <option key={head.id} value={head.id}>
+                        {head.headName}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="fc-form-group">
+                <label>Fee Period</label>
+                <select
+                  value={addFeeForm.monthName}
+                  onChange={(e) =>
+                    setAddFeeForm({
+                      ...addFeeForm,
+                      monthName: e.target.value,
+                    })
+                  }
+                >
+                  <option value="">Select Month</option>
+
+                  {monthOptions.map((month) => (
+                    <option key={month.name} value={month.name}>
+                      {month.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="fc-form-group">
+                <label>Amount</label>
+                <input
+                  type="number"
+                  value={addFeeForm.amount}
+                  onChange={(e) =>
+                    setAddFeeForm({
+                      ...addFeeForm,
+                      amount: e.target.value,
+                    })
+                  }
+                  placeholder="Enter amount"
+                />
+              </div>
+            </div>
+
+            <div className="fc-popup-action-row">
+              <AppButton type="primary" onClick={handleAddManualFee}>
+                Save
+              </AppButton>
+            </div>
+
+            <div className="fc-table-wrap fc-popup-table-wrap">
+              <table className="fc-table">
+                <thead>
+                  <tr>
+                    <th>Del</th>
+                    <th>Fee Schedule</th>
+                    <th>Fee</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {studentManualFees.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="fc-empty-row">
+                        No added fee found
+                      </td>
+                    </tr>
+                  ) : (
+                    studentManualFees.map((fee) => {
+                      const paid = getPaidForRow(
+                        selectedStudent.id,
+                        selectedSessionId,
+                        fee.monthName,
+                        fee.feeHeadId
+                      );
+
+                      const balance = Math.max(
+                        Number(fee.amount || 0) - paid,
+                        0
+                      );
+
+                      return (
+                        <tr key={fee.id}>
+                          <td>
+                            <button
+                              className="fc-simple-icon-btn"
+                              onClick={() => handleDeleteManualFee(fee.id)}
+                            >
+                              🗑
+                            </button>
+                          </td>
+
+                          <td>
+                            {fee.monthName} {getHeadName(fee.feeHeadId)}
+                          </td>
+
+                          <td>₹{fee.amount}</td>
+                          <td>₹{paid}</td>
+                          <td>₹{balance}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showTransportPopup && (
+        <div className="fc-popup-overlay">
+          <div className="fc-popup fc-transport-popup">
+            <div className="fc-popup-head">
+              <h2>Transport Fee</h2>
+
+              <button
+                className="fc-popup-close"
+                onClick={() => setShowTransportPopup(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="fc-popup-form-grid">
+              <div className="fc-form-group">
+                <label>Route</label>
+                <select
+                  value={selectedTransport?.routeId || ""}
+                  onChange={(e) => handleTransportRouteChange(e.target.value)}
+                >
+                  <option value="">Select Route</option>
+
+                  {activeRoutes.map((route) => (
+                    <option key={route.id} value={route.id}>
+                      {route.routeName} - ₹{route.monthlyFee}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="fc-transport-actions">
+              <AppButton
+                type="primary"
+                onClick={() => {
+                  if (!selectedTransport?.routeId) {
+                    alert("Please select route");
+                  } else {
+                    alert("Transport allocated successfully");
+                  }
+                }}
+              >
+                Allocate Transport
+              </AppButton>
+
+              <AppButton type="delete" onClick={handleRemoveFullTransport}>
+                Remove Full Transport
+              </AppButton>
+            </div>
+
+            <div className="fc-table-wrap fc-popup-table-wrap">
+              <table className="fc-table">
+                <thead>
+                  <tr>
+                    <th>Del</th>
+                    <th>Month</th>
+                    <th>Route</th>
+                    <th>Fee</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {!selectedTransport?.routeId ? (
+                    <tr>
+                      <td colSpan="6" className="fc-empty-row">
+                        Transport is not allocated to this student
+                      </td>
+                    </tr>
+                  ) : (
+                    monthOptions.map((month) => {
+                      const removed =
+                        selectedTransport.removedMonths?.includes(month.name);
+
+                      const paid = getPaidForRow(
+                        selectedStudent.id,
+                        selectedSessionId,
+                        month.name,
+                        3
+                      );
+
+                      const fee = removed
+                        ? 0
+                        : Number(selectedTransport.transportFee || 0);
+
+                      const balance = Math.max(fee - paid, 0);
+
+                      return (
+                        <tr key={month.name}>
+                          <td>
+                            {!removed && (
+                              <button
+                                className="fc-simple-icon-btn"
+                                onClick={() =>
+                                  handleRemoveTransportMonth(month.name)
+                                }
+                              >
+                                🗑
+                              </button>
+                            )}
+                          </td>
+
+                          <td>{month.name}</td>
+                          <td>{selectedRoute?.routeName || "-"}</td>
+                          <td>₹{fee}</td>
+                          <td>₹{paid}</td>
+
+                          <td>
+                            {removed ? (
+                              <span className="fc-removed-badge">
+                                Removed
+                              </span>
+                            ) : balance === 0 && paid > 0 ? (
+                              <span className="fc-paid-badge">PAID</span>
+                            ) : (
+                              `₹${balance}`
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

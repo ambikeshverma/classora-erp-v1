@@ -1,0 +1,189 @@
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+  z-index: 999;
+}
+
+.fee-ledger-popup {
+  width: 100%;
+  max-width: 1450px;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.28);
+}
+
+.popup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.popup-head h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 22px;
+}
+
+.popup-close-btn {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  cursor: pointer;
+  color: #6b7280;
+}
+
+.popup-close-btn:hover {
+  color: #111827;
+}
+
+.ledger-student-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px 20px;
+  padding: 22px;
+}
+
+.ledger-student-info p {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.ledger-section-title {
+  margin: 0;
+  padding: 0 22px 14px;
+  color: #111827;
+  font-size: 18px;
+}
+
+.ledger-table-wrap {
+  padding: 0 22px 22px;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table-wrap th,
+.table-wrap td {
+  border: 1px solid #e5e7eb;
+  padding: 10px 8px;
+  text-align: center;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.table-wrap th {
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+.table-wrap td {
+  color: #374151;
+}
+
+.empty-row {
+  padding: 24px !important;
+  color: #6b7280;
+}
+
+.ledger-schedule-wrap {
+  padding: 0 22px 22px;
+  overflow-x: auto;
+}
+
+.ledger-schedule-table {
+  min-width: 1500px;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ledger-schedule-table th,
+.ledger-schedule-table td {
+  border: 1px solid #e5e7eb;
+  padding: 7px 5px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.ledger-schedule-table th {
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 700;
+}
+
+.green-text {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.red-text {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.total-row td {
+  background: #f8fafc;
+  font-weight: 800;
+}
+
+.ledger-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 0 22px 22px;
+}
+
+@media (max-width: 1200px) {
+  .ledger-student-info {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .fee-ledger-popup {
+    max-height: 96vh;
+    border-radius: 16px;
+  }
+
+  .ledger-student-info {
+    grid-template-columns: 1fr;
+  }
+
+  .popup-head {
+    padding: 16px;
+  }
+
+  .popup-head h2 {
+    font-size: 18px;
+  }
+
+  .ledger-footer-actions {
+    flex-direction: column;
+  }
+
+  .ledger-footer-actions button {
+    width: 100%;
+  }
+}
