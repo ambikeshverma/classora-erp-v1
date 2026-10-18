@@ -184,6 +184,7 @@ function SubscriptionBilling() {
   const selectedPlanAmount = useMemo(() => {
     if (!selectedPlan) return null;
     return calculatePlan(selectedPlan);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPlan]);
 
   const closePayPopup = () => {

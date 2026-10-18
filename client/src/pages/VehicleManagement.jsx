@@ -484,7 +484,6 @@ setFormData({
     });
   };
 
-  const currentYear = new Date().getFullYear();
 
   return (
     <div className="vehicle-page">

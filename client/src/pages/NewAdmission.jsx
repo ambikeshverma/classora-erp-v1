@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import "./newAdmission.css";
 import AppButton from "../components/AppButton";
+import api from "../services/api";
 
 const statesOfIndia = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -143,6 +143,7 @@ function NewAdmission() {
         feePlan: availableFeePlans[0].planName,
       }));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.className]);
 
   const handleChange = (e) => {
@@ -243,14 +244,9 @@ function NewAdmission() {
         totalFee: selectedFeePlan?.totalFee || 0
       };
 
-      const res = await axios.post(
-        "http://localhost:5000/api/admissions/add",
-        finalData,
-        {
-          headers: {
-            Authorization: token
-          }
-        }
+      const res = await api.post(
+        "/api/admissions/add",
+        finalData
       );
 
       alert(res.data.msg || "Admission saved successfully ✅");

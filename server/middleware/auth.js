@@ -1,20 +1,4 @@
-const jwt = require("jsonwebtoken");
+// auth.js - alias wrapper pointing to schoolAuth to guarantee schoolId extraction and active status check
+const schoolAuth = require("./schoolAuth");
 
-module.exports = function (req, res, next) {
-  const token = req.header("Authorization");
-
-  if (!token) {
-    return res.status(401).json({ msg: "No token, access denied" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, "SECRETKEY");
-
-    // 🔥 important
-    req.user = decoded;
-
-    next();
-  } catch (err) {
-    res.status(401).json({ msg: "Invalid token" });
-  }
-};
+module.exports = schoolAuth;

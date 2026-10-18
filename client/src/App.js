@@ -1,5 +1,10 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
+import SuperAdminProtectedRoute from "./components/SuperAdminProtectedRoute";
+import SuperAdminLogin from "./pages/SuperAdminLogin";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+
 import StudentHub from "./pages/StudentHub";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -86,101 +91,733 @@ import ReceptionReports from "./pages/reception/ReceptionReports";
 import StudentReports from "./pages/student/StudentReports";
 import TransportReports from "./pages/transport/TransportReports";
 import AdminReports from "./pages/adminpanel/AdminReports";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard"
 
 function App() {
   return (
-    <BrowserRouter> {/* 👈 ये missing था */}
+    <BrowserRouter>
       <Routes>
+        {/* Public Authentication Routes */}
         <Route path="/" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/admissions" element={<Admissions />} />
-        <Route path="/admission/new" element={<NewAdmission />} />
-        <Route path="/student-hub" element={<StudentHub />} />
-        <Route path="/admin-panel" element={<AdminPanel />} />
-        <Route path="/reception-desk" element={<ReceptionDesk />} />
-        <Route path="/academic-zone" element={<AcademicZone />} />
-        <Route path="/transport-system" element={<TransportSystem />} />
-        <Route path="/finance-manager" element={<FinanceManager />} />
-        <Route path="/staff-control" element={<HRStaffManagement />} />
-        <Route path="/exam-tools" element={<ExamTools />} />
-        <Route path="/report-card-management" element={<ReportCardManagement />} />
-        <Route path="/student-app-access" element={<StudentAppAccess />} />
-        <Route path="/user-control" element={<UserControl />} />
-        <Route path="/attendance-system" element={<AttendanceSystem />} />
-        <Route path="/fee-manager" element={<FeeManager />} />
-        <Route path="/academic-zone/subject-setup" element={<SubjectSetup />} />
-        <Route path="/academic-zone/class-subject-mapping" element={<ClassSubjectMapping />} />
-        <Route path="/academic-zone/student-subject-mapping" element={<StudentSubjectMapping />} />
-        <Route path="/account-groups" element={<AccountGroups />} /> 
-        <Route path="/account-heads" element={<AccountHeads />} />
-        <Route path="/income-entry" element={<IncomeEntry />} />
-        <Route path="/expense-entry" element={<ExpenseEntry />} />
-        <Route path="/enquiry-sources" element={<EnquirySources />} />
-        <Route path="/admission-enquiries" element={<AdmissionEnquiries />} />
-        <Route path="/follow-up-management" element={<FollowUpManagement />} />
-        <Route path="/student-id-management" element={<StudentIDManagement />} />
-        <Route path="/parent-id-management" element={<ParentIDManagement />} />
-        <Route path="/visitor-management" element={<VisitorManagement />} />
-        <Route path="/appointment-scheduling" element={<AppointmentScheduling />} />
-        <Route path="/support-complaint" element={<SupportComplaint />} />
-        <Route path="/class-management" element={<ClassManagement />} />
-        <Route path="/section-management" element={<SectionManagement />} />
-        <Route path="/medium-management" element={<MediumManagement />} />
-        <Route path="/house-management" element={<HouseManagement />} />
-        <Route path="/house-allocation" element={<HouseAllocation />} />
-        <Route path="/sibling-management" element={<SiblingManagement />} />
-        <Route path="/student-documents" element={<StudentDocuments />} />
-        <Route path="/roll-number-update" element={<RollNumberUpdate />} />
-        <Route path="/section-transfer" element={<SectionTransfer />} />
-        <Route path="/promotion-management" element={<PromotionManagement />} />
-        <Route path="/alumni-management" element={<AlumniManagement />} />
-        <Route path="/inactive-students" element={<InactiveStudents />} />
-        <Route path="/student-search" element={<SearchStudent />} />
-        <Route path="/route-management" element={<RouteManagement />} />
-        <Route path="/vehicle-management" element={<VehicleManagement />} />
-        <Route path="/student-transport-allocation" element={<StudentTransportAllocation />} />
-        <Route path="/fee-scheme" element={<FeeScheme />} />
-        <Route path="/fee-plan-name-setup" element={<FeePlanNameSetup />} />
-        <Route path="/fee-plan-management" element={<FeePlanManagement />} />
-        <Route path="/subscription-billing" element={<SubscriptionBilling />} />
-        <Route path="/department-management" element={<DepartmentManagement />} />
-        <Route path="/position-management" element={<PositionManagement />} />
-        <Route path="/staff-management" element={<StaffManagement />} />
-        <Route path="/leave-management" element={<LeaveManagement />} />
-        <Route path="/salary-management" element={<SalaryManagement />} />
-        <Route path="/exam-setup" element={<ExamSetup />} />
-        <Route path="/exam-timetable" element={<ExamTimetable />} />
-        <Route path="/exam-marks-setup" element={<ExamMarksSetup />} />
-        <Route path="/scholastic-marks-entry" element={<ScholasticMarksEntry />} />
-        <Route path="/co-scholastic-subject-setup" element={<CoScholasticSubjectSetup />} />
-        <Route path="/co-scholastic-marks-entry" element={<CoScholasticMarksEntry />} />
-        <Route path="/result-generation" element={<ResultGeneration />} />
-        <Route path="/report-cards" element={<ReportCards />} />
-        <Route path="/class-teacher-assignment" element={<ClassTeacherAssignment />} />
-        <Route path="/subject-teacher-assignment" element={<SubjectTeacherAssignment />} />
-        <Route path="/user-management" element={<UserManagement />} />
-        <Route path="/fee-collection" element={<FeeCollection />} />
-        <Route path="/concession-management" element={<ConcessionManagement />} />
-        <Route path="/app-banners" element={<AppBanners />} />
-        <Route path="/app-notice-board" element={<AppNoticeBoard />} />
-        <Route path="/app-news" element={<AppNews />} />
-        <Route path="/fee-due-notice" element={<FeeDueNotice />} />
-        <Route path="/student-login-management" element={<StudentLoginManagement />} />
-        <Route path="/attendance-system/student-attendance" element={<StudentAttendance />} />
-        <Route path="/attendance-system/bulk-attendance-entry" element={<BulkAttendanceEntry />} />
-        <Route path="/attendance-system/staff-attendance" element={<StaffAttendance />} />
-        <Route path="/academic-zone/reports" element={<AcademicReports />} />
-        <Route path="/finance-manager/reports" element={<FinanceReports />} />
-        <Route path="/staff-analytics-reports" element={<HRReports />} />
-        <Route path="/attendance-system/attendance-analytics" element={<AttendanceReports />} />
-        <Route path="/reception-reports" element={<ReceptionReports />} />
-        <Route path="/student-reports" element={<StudentReports />} />
-        <Route path="/transport-analytics-reports" element={<TransportReports />} />
-        <Route path="/admin-reports" element={<AdminReports />} />
-        <Route path="/super-admin" element={<SuperAdminDashboard></SuperAdminDashboard>} />
+        <Route path="/super-admin/login" element={<SuperAdminLogin />} />
 
+        {/* Super Admin Protected Governance Portal */}
+        <Route
+          path="/super-admin"
+          element={
+            <SuperAdminProtectedRoute>
+              <SuperAdminDashboard />
+            </SuperAdminProtectedRoute>
+          }
+        />
 
+        {/* School Protected Dashboard */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Admissions Module */}
+        <Route
+          path="/admissions"
+          element={
+            <ProtectedRoute moduleKey="admissions">
+              <Admissions />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admission/new"
+          element={
+            <ProtectedRoute moduleKey="admissions">
+              <NewAdmission />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/enquiry-sources"
+          element={
+            <ProtectedRoute moduleKey="admissions">
+              <EnquirySources />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admission-enquiries"
+          element={
+            <ProtectedRoute moduleKey="admissions">
+              <AdmissionEnquiries />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/follow-up-management"
+          element={
+            <ProtectedRoute moduleKey="admissions">
+              <FollowUpManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Student Hub Module */}
+        <Route
+          path="/student-hub"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <StudentHub />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-id-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <StudentIDManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/parent-id-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <ParentIDManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/house-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <HouseManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/house-allocation"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <HouseAllocation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sibling-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <SiblingManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-documents"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <StudentDocuments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/roll-number-update"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <RollNumberUpdate />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/section-transfer"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <SectionTransfer />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/promotion-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <PromotionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/alumni-management"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <AlumniManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inactive-students"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <InactiveStudents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-search"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <SearchStudent />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-reports"
+          element={
+            <ProtectedRoute moduleKey="student_hub">
+              <StudentReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Academic Zone Module */}
+        <Route
+          path="/academic-zone"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <AcademicZone />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academic-zone/subject-setup"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <SubjectSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academic-zone/class-subject-mapping"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <ClassSubjectMapping />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academic-zone/student-subject-mapping"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <StudentSubjectMapping />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/class-management"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <ClassManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/section-management"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <SectionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/medium-management"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <MediumManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/class-teacher-assignment"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <ClassTeacherAssignment />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subject-teacher-assignment"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <SubjectTeacherAssignment />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/academic-zone/reports"
+          element={
+            <ProtectedRoute moduleKey="academic_zone">
+              <AcademicReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Attendance System Module */}
+        <Route
+          path="/attendance-system"
+          element={
+            <ProtectedRoute moduleKey="attendance">
+              <AttendanceSystem />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-system/student-attendance"
+          element={
+            <ProtectedRoute moduleKey="attendance">
+              <StudentAttendance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-system/bulk-attendance-entry"
+          element={
+            <ProtectedRoute moduleKey="attendance">
+              <BulkAttendanceEntry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-system/staff-attendance"
+          element={
+            <ProtectedRoute moduleKey="attendance">
+              <StaffAttendance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance-system/attendance-analytics"
+          element={
+            <ProtectedRoute moduleKey="attendance">
+              <AttendanceReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fee Management Module */}
+        <Route
+          path="/fee-manager"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeeManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-scheme"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeeScheme />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-plan-name-setup"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeePlanNameSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-plan-management"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeePlanManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-collection"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeeCollection />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/concession-management"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <ConcessionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/fee-due-notice"
+          element={
+            <ProtectedRoute moduleKey="fee_manager">
+              <FeeDueNotice />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Transport System Module */}
+        <Route
+          path="/transport-system"
+          element={
+            <ProtectedRoute moduleKey="transport">
+              <TransportSystem />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/route-management"
+          element={
+            <ProtectedRoute moduleKey="transport">
+              <RouteManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/vehicle-management"
+          element={
+            <ProtectedRoute moduleKey="transport">
+              <VehicleManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-transport-allocation"
+          element={
+            <ProtectedRoute moduleKey="transport">
+              <StudentTransportAllocation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/transport-analytics-reports"
+          element={
+            <ProtectedRoute moduleKey="transport">
+              <TransportReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Finance Manager Module */}
+        <Route
+          path="/finance-manager"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <FinanceManager />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account-groups"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <AccountGroups />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/account-heads"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <AccountHeads />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/income-entry"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <IncomeEntry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/expense-entry"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <ExpenseEntry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/subscription-billing"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <SubscriptionBilling />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/finance-manager/reports"
+          element={
+            <ProtectedRoute moduleKey="finance">
+              <FinanceReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* HR & Staff Management Module */}
+        <Route
+          path="/staff-control"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <HRStaffManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/department-management"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <DepartmentManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/position-management"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <PositionManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff-management"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <StaffManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/leave-management"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <LeaveManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/salary-management"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <SalaryManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff-analytics-reports"
+          element={
+            <ProtectedRoute moduleKey="hr_staff">
+              <HRReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Exam Tools & Report Cards */}
+        <Route
+          path="/exam-tools"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <ExamTools />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam-setup"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <ExamSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam-timetable"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <ExamTimetable />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/exam-marks-setup"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <ExamMarksSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scholastic-marks-entry"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <ScholasticMarksEntry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/co-scholastic-subject-setup"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <CoScholasticSubjectSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/co-scholastic-marks-entry"
+          element={
+            <ProtectedRoute moduleKey="exam_tools">
+              <CoScholasticMarksEntry />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/result-generation"
+          element={
+            <ProtectedRoute moduleKey="report_cards">
+              <ResultGeneration />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/report-cards"
+          element={
+            <ProtectedRoute moduleKey="report_cards">
+              <ReportCards />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/report-card-management"
+          element={
+            <ProtectedRoute moduleKey="report_cards">
+              <ReportCardManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Reception Desk Module */}
+        <Route
+          path="/reception-desk"
+          element={
+            <ProtectedRoute moduleKey="reception">
+              <ReceptionDesk />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/visitor-management"
+          element={
+            <ProtectedRoute moduleKey="reception">
+              <VisitorManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/appointment-scheduling"
+          element={
+            <ProtectedRoute moduleKey="reception">
+              <AppointmentScheduling />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/support-complaint"
+          element={
+            <ProtectedRoute moduleKey="reception">
+              <SupportComplaint />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reception-reports"
+          element={
+            <ProtectedRoute moduleKey="reception">
+              <ReceptionReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Student Mobile App Access */}
+        <Route
+          path="/student-app-access"
+          element={
+            <ProtectedRoute moduleKey="student_app_access">
+              <StudentAppAccess />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app-banners"
+          element={
+            <ProtectedRoute moduleKey="student_app_access">
+              <AppBanners />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app-notice-board"
+          element={
+            <ProtectedRoute moduleKey="student_app_access">
+              <AppNoticeBoard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app-news"
+          element={
+            <ProtectedRoute moduleKey="student_app_access">
+              <AppNews />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-login-management"
+          element={
+            <ProtectedRoute moduleKey="student_app_access">
+              <StudentLoginManagement />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* User Control & Admin Panel */}
+        <Route
+          path="/user-control"
+          element={
+            <ProtectedRoute moduleKey="user_control">
+              <UserControl />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/user-management"
+          element={
+            <ProtectedRoute moduleKey="user_control">
+              <UserManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin-panel"
+          element={
+            <ProtectedRoute moduleKey="admin_panel">
+              <AdminPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin-reports"
+          element={
+            <ProtectedRoute moduleKey="admin_panel">
+              <AdminReports />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-all fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,13 +1,24 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { schoolService } from "../services/api";
+import { Shield, AlertTriangle, Eye, EyeOff, LogIn } from "lucide-react";
 import "./login.css";
 
 function Login() {
-  const [campusId, setCampusId] = useState(localStorage.getItem("rememberCampusId") || "");
-  const [email, setEmail] = useState(localStorage.getItem("rememberEmail") || "");
+  const navigate = useNavigate();
+  const [campusId, setCampusId] = useState(
+    localStorage.getItem("rememberCampusId") || ""
+  );
+  const [email, setEmail] = useState(
+    localStorage.getItem("rememberEmail") || ""
+  );
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    Boolean(localStorage.getItem("rememberCampusId"))
+  );
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const [resetOpen, setResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
@@ -15,27 +26,65 @@ function Login() {
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const handleLogin = async () => {
+  const handleLogin = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!campusId || !email || !password) {
+      setErrorMsg("Please fill in Campus ID, Email, and Password.");
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg("");
+
     try {
-      const res = await axios.post("http://localhost:5000/api/school/login", {
-        campusId,
-        email,
-        password
+      const res = await schoolService.login({
+        campusId: campusId.toUpperCase().trim(),
+        email: email.toLowerCase().trim(),
+        password,
       });
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("userName", res.data.name);
-      localStorage.setItem("schoolId", res.data.schoolId);
+      if (res.data.success) {
+        // Store short-term Access Token & School Identity
+        localStorage.setItem("token", res.data.token || res.data.accessToken);
+        localStorage.setItem("userName", res.data.name || res.data.schoolName);
+        localStorage.setItem("schoolId", res.data.schoolId);
+        localStorage.setItem("campusId", res.data.campusId);
 
-      if (rememberMe) {
-        localStorage.setItem("rememberCampusId", campusId);
-        localStorage.setItem("rememberEmail", email);
+        if (res.data.enabledModules) {
+          localStorage.setItem(
+            "enabledModules",
+            JSON.stringify(res.data.enabledModules)
+          );
+        }
+
+        if (rememberMe) {
+          localStorage.setItem("rememberCampusId", campusId.toUpperCase().trim());
+          localStorage.setItem("rememberEmail", email.toLowerCase().trim());
+        } else {
+          localStorage.removeItem("rememberCampusId");
+          localStorage.removeItem("rememberEmail");
+        }
+
+        navigate("/dashboard");
+      } else {
+        setErrorMsg(res.data.message || res.data.msg || "Login failed");
       }
-
-      window.location.href = "/dashboard";
     } catch (err) {
-      console.log("Login Error:", err.response?.data || err.message);
-alert(err.response?.data?.msg || err.message || "Login Failed ❌");
+      console.error("Login Error:", err.response?.data || err.message);
+      if (err.response?.data?.isDeactivated) {
+        setErrorMsg(
+          "🛑 Access Denied: This school account has been deactivated by Super Admin. Please contact Classora Support."
+        );
+      } else {
+        setErrorMsg(
+          err.response?.data?.message ||
+            err.response?.data?.msg ||
+            "Login failed. Please check your credentials or server connection."
+        );
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -44,7 +93,6 @@ alert(err.response?.data?.msg || err.message || "Login Failed ❌");
       alert("Please enter registered email");
       return;
     }
-
     setOtpSent(true);
     alert("Demo OTP sent: 123456");
   };
@@ -54,13 +102,11 @@ alert(err.response?.data?.msg || err.message || "Login Failed ❌");
       alert("Invalid OTP");
       return;
     }
-
     if (!newPassword) {
       alert("Enter new password");
       return;
     }
-
-    alert("Password reset demo successful. Backend API baad me connect karenge.");
+    alert("Demo password reset simulated. Contact Super Admin to reset your production school password.");
     setResetOpen(false);
     setOtpSent(false);
     setOtp("");
@@ -73,79 +119,160 @@ alert(err.response?.data?.msg || err.message || "Login Failed ❌");
       <div className="login-card">
         <div className="logo-circle">C</div>
         <h1>Classora</h1>
-        <p className="subtitle">Multi-School ERP Login</p>
+        <p className="subtitle">School Management ERP Portal</p>
 
-        <label>Campus ID</label>
-        <input
-          type="text"
-          placeholder="Example: ABC123"
-          value={campusId}
-          onChange={(e) => setCampusId(e.target.value)}
-        />
+        {errorMsg && (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: "12px",
+              background: "#fee2e2",
+              border: "1px solid #f87171",
+              color: "#991b1b",
+              fontSize: "13px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "flex-start",
+              gap: "8px",
+              lineHeight: "1.4",
+            }}
+          >
+            <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
-        <label>Email Address</label>
-        <input
-          type="email"
-          placeholder="Registered school email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <label>Password</label>
-        <div className="password-box">
+        <form onSubmit={handleLogin}>
+          <label>Campus ID / School Code</label>
           <input
-            type={showPass ? "text" : "password"}
-            placeholder="Enter password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            type="text"
+            placeholder="e.g. SCH001"
+            value={campusId}
+            onChange={(e) => setCampusId(e.target.value.toUpperCase())}
+            required
           />
-          <span onClick={() => setShowPass(!showPass)}>
-            {showPass ? "🙈" : "👁️"}
-          </span>
-        </div>
 
-        <div className="login-options">
-          <label className="remember">
+          <label>Official School Email</label>
+          <input
+            type="email"
+            placeholder="e.g. admin@school.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <label>Password</label>
+          <div className="password-box">
             <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
+              type={showPass ? "text" : "password"}
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
-            Remember me
-          </label>
+            <span
+              onClick={() => setShowPass(!showPass)}
+              title={showPass ? "Hide password" : "Show password"}
+            >
+              {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+            </span>
+          </div>
 
-          <button className="link-btn" onClick={() => setResetOpen(true)}>
-            Forgot Password?
+          <div className="login-options">
+            <label className="remember">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              Remember me
+            </label>
+
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setResetOpen(true)}
+            >
+              Forgot Password?
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            className="login-btn"
+            disabled={loading}
+            style={{ opacity: loading ? 0.7 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            {loading ? (
+              "Authenticating School..."
+            ) : (
+              <>
+                <LogIn size={18} /> Secure Login
+              </>
+            )}
+          </button>
+        </form>
+
+        <div
+          style={{
+            marginTop: "24px",
+            paddingTop: "16px",
+            borderTop: "1px dashed #e2e8f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ fontSize: "12px", color: "#64748b" }}>Master Administrator?</span>
+          <button
+            type="button"
+            onClick={() => navigate("/super-admin/login")}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#4f46e5",
+              fontSize: "12px",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+            }}
+          >
+            <Shield size={13} /> Super Admin Portal →
           </button>
         </div>
 
-        <button className="login-btn" onClick={handleLogin}>
-          Login
-        </button>
-
-        <p className="support">Contact for query: 8840248644</p>
+        <p className="support">Technical Support: 8840248644</p>
       </div>
 
       {resetOpen && (
         <div className="modal-bg">
           <div className="reset-box">
-            <button className="close-btn" onClick={() => setResetOpen(false)}>×</button>
-            <h2>Reset Password</h2>
+            <button className="close-btn" onClick={() => setResetOpen(false)}>
+              ×
+            </button>
+            <h2>Reset School Password</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", textAlign: "center", margin: "0 0 16px 0" }}>
+              Enter your registered school email address to request password assistance.
+            </p>
 
             <input
               type="email"
-              placeholder="Enter registered email"
+              placeholder="Enter registered school email"
               value={resetEmail}
               onChange={(e) => setResetEmail(e.target.value)}
             />
 
             {!otpSent ? (
-              <button className="login-btn" onClick={sendOtp}>Send OTP</button>
+              <button className="login-btn" onClick={sendOtp}>
+                Send Verification OTP
+              </button>
             ) : (
               <>
                 <input
                   type="text"
-                  placeholder="Enter OTP"
+                  placeholder="Enter OTP (Use 123456)"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                 />
@@ -158,7 +285,7 @@ alert(err.response?.data?.msg || err.message || "Login Failed ❌");
                 />
 
                 <button className="login-btn" onClick={resetPassword}>
-                  Reset Password
+                  Confirm New Password
                 </button>
               </>
             )}

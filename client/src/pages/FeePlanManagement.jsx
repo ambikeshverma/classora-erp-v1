@@ -66,6 +66,7 @@ function FeePlanManagement() {
 
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedPlanName, setSelectedPlanName] = useState("");
+  // eslint-disable-next-line no-unused-vars
   const [selectedIds, setSelectedIds] = useState([]);
   const [savedPlans, setSavedPlans] = useState([]);
 
@@ -119,6 +120,7 @@ function FeePlanManagement() {
       setNewStudentAmounts(createEmptyAmounts());
       setOldStudentAmounts(createEmptyAmounts());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, selectedPlanName, savedPlans, schoolId]);
 
   const getSectionTotal = (amounts) => {

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./dashboard.css";
 import AppButton from "../components/AppButton";
+import { schoolService } from "../services/api";
 function Dashboard() {
   const today = new Date();
 
@@ -15,6 +16,19 @@ function Dashboard() {
   const [calendarDate, setCalendarDate] = useState(new Date());
   const [session, setSession] = useState(getCurrentSession());
   const [searchValue, setSearchValue] = useState("");
+  const [notices, setNotices] = useState([]);
+  const [dismissedNotices, setDismissedNotices] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("dismissedNotices") || "[]"); }
+    catch { return []; }
+  });
+
+  // enabledModules — initialized from localStorage, then refreshed from server
+  const [enabledModules, setEnabledModules] = useState(() => {
+    try {
+      const stored = localStorage.getItem("enabledModules");
+      return stored ? JSON.parse(stored) : null;
+    } catch { return null; }
+  });
 
   const [closedDates, setClosedDates] = useState([]);
   const [showClosedPopup, setShowClosedPopup] = useState(false);
@@ -83,25 +97,58 @@ function Dashboard() {
   ];
 
   const modules = [
-    { name: "User Control", icon: "🔐", path: "/user-control" },
-    { name: "Admin Panel", icon: "⚙️", path: "/admin-panel" },
-    { name: "Admissions", icon: "📝", path: "/admissions" },
-    { name: "Reception Desk", icon: "🏢", path: "/reception-desk" },
-    { name: "Student Hub", icon: "🎓", path: "/student-hub" },
-    { name: "Academic Zone", icon: "📚", path: "/academic-zone" },
-    { name: "Attendance System", icon: "✅", path: "/attendance-system" },
-    { name: "Fee Manager", icon: "💳", path: "/fee-manager" },
-    { name: "Transport System", icon: "🚌", path: "/transport-system" },
-    { name: "Finance Manager", icon: "📊", path: "/finance-manager" },
-    { name: "Student App Access", icon: "📱", path: "/student-app-access" },
-    { name: "HR & Staff Management", icon: "👨‍🏫", path: "/staff-control" },
-    { name: "Exam Tools", icon: "🧾", path: "/exam-tools" },
+    { key: "user_control", name: "User Control", icon: "🔐", path: "/user-control" },
+    { key: "admin_panel", name: "Admin Panel", icon: "⚙️", path: "/admin-panel" },
+    { key: "admissions", name: "Admissions", icon: "📝", path: "/admissions" },
+    { key: "reception", name: "Reception Desk", icon: "🏢", path: "/reception-desk" },
+    { key: "student_hub", name: "Student Hub", icon: "🎓", path: "/student-hub" },
+    { key: "academic_zone", name: "Academic Zone", icon: "📚", path: "/academic-zone" },
+    { key: "attendance", name: "Attendance System", icon: "✅", path: "/attendance-system" },
+    { key: "fee_manager", name: "Fee Manager", icon: "💳", path: "/fee-manager" },
+    { key: "transport", name: "Transport System", icon: "🚌", path: "/transport-system" },
+    { key: "finance", name: "Finance Manager", icon: "📊", path: "/finance-manager" },
+    { key: "student_app_access", name: "Student App Access", icon: "📱", path: "/student-app-access" },
+    { key: "hr_staff", name: "HR & Staff Management", icon: "👨‍🏫", path: "/staff-control" },
+    { key: "exam_tools", name: "Exam Tools", icon: "🧾", path: "/exam-tools" },
     {
+      key: "report_cards",
       name: "Report Card Management",
       icon: "📄",
       path: "/report-card-management",
     },
   ];
+
+  const getEnabledModules = () => enabledModules;
+
+  const isModuleEnabled = (key) => {
+    const list = getEnabledModules();
+    if (!list || !Array.isArray(list)) return true; // if not set, all enabled
+    return list.includes(key);
+  };
+
+  // Fetch fresh enabledModules + notices from server on every mount
+  // This ensures Super Admin changes are reflected without re-login
+  useEffect(() => {
+    schoolService.getProfile().then((res) => {
+      if (res.data?.success && res.data.data?.enabledModules) {
+        const fresh = res.data.data.enabledModules;
+        setEnabledModules(fresh);
+        localStorage.setItem("enabledModules", JSON.stringify(fresh));
+      }
+    }).catch(() => {});
+
+    schoolService.getNotices().then((res) => {
+      if (res.data?.success) setNotices(res.data.notices || []);
+    }).catch(() => {});
+  }, []);
+
+  const dismissNotice = (id) => {
+    const updated = [...dismissedNotices, id];
+    setDismissedNotices(updated);
+    localStorage.setItem("dismissedNotices", JSON.stringify(updated));
+  };
+
+  const activeNotices = notices.filter((n) => !dismissedNotices.includes(n._id));
 
   const monthNames = [
     "January",
@@ -163,6 +210,7 @@ function Dashboard() {
     return closedDates.some((item) => item.date === dateKey);
   };
 
+  // eslint-disable-next-line no-unused-vars
   const getClosedReason = (day) => {
     if (!day) return "";
 
@@ -254,12 +302,19 @@ function Dashboard() {
     year === today.getFullYear();
 
   const handleModuleClick = (module) => {
+    if (module.key && !isModuleEnabled(module.key)) {
+      alert(`⚠️ '${module.name}' is currently disabled for your school campus by Super Admin.`);
+      return;
+    }
     if (module.path) {
       window.location.href = module.path;
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await schoolService.logout();
+    } catch (e) {}
     localStorage.clear();
     window.location.href = "/";
   };
@@ -295,16 +350,18 @@ function Dashboard() {
             {autoHide && !mobileSidebar ? "🏠" : "Dashboard"}
           </div>
 
-          {modules.map((module, index) => (
-            <div
-              className="side-item"
-              key={index}
-              title={module.name}
-              onClick={() => handleModuleClick(module)}
-            >
-              {autoHide && !mobileSidebar ? module.icon : module.name}
-            </div>
-          ))}
+          {modules
+            .filter((module) => isModuleEnabled(module.key))
+            .map((module, index) => (
+              <div
+                className="side-item"
+                key={index}
+                title={module.name}
+                onClick={() => handleModuleClick(module)}
+              >
+                {autoHide && !mobileSidebar ? module.icon : module.name}
+              </div>
+            ))}
         </nav>
 
         <div className="auto-hide">
@@ -320,7 +377,24 @@ function Dashboard() {
       <main className="main">
         <header className="topbar">
           <div className="top-left">
-            <h1>Dashboard</h1>
+            <h1 style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span>{localStorage.getItem("userName") || "School Dashboard"}</span>
+              {localStorage.getItem("campusId") && (
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: "700",
+                    background: "#e0e7ff",
+                    color: "#4338ca",
+                    padding: "3px 10px",
+                    borderRadius: "6px",
+                    border: "1px solid #c7d2fe",
+                  }}
+                >
+                  Campus ID: {localStorage.getItem("campusId")}
+                </span>
+              )}
+            </h1>
           </div>
 
           <div className="top-right">
@@ -369,6 +443,48 @@ function Dashboard() {
           </div>
         </header>
 
+        {/* 📢 Super Admin Notices Banner */}
+        {activeNotices.length > 0 && (
+          <div style={{ padding: "0 0 12px 0" }}>
+            {activeNotices.map((notice) => {
+              const colors = {
+                info:    { bg: "#eff6ff", border: "#3b82f6", text: "#1e40af", icon: "ℹ️" },
+                warning: { bg: "#fffbeb", border: "#f59e0b", text: "#92400e", icon: "⚠️" },
+                danger:  { bg: "#fef2f2", border: "#ef4444", text: "#991b1b", icon: "🚨" },
+                success: { bg: "#f0fdf4", border: "#22c55e", text: "#166534", icon: "✅" },
+              };
+              const c = colors[notice.type] || colors.info;
+              return (
+                <div key={notice._id} style={{
+                  display: "flex", alignItems: "flex-start", gap: "10px",
+                  background: c.bg, border: `1.5px solid ${c.border}`,
+                  borderRadius: "10px", padding: "12px 16px", marginBottom: "8px",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)"
+                }}>
+                  <span style={{ fontSize: "18px", flexShrink: 0 }}>{c.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    {notice.title && (
+                      <div style={{ fontWeight: "700", color: c.text, fontSize: "14px", marginBottom: "3px" }}>
+                        {notice.title}
+                      </div>
+                    )}
+                    <div style={{ color: c.text, fontSize: "13px", lineHeight: "1.5" }}>
+                      {notice.message}
+                    </div>
+                    <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "4px" }}>
+                      From: Super Admin &nbsp;•&nbsp; {new Date(notice.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                    </div>
+                  </div>
+                  <button onClick={() => dismissNotice(notice._id)} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: "16px", color: "#94a3b8", flexShrink: 0, lineHeight: 1
+                  }} title="Dismiss">✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <section className="quick-grid">
           {quickCards.map((card, index) => (
             <div
@@ -396,16 +512,35 @@ function Dashboard() {
           <h2>System Modules</h2>
 
           <div className="module-grid">
-            {modules.map((module, index) => (
-              <div
-                className="module-card"
-                key={index}
-                onClick={() => handleModuleClick(module)}
-              >
-                <div className="module-icon">{module.icon}</div>
-                <p>{module.name}</p>
-              </div>
-            ))}
+            {modules.map((module, index) => {
+              const enabled = isModuleEnabled(module.key);
+              return (
+                <div
+                  key={index}
+                  className={`module-card${!enabled ? " module-disabled" : ""}`}
+                  onClick={() => handleModuleClick(module)}
+                  style={{
+                    opacity: enabled ? 1 : 0.45,
+                    cursor: enabled ? "pointer" : "not-allowed",
+                    position: "relative",
+                    filter: enabled ? "none" : "grayscale(60%)",
+                  }}
+                  title={enabled ? module.name : `${module.name} — Disabled by Super Admin`}
+                >
+                  {!enabled && (
+                    <span style={{
+                      position: "absolute", top: "7px", right: "7px",
+                      background: "#ef4444", color: "#fff",
+                      fontSize: "10px", fontWeight: "700",
+                      padding: "2px 6px", borderRadius: "5px",
+                      lineHeight: "1.4", letterSpacing: "0.02em"
+                    }}>🔒 Locked</span>
+                  )}
+                  <div className="module-icon">{module.icon}</div>
+                  <p>{module.name}</p>
+                </div>
+              );
+            })}
           </div>
         </section>
 

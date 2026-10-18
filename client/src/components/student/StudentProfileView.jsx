@@ -144,10 +144,8 @@ function StudentProfileView({ studentId = 1, onClose }) {
 
   const statusClass = `status-${(student?.studentStatus || "Active").toLowerCase()}`;
   const hasTransport =
-    student?.routeName &&
-    student.routeName !== "Not Assigned" ||
-    student?.vehicleName &&
-    student.vehicleName !== "Not Assigned";
+    (student?.routeName && student.routeName !== "Not Assigned") ||
+    (student?.vehicleName && student.vehicleName !== "Not Assigned");
 
   const updateStudent = (updatedData) => {
     setStudents((prev) =>
@@ -236,6 +234,7 @@ function StudentProfileView({ studentId = 1, onClose }) {
     const percent = totalDays ? ((present / totalDays) * 100).toFixed(2) : "0.00";
 
     return { present, absent, leave, totalDays, percent };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!student) {

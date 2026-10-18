@@ -120,6 +120,7 @@ function FeeDueNotice() {
 
         return classMatch && balanceMatch;
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, includePreviousBalance, minimumBalance]);
 
   const totalDueAmount = filteredStudents.reduce(

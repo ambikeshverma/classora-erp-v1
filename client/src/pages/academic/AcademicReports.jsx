@@ -2,7 +2,7 @@ import React from "react";
 import MasterReport from "../../components/reports/MasterReport";
 
 function AcademicReports() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  // schoolId is available from JWT token via api interceptor (req.schoolId in backend)
 
   const schoolProfiles = [
     {
