@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { superAdminService } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { Shield, Eye, EyeOff, LogIn, Sparkles, AlertCircle, ArrowLeft } from "lucide-react";
 import "./superAdminLogin.css";
 
 const SuperAdminLogin = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -25,8 +27,35 @@ const SuperAdminLogin = () => {
     try {
       const res = await superAdminService.login({ email, password });
       if (res.data.success) {
+        const adminRole = res.data.admin?.role || res.data.role || "superAdmin";
+        const adminData = res.data.admin || res.data.user || {
+          email,
+          role: adminRole,
+          name: "Super Admin",
+        };
+
+        // Context API login
+        login(
+          {
+            accessToken: res.data.accessToken,
+            token: res.data.accessToken,
+            role: adminRole,
+            user: adminData,
+            name: adminData.name || "Super Admin",
+            email: adminData.email || email,
+          },
+          { isSuperAdmin: true }
+        );
+
+        // Keep existing legacy localStorage keys
         localStorage.setItem("superAdminToken", res.data.accessToken);
-        localStorage.setItem("superAdminUser", JSON.stringify(res.data.admin));
+        localStorage.setItem("superAdminUser", JSON.stringify(adminData));
+        localStorage.setItem("role", adminRole);
+        localStorage.setItem("userRole", adminRole);
+        localStorage.setItem("userName", adminData.name || "Super Admin");
+        localStorage.setItem("user", JSON.stringify(adminData));
+        localStorage.setItem("userInfo", JSON.stringify(adminData));
+
         navigate("/super-admin");
       } else {
         setError(res.data.message || "Login failed");

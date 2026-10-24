@@ -1,155 +1,61 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./studentHub.css";
+import { MODULES_REGISTRY } from "../constants/modulesRegistry";
+import { useModulePermissions } from "../hooks/useModulePermissions";
 
 function StudentHub() {
+  const navigate = useNavigate();
+  const MODULE_KEY = "student_hub";
+  const { isSubModuleEnabled, showLockNotice, toastMessage } = useModulePermissions(MODULE_KEY);
 
-  const cards = [
+  const moduleDef = MODULES_REGISTRY.find((m) => m.key === MODULE_KEY);
+  const cards = moduleDef ? moduleDef.subModules : [];
 
-    {
-      title: "Class Management",
-      icon: "🏫",
-      route: "/class-management"
-    },
-
-    {
-      title: "Section Management",
-      icon: "🧩",
-      route: "/section-management"
-    },
-
-    {
-      title: "Medium Management",
-      icon: "🌐",
-      route: "/medium-management"
-    },
-
-    {
-      title: "House Management",
-      icon: "🏠",
-      route: "/house-management"
-    },
-
-    {
-      title: "House Allocation",
-      icon: "🏠",
-      route: "/house-allocation"
-    },
-
-    {
-      title: "Sibling Management",
-      icon: "👨‍👩‍👧‍👦",
-      route: "/sibling-management"
-    },
-
-    {
-      title: "Student Search",
-      icon: "🔍",
-      route: "/student-search"
-    },
-
-    {
-      title: "Inactive Students",
-      icon: "🚫",
-      route: "/inactive-students"
-    },
-
-    {
-      title: "Student Documents",
-      icon: "📁",
-      route: "/student-documents"
-    },
-
-    {
-      title: "Roll Number Update",
-      icon: "🔢",
-      route: "/roll-number-update"
-    },
-
-    {
-      title: "Section Transfer",
-      icon: "🔄",
-      route: "/section-transfer"
-    },
-
-    {
-      title: "Promotion Management",
-      icon: "⬆️",
-      route: "/promotion-management"
-    },
-
-    {
-      title: "Alumni Management",
-      icon: "🎓",
-      route: "/alumni-management"
-    },
-
-    {
-      title: "Bulk Student Update",
-      icon: "🛠️",
-      route: "/bulk-student-update"
-    },
-
-    {
-      title: "Data Export",
-      icon: "📤",
-      route: "/data-export"
-    },
-
-    {
-      title: "Analytics & Reports",
-      icon: "📊",
-      route: "/student-reports"
+  const handleCardClick = (card) => {
+    if (!isSubModuleEnabled(card.key)) {
+      showLockNotice(card.name);
+      return;
     }
-
-  ];
+    navigate(card.route);
+  };
 
   return (
     <div className="student-hub-page">
-
       <div className="student-hub-header">
-
-        <button
-          className="back-btn"
-          onClick={() => window.location.href = "/dashboard"}
-        >
+        <button className="back-btn" onClick={() => navigate("/dashboard")}>
           ←
         </button>
 
         <div>
           <h1>Student Hub</h1>
-          <p>
-            Manage classes, sections, students,
-            documents and reports
-          </p>
+          <p>Manage classes, sections, students, documents and reports</p>
         </div>
-
       </div>
 
       <div className="student-hub-grid">
-
-        {cards.map((card, index) => (
-
-          <div
-            className="student-hub-card"
-            key={index}
-
-            onClick={() => {
-              window.location.href = card.route;
-            }}
-          >
-
-            <div className="student-hub-icon">
-              {card.icon}
+        {cards.map((card) => {
+          const enabled = isSubModuleEnabled(card.key);
+          return (
+            <div
+              className={`student-hub-card ${!enabled ? "submodule-card-locked" : ""}`}
+              key={card.key}
+              onClick={() => handleCardClick(card)}
+              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
+            >
+              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
+              <div className="student-hub-icon">{card.icon}</div>
+              <h3>{card.name}</h3>
             </div>
-
-            <h3>{card.title}</h3>
-
-          </div>
-
-        ))}
-
+          );
+        })}
       </div>
 
+      {toastMessage && (
+        <div className="submodule-toast-banner">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

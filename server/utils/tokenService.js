@@ -10,12 +10,15 @@ const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 
 const generateSchoolTokens = (school) => {
+  const role = school.role || "schoolAdmin";
   const payload = {
+    id: school._id.toString(),
     schoolId: school._id.toString(),
     campusId: school.campusId,
     email: school.email,
     schoolName: school.schoolName,
-    role: "schoolAdmin",
+    name: school.schoolName,
+    role: role,
   };
 
   const accessToken = jwt.sign(payload, getAccessSecret(), {
@@ -24,8 +27,9 @@ const generateSchoolTokens = (school) => {
 
   const refreshToken = jwt.sign(
     {
+      id: school._id.toString(),
       schoolId: school._id.toString(),
-      role: "schoolAdmin",
+      role: role,
       type: "refresh",
     },
     getRefreshSecret(),
@@ -36,11 +40,13 @@ const generateSchoolTokens = (school) => {
 };
 
 const generateSuperAdminTokens = (admin) => {
+  const role = admin.role || "superAdmin";
   const payload = {
+    id: admin._id.toString(),
     adminId: admin._id.toString(),
     email: admin.email,
     name: admin.name,
-    role: "superAdmin",
+    role: role,
   };
 
   const accessToken = jwt.sign(payload, getAccessSecret(), {
@@ -49,8 +55,42 @@ const generateSuperAdminTokens = (admin) => {
 
   const refreshToken = jwt.sign(
     {
+      id: admin._id.toString(),
       adminId: admin._id.toString(),
-      role: "superAdmin",
+      role: role,
+      type: "refresh",
+    },
+    getRefreshSecret(),
+    { expiresIn: REFRESH_EXPIRES_IN }
+  );
+
+  return { accessToken, refreshToken };
+};
+
+// Generic token generator for any user role (e.g. teacher, student, accountant, receptionist)
+const generateUserTokens = (user, customRole, extraPayload = {}) => {
+  const role = customRole || user.role || "user";
+  const userId = user._id ? user._id.toString() : (user.id ? user.id.toString() : "");
+
+  const payload = {
+    id: userId,
+    userId: userId,
+    email: user.email || "",
+    name: user.name || user.schoolName || user.username || user.employeeName || "",
+    role: role,
+    ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}),
+    ...(user.campusId ? { campusId: user.campusId } : {}),
+    ...extraPayload,
+  };
+
+  const accessToken = jwt.sign(payload, getAccessSecret(), {
+    expiresIn: ACCESS_EXPIRES_IN,
+  });
+
+  const refreshToken = jwt.sign(
+    {
+      id: userId,
+      role: role,
       type: "refresh",
     },
     getRefreshSecret(),
@@ -66,6 +106,14 @@ const verifyAccessToken = (token) => {
 
 const verifyRefreshToken = (token) => {
   return jwt.verify(token, getRefreshSecret());
+};
+
+const decodeToken = (token) => {
+  try {
+    return jwt.decode(token);
+  } catch (err) {
+    return null;
+  }
 };
 
 const setRefreshCookie = (res, token, name = "refreshToken") => {
@@ -90,8 +138,10 @@ const clearRefreshCookie = (res, name = "refreshToken") => {
 module.exports = {
   generateSchoolTokens,
   generateSuperAdminTokens,
+  generateUserTokens,
   verifyAccessToken,
   verifyRefreshToken,
+  decodeToken,
   setRefreshCookie,
   clearRefreshCookie,
 };

@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const Admin = require("../models/Admin");
 const SchoolAdmin = require("../models/schoolAdminSchema");
+const { DEFAULT_MODULES, DEFAULT_SUB_MODULES } = require("../models/schoolAdminSchema");
 const superAdminAuth = require("../middleware/superAdminAuth");
 const {
   generateSuperAdminTokens,
@@ -159,16 +160,22 @@ router.post("/login", async (req, res) => {
 
     setRefreshCookie(res, refreshToken, "superAdminRefreshToken");
 
+    const adminRole = admin.role || "superAdmin";
+    const adminData = {
+      id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      role: adminRole,
+    };
+
     res.json({
       success: true,
       message: "Super Admin Login Successful ✅",
       accessToken,
-      admin: {
-        id: admin._id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-      },
+      token: accessToken,
+      role: adminRole,
+      admin: adminData,
+      user: adminData,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -209,9 +216,21 @@ router.post("/refresh", async (req, res) => {
 
     const { accessToken } = generateSuperAdminTokens(admin);
 
+    const adminRole = admin.role || "superAdmin";
+    const adminData = {
+      id: admin._id,
+      name: admin.name,
+      email: admin.email,
+      role: adminRole,
+    };
+
     res.json({
       success: true,
       accessToken,
+      token: accessToken,
+      role: adminRole,
+      admin: adminData,
+      user: adminData,
     });
   } catch (err) {
     return res.status(401).json({
@@ -263,10 +282,16 @@ router.get("/schools", superAdminAuth, async (req, res) => {
         totalSchools,
         activeSchools,
         inactiveSchools,
-        allModulesCount: SchoolAdmin.DEFAULT_MODULES.length,
+        allModulesCount: DEFAULT_MODULES.length,
       },
-      availableModules: SchoolAdmin.DEFAULT_MODULES,
-      data: schools,
+      availableModules: DEFAULT_MODULES,
+      availableSubModules: DEFAULT_SUB_MODULES,
+      data: schools.map((s) => ({
+        ...s.toObject(),
+        enabledSubModules: s.enabledSubModules
+          ? Object.fromEntries(s.enabledSubModules)
+          : {},
+      })),
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -333,27 +358,35 @@ router.post("/schools", superAdminAuth, async (req, res) => {
       principalSignature: principalSignature || "",
       enabledModules: Array.isArray(enabledModules) && enabledModules.length > 0
         ? enabledModules
-        : SchoolAdmin.DEFAULT_MODULES,
+        : DEFAULT_MODULES,
+      enabledSubModules: (() => {
+        const { enabledSubModules } = req.body;
+        if (enabledSubModules && typeof enabledSubModules === "object" && !Array.isArray(enabledSubModules)) {
+          return new Map(Object.entries(enabledSubModules));
+        }
+        // Default: all sub-modules enabled for each enabled module
+        const finalModules = Array.isArray(enabledModules) && enabledModules.length > 0
+          ? enabledModules
+          : DEFAULT_MODULES;
+        const subMap = {};
+        finalModules.forEach((m) => { subMap[m] = DEFAULT_SUB_MODULES[m] || []; });
+        return new Map(Object.entries(subMap));
+      })(),
       isActive: isActive !== undefined ? Boolean(isActive) : true,
       role: "schoolAdmin",
     });
 
+    const schoolObj = newSchool.toObject();
     res.status(201).json({
       success: true,
       message: `School '${newSchool.schoolName}' created successfully! ✅`,
       data: {
+        ...schoolObj,
         id: newSchool._id,
         schoolId: newSchool._id,
-        campusId: newSchool.campusId,
-        schoolName: newSchool.schoolName,
-        principalName: newSchool.principalName,
-        email: newSchool.email,
-        contactNo: newSchool.contactNo,
-        address: newSchool.address,
-        website: newSchool.website,
-        isActive: newSchool.isActive,
-        enabledModules: newSchool.enabledModules,
-        createdAt: newSchool.createdAt,
+        enabledSubModules: newSchool.enabledSubModules
+          ? Object.fromEntries(newSchool.enabledSubModules)
+          : {},
       },
     });
   } catch (err) {
@@ -436,11 +469,11 @@ router.patch("/schools/:id/toggle-status", superAdminAuth, async (req, res) => {
   }
 });
 
-// 🧩 10. Update Enabled Functionality/Modules for School
+// 🧩 10. Update Enabled Functionality/Modules and Sub-modules for School
 router.patch("/schools/:id/modules", superAdminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { enabledModules } = req.body;
+    const { enabledModules, enabledSubModules } = req.body;
 
     if (!Array.isArray(enabledModules)) {
       return res.status(400).json({
@@ -455,6 +488,24 @@ router.patch("/schools/:id/modules", superAdminAuth, async (req, res) => {
     }
 
     school.enabledModules = enabledModules;
+
+    // Update sub-modules if provided
+    if (enabledSubModules && typeof enabledSubModules === "object" && !Array.isArray(enabledSubModules)) {
+      school.enabledSubModules = new Map(Object.entries(enabledSubModules));
+    } else {
+      // Auto-set: for newly enabled modules use defaults; preserve existing; remove disabled
+      const existingMap = school.enabledSubModules
+        ? Object.fromEntries(school.enabledSubModules)
+        : {};
+      const newMap = {};
+      enabledModules.forEach((m) => {
+        newMap[m] = existingMap[m] !== undefined ? existingMap[m] : (DEFAULT_SUB_MODULES[m] || []);
+      });
+      school.enabledSubModules = new Map(Object.entries(newMap));
+    }
+
+    school.markModified("enabledModules");
+    school.markModified("enabledSubModules");
     await school.save();
 
     res.json({
@@ -465,6 +516,46 @@ router.patch("/schools/:id/modules", superAdminAuth, async (req, res) => {
         campusId: school.campusId,
         schoolName: school.schoolName,
         enabledModules: school.enabledModules,
+        enabledSubModules: school.enabledSubModules
+          ? Object.fromEntries(school.enabledSubModules)
+          : {},
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🧩 10b. Update Sub-modules only for a specific module
+router.patch("/schools/:id/submodules", superAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enabledSubModules } = req.body;
+
+    if (!enabledSubModules || typeof enabledSubModules !== "object" || Array.isArray(enabledSubModules)) {
+      return res.status(400).json({
+        success: false,
+        message: "enabledSubModules must be an object mapping module keys to arrays of sub-module keys",
+      });
+    }
+
+    const school = await SchoolAdmin.findById(id);
+    if (!school) {
+      return res.status(404).json({ success: false, message: "School not found" });
+    }
+
+    school.enabledSubModules = new Map(Object.entries(enabledSubModules));
+    school.markModified("enabledSubModules");
+    await school.save();
+
+    res.json({
+      success: true,
+      message: `Sub-module permissions updated for '${school.schoolName}' ✅`,
+      data: {
+        id: school._id,
+        campusId: school.campusId,
+        schoolName: school.schoolName,
+        enabledSubModules: Object.fromEntries(school.enabledSubModules),
       },
     });
   } catch (err) {

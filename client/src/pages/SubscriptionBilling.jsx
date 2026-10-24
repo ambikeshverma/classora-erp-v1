@@ -1,17 +1,22 @@
 import React, { useMemo, useState } from "react";
 import "./subscriptionBilling.css";
 import AppButton from "../components/AppButton";
+import { useAuth } from "../context/AuthContext";
+import { SkeletonTable } from "../components/Skeleton";
 
 function SubscriptionBilling() {
+  const { user, role } = useAuth();
+
   const schoolInfo = {
-    schoolName: "ABC Public School",
-    campusId: "CSAIC001",
+    schoolName: user?.schoolName || user?.name || localStorage.getItem("userName") || "ABC Public School",
+    campusId: user?.campusId || localStorage.getItem("campusId") || "CSAIC001",
     session: "2026-27",
   };
 
   const currentUser = {
-    role: "School Admin",
-    position: "School Admin",
+    role: role || user?.role || "School Admin",
+    position: user?.position || role || "School Admin",
+    ...(user || {}),
   };
 
   const allowedBillingRoles = [
@@ -117,6 +122,7 @@ function SubscriptionBilling() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showPayPopup, setShowPayPopup] = useState(false);
   const [showHistoryPopup, setShowHistoryPopup] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedBillIds, setSelectedBillIds] = useState([]);
   const [paymentScreenshot, setPaymentScreenshot] = useState(null);
   const [verificationPending, setVerificationPending] = useState(false);
@@ -320,7 +326,14 @@ CLASSORA ERP
       </div>
 
       <div className="subscription-top-actions">
-        <AppButton type="primary" onClick={() => setShowHistoryPopup(true)}>
+        <AppButton
+          type="primary"
+          onClick={() => {
+            setHistoryLoading(true);
+            setShowHistoryPopup(true);
+            setTimeout(() => setHistoryLoading(false), 300);
+          }}
+        >
           Billing History
         </AppButton>
       </div>
@@ -584,7 +597,12 @@ CLASSORA ERP
                 <div className="form-group">
   <label>Session</label>
 
-  <select>
+  <select
+    onChange={() => {
+      setHistoryLoading(true);
+      setTimeout(() => setHistoryLoading(false), 250);
+    }}
+  >
     <option>All Sessions</option>
     <option>2026-27</option>
     <option>2025-26</option>
@@ -619,15 +637,19 @@ CLASSORA ERP
                 </thead>
 
                <tbody>
-  {paidBills.length === 0 && (
+  {historyLoading ? (
+    <tr>
+      <td colSpan="6" style={{ padding: "4px 0", border: "none" }}>
+        <SkeletonTable rows={3} columns={6} />
+      </td>
+    </tr>
+  ) : paidBills.length === 0 ? (
     <tr>
       <td colSpan="6">
         No Bills Available
       </td>
     </tr>
-  )}
-
-  {paidBills.length > 0 &&
+  ) : (
     paidBills.map((bill) => (
       <tr key={bill.id}>
         <td>
@@ -654,7 +676,7 @@ CLASSORA ERP
         <td>₹{bill.amount.toFixed(2)}</td>
         <td>{bill.paidDate}</td>
       </tr>
-    ))}
+    )))}
 </tbody>
               </table>
             </div>

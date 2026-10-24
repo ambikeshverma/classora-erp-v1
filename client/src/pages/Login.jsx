@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { schoolService } from "../services/api";
+import { useAuth } from "../context/AuthContext";
 import { Shield, AlertTriangle, Eye, EyeOff, LogIn } from "lucide-react";
 import "./login.css";
 
 function Login() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [campusId, setCampusId] = useState(
     localStorage.getItem("rememberCampusId") || ""
   );
@@ -45,16 +47,37 @@ function Login() {
       });
 
       if (res.data.success) {
-        // Store short-term Access Token & School Identity
-        localStorage.setItem("token", res.data.token || res.data.accessToken);
-        localStorage.setItem("userName", res.data.name || res.data.schoolName);
+        // Store via AuthContext (saves role, user info, tokens, modules, etc. to localStorage & context state)
+        login(res.data);
+
+        // Explicitly maintain existing localStorage keys for 100% backward compatibility
+        const token = res.data.token || res.data.accessToken;
+        const role = res.data.role || res.data.user?.role || "schoolAdmin";
+        const userName = res.data.name || res.data.schoolName;
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", role);
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userName", userName);
         localStorage.setItem("schoolId", res.data.schoolId);
         localStorage.setItem("campusId", res.data.campusId);
+
+        if (res.data.user) {
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+          localStorage.setItem("userInfo", JSON.stringify(res.data.user));
+        }
 
         if (res.data.enabledModules) {
           localStorage.setItem(
             "enabledModules",
             JSON.stringify(res.data.enabledModules)
+          );
+        }
+
+        if (res.data.enabledSubModules) {
+          localStorage.setItem(
+            "enabledSubModules",
+            JSON.stringify(res.data.enabledSubModules)
           );
         }
 

@@ -11,3 +11,68 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Sub-module locking styling across all 14 module hub pages */
+.submodule-card-locked {
+  position: relative !important;
+  opacity: 0.65 !important;
+  filter: grayscale(0.2);
+  cursor: not-allowed !important;
+  border-color: rgba(239, 68, 68, 0.45) !important;
+  background: rgba(254, 242, 242, 0.7) !important;
+  transition: all 0.2s ease !important;
+}
+
+.submodule-card-locked:hover {
+  transform: none !important;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15) !important;
+}
+
+.submodule-lock-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+  z-index: 2;
+}
+
+.submodule-toast-banner {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  max-width: 440px;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 99999;
+  animation: slideInUpSub 0.25s ease-out;
+}
+
+@keyframes slideInUpSub {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

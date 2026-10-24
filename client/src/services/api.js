@@ -55,6 +55,12 @@ api.interceptors.response.use(
       localStorage.removeItem("campusId");
       localStorage.removeItem("userName");
       localStorage.removeItem("enabledModules");
+      localStorage.removeItem("enabledSubModules");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userInfo");
+      window.dispatchEvent(new CustomEvent("auth:change", { detail: null }));
       window.dispatchEvent(
         new CustomEvent("school:deactivated", {
           detail: { message: error.response.data.message },
@@ -101,15 +107,44 @@ api.interceptors.response.use(
 
         if (isSuperAdmin) {
           localStorage.setItem("superAdminToken", newAccessToken);
+          if (refreshResponse.data.role) {
+            localStorage.setItem("role", refreshResponse.data.role);
+            localStorage.setItem("userRole", refreshResponse.data.role);
+          }
+          if (refreshResponse.data.admin || refreshResponse.data.user) {
+            const adminData = refreshResponse.data.admin || refreshResponse.data.user;
+            localStorage.setItem("superAdminUser", JSON.stringify(adminData));
+            localStorage.setItem("user", JSON.stringify(adminData));
+            localStorage.setItem("userInfo", JSON.stringify(adminData));
+          }
         } else {
           localStorage.setItem("token", newAccessToken);
+          if (refreshResponse.data.role) {
+            localStorage.setItem("role", refreshResponse.data.role);
+            localStorage.setItem("userRole", refreshResponse.data.role);
+          }
+          if (refreshResponse.data.user) {
+            localStorage.setItem("user", JSON.stringify(refreshResponse.data.user));
+            localStorage.setItem("userInfo", JSON.stringify(refreshResponse.data.user));
+          }
+          if (refreshResponse.data.name || refreshResponse.data.schoolName) {
+            localStorage.setItem("userName", refreshResponse.data.name || refreshResponse.data.schoolName);
+          }
           if (refreshResponse.data.enabledModules) {
             localStorage.setItem(
               "enabledModules",
               JSON.stringify(refreshResponse.data.enabledModules)
             );
           }
+          if (refreshResponse.data.enabledSubModules) {
+            localStorage.setItem(
+              "enabledSubModules",
+              JSON.stringify(refreshResponse.data.enabledSubModules)
+            );
+          }
         }
+
+        window.dispatchEvent(new CustomEvent("auth:change", { detail: refreshResponse.data }));
 
         api.defaults.headers.common.Authorization = `Bearer ${newAccessToken}`;
         processQueue(null, newAccessToken);
@@ -121,6 +156,11 @@ api.interceptors.response.use(
         if (isSuperAdmin) {
           localStorage.removeItem("superAdminToken");
           localStorage.removeItem("superAdminUser");
+          localStorage.removeItem("role");
+          localStorage.removeItem("userRole");
+          localStorage.removeItem("user");
+          localStorage.removeItem("userInfo");
+          window.dispatchEvent(new CustomEvent("auth:change", { detail: null }));
           if (!window.location.pathname.includes("/super-admin/login")) {
             window.location.href = "/super-admin/login";
           }
@@ -128,6 +168,12 @@ api.interceptors.response.use(
           localStorage.removeItem("token");
           localStorage.removeItem("schoolId");
           localStorage.removeItem("campusId");
+          localStorage.removeItem("userName");
+          localStorage.removeItem("role");
+          localStorage.removeItem("userRole");
+          localStorage.removeItem("user");
+          localStorage.removeItem("userInfo");
+          window.dispatchEvent(new CustomEvent("auth:change", { detail: null }));
           if (window.location.pathname !== "/") {
             window.location.href = "/";
           }
@@ -158,8 +204,10 @@ export const superAdminService = {
   updateSchool: (id, data) => api.put(`/api/superAdmin/schools/${id}`, data),
   toggleSchoolStatus: (id, isActive) =>
     api.patch(`/api/superAdmin/schools/${id}/toggle-status`, { isActive }),
-  updateSchoolModules: (id, enabledModules) =>
-    api.patch(`/api/superAdmin/schools/${id}/modules`, { enabledModules }),
+  updateSchoolModules: (id, enabledModules, enabledSubModules) =>
+    api.patch(`/api/superAdmin/schools/${id}/modules`, { enabledModules, enabledSubModules }),
+  updateSchoolSubModules: (id, enabledSubModules) =>
+    api.patch(`/api/superAdmin/schools/${id}/submodules`, { enabledSubModules }),
   resetSchoolPassword: (id, newPassword) =>
     api.patch(`/api/superAdmin/schools/${id}/reset-password`, { newPassword }),
   deleteSchool: (id) => api.delete(`/api/superAdmin/schools/${id}`),

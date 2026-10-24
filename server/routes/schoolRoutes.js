@@ -68,7 +68,22 @@ router.post("/login", async (req, res) => {
     // 🍪 Store refresh token in HTTP-only cookie
     setRefreshCookie(res, refreshToken, "refreshToken");
 
-    // Return access token and school data (with schoolId included)
+    // Return access token and school data (with schoolId and role included)
+    const schoolRole = school.role || "schoolAdmin";
+    const userInfo = {
+      id: school._id,
+      schoolId: school._id,
+      campusId: school.campusId,
+      schoolName: school.schoolName,
+      name: school.schoolName,
+      email: school.email,
+      role: schoolRole,
+      address: school.address,
+      contactNo: school.contactNo,
+      schoolLogo: school.schoolLogo,
+      enabledModules: school.enabledModules || [],
+    };
+
     res.json({
       success: true,
       message: "School Login Successful ✅",
@@ -79,12 +94,16 @@ router.post("/login", async (req, res) => {
       schoolName: school.schoolName,
       name: school.schoolName,
       email: school.email,
-      role: school.role,
+      role: schoolRole,
       enabledModules: school.enabledModules || [],
+      enabledSubModules: school.enabledSubModules
+        ? Object.fromEntries(school.enabledSubModules)
+        : {},
       isActive: school.isActive,
       address: school.address,
       contactNo: school.contactNo,
       schoolLogo: school.schoolLogo,
+      user: userInfo,
     });
   } catch (err) {
     console.error("School Login Error:", err);
@@ -143,6 +162,21 @@ router.post("/refresh", async (req, res) => {
 
     setRefreshCookie(res, newRefreshToken, "refreshToken");
 
+    const schoolRole = school.role || "schoolAdmin";
+    const userInfo = {
+      id: school._id,
+      schoolId: school._id,
+      campusId: school.campusId,
+      schoolName: school.schoolName,
+      name: school.schoolName,
+      email: school.email,
+      role: schoolRole,
+      address: school.address,
+      contactNo: school.contactNo,
+      schoolLogo: school.schoolLogo,
+      enabledModules: school.enabledModules || [],
+    };
+
     res.json({
       success: true,
       token: accessToken,
@@ -151,8 +185,17 @@ router.post("/refresh", async (req, res) => {
       campusId: school.campusId,
       schoolName: school.schoolName,
       name: school.schoolName,
+      email: school.email,
+      role: schoolRole,
       enabledModules: school.enabledModules || [],
+      enabledSubModules: school.enabledSubModules
+        ? Object.fromEntries(school.enabledSubModules)
+        : {},
       isActive: school.isActive,
+      address: school.address,
+      contactNo: school.contactNo,
+      schoolLogo: school.schoolLogo,
+      user: userInfo,
     });
   } catch (err) {
     return res.status(401).json({
@@ -189,6 +232,22 @@ router.post("/logout", async (req, res) => {
 
 // 👤 4. Get Current School Profile
 router.get("/profile", schoolAuth, async (req, res) => {
+  const schoolRole = req.school.role || "schoolAdmin";
+  const userInfo = {
+    id: req.school._id,
+    schoolId: req.school._id,
+    campusId: req.school.campusId,
+    schoolName: req.school.schoolName,
+    name: req.school.schoolName,
+    email: req.school.email,
+    role: schoolRole,
+    contactNo: req.school.contactNo,
+    address: req.school.address,
+    website: req.school.website,
+    schoolLogo: req.school.schoolLogo,
+    enabledModules: req.school.enabledModules || [],
+  };
+
   res.json({
     success: true,
     data: {
@@ -202,9 +261,15 @@ router.get("/profile", schoolAuth, async (req, res) => {
       address: req.school.address,
       website: req.school.website,
       schoolLogo: req.school.schoolLogo,
+      role: schoolRole,
       enabledModules: req.school.enabledModules,
+      enabledSubModules: req.school.enabledSubModules
+        ? Object.fromEntries(req.school.enabledSubModules)
+        : {},
       isActive: req.school.isActive,
     },
+    user: userInfo,
+    role: schoolRole,
   });
 });
 

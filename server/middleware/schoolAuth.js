@@ -54,11 +54,13 @@ const schoolAuth = async (req, res, next) => {
     req.campusId = school._id;
     req.campusCode = school.campusId;
     req.user = {
+      id: school._id,
       schoolId: school._id,
       campusId: school._id,
       campusCode: school.campusId,
+      name: school.schoolName,
       email: school.email,
-      role: school.role,
+      role: school.role || decoded.role || "schoolAdmin",
       enabledModules: school.enabledModules || [],
       ...decoded,
     };

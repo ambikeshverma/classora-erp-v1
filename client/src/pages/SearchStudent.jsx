@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import "./searchStudent.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
 
 function SearchStudent() {
   const schoolId = localStorage.getItem("schoolId") || "SCH001";
@@ -69,6 +70,7 @@ function SearchStudent() {
   const [searchText, setSearchText] = useState("");
 
   const [isSearched, setIsSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const [appliedFilters, setAppliedFilters] = useState({
     classFilter: "",
@@ -117,16 +119,14 @@ function SearchStudent() {
       searchText,
     };
 
+    setLoading(true);
     setAppliedFilters(filters);
-
-    const result = getFilteredStudents(filters);
-
-    if (result.length === 0) {
-      alert("No active student found");
-    }
-
     setIsSearched(true);
     setSelectedIds([]);
+
+    setTimeout(() => {
+      setLoading(false);
+    }, 350);
   };
 
   const filteredStudents = getFilteredStudents(appliedFilters);
@@ -283,7 +283,13 @@ function SearchStudent() {
             </thead>
 
             <tbody>
-              {!isSearched ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="9" style={{ padding: "4px 0", border: "none" }}>
+                    <SkeletonTable rows={4} columns={9} />
+                  </td>
+                </tr>
+              ) : !isSearched ? (
                 <tr>
                   <td colSpan="9" className="empty-row">
                     Click Search to view students

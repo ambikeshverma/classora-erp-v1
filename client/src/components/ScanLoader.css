@@ -1,0 +1,431 @@
+/* ==========================================================
+   CLASSORA RADIAL VIGNETTE SCANNING LOADER
+   Seamless Floating Center with Radial Edge Vignette
+========================================================== */
+
+.scanloader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Radial vignette: Low opacity black in center, high opacity at corners & edges */
+  background: radial-gradient(
+    ellipse at center,
+    rgba(5, 8, 20, 0.40) 0%,
+    rgba(4, 7, 18, 0.65) 45%,
+    rgba(2, 4, 12, 0.88) 80%,
+    rgba(1, 2, 8, 0.94) 100%
+  );
+  backdrop-filter: blur(8px) saturate(130%);
+  -webkit-backdrop-filter: blur(8px) saturate(130%);
+  opacity: 1;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), backdrop-filter 0.25s ease;
+  user-select: none;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.scanloader-overlay.scanloader-exiting {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  pointer-events: none;
+}
+
+/* Subtle holographic grid lines, fading out towards edges */
+.scanloader-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  mask-image: radial-gradient(circle at center, black 25%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle at center, black 25%, transparent 70%);
+}
+
+/* Ambient Center Glow */
+.scanloader-center-glow {
+  position: absolute;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(60px);
+  opacity: 0.35;
+  animation: scanAmbientGlow 2.5s ease-in-out infinite alternate;
+}
+
+.scanloader-overlay.variant-school .scanloader-center-glow {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.6) 0%, transparent 70%);
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-center-glow {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.5) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%);
+}
+
+/* Seamless Floating Content (NO square box/card) */
+.scanloader-floating-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  max-width: 520px;
+  width: 90%;
+  z-index: 10;
+  animation: scanFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ==========================================================
+   LOGO CIRCLE & HIGH-TECH RADAR SCANNER
+========================================================== */
+
+.scanloader-circle-hub {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+/* Sonar Ripple Wave Rings expanding outward */
+.scanloader-ripple-1,
+.scanloader-ripple-2 {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.scanloader-ripple-1 {
+  inset: -12px;
+  border: 1px dashed rgba(129, 140, 248, 0.35);
+  animation: scanSpinRing 14s linear infinite;
+}
+
+.scanloader-ripple-2 {
+  inset: -24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: scanSpinRingReverse 20s linear infinite;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-ripple-1 {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Radar Rotating Sweep Cone */
+.scanloader-radar-sweep {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 240deg,
+    rgba(99, 102, 241, 0.08) 290deg,
+    rgba(129, 140, 248, 0.45) 360deg
+  );
+  animation: scanRadarSweep 2.2s linear infinite;
+  pointer-events: none;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-radar-sweep {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 240deg,
+    rgba(245, 158, 11, 0.1) 290deg,
+    rgba(251, 191, 36, 0.55) 360deg
+  );
+}
+
+/* Main Logo Circle */
+.scanloader-logo-circle {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.6),
+    0 0 25px rgba(99, 102, 241, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+.scanloader-overlay.variant-school .scanloader-logo-circle {
+  background: linear-gradient(135deg, #4f46e5 0%, #312e81 60%, #1e1b4b 100%);
+  border: 2px solid rgba(165, 180, 252, 0.6);
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-logo-circle {
+  background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 60%, #1e1035 100%);
+  border: 2px solid rgba(251, 191, 36, 0.7);
+  box-shadow: 
+    0 10px 30px rgba(0, 0, 0, 0.6),
+    0 0 25px rgba(245, 158, 11, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.3);
+}
+
+/* Moving Laser Scan Line (Sweeps across the circle) */
+.scanloader-circle-laser {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.8) 25%,
+    #38bdf8 50%,
+    rgba(255, 255, 255, 0.8) 75%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 12px 2px #38bdf8,
+    0 0 20px 4px rgba(56, 189, 248, 0.6);
+  z-index: 5;
+  animation: scanLaserUpDown 1.6s ease-in-out infinite alternate;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-circle-laser {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.8) 25%,
+    #fbbf24 50%,
+    rgba(255, 255, 255, 0.8) 75%,
+    transparent 100%
+  );
+  box-shadow: 
+    0 0 12px 2px #f59e0b,
+    0 0 20px 4px rgba(245, 158, 11, 0.6);
+}
+
+.scanloader-circle-sheen {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 22px;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.22) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 4;
+  animation: scanSheenUpDown 1.6s ease-in-out infinite alternate;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-circle-sheen {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.22) 0%, transparent 100%);
+}
+
+/* Logo Symbol */
+.scanloader-circle-glyph {
+  font-size: 46px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -1px;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.7);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================================
+   TITLE & SUBTITLE
+========================================================== */
+
+.scanloader-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.3px;
+  color: #ffffff;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.15);
+}
+
+.scanloader-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: #94a3b8;
+  margin: 0 0 20px 0;
+  max-width: 420px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+/* ==========================================================
+   SCANNING BEAM / PROGRESS INDICATOR (Floating)
+========================================================== */
+
+.scanloader-scanning-track {
+  width: 220px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+  margin-bottom: 14px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.scanloader-scanning-beam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  background: linear-gradient(90deg, transparent, #818cf8, #38bdf8, transparent);
+  border-radius: 999px;
+  animation: scanTrackSweep 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-scanning-beam {
+  background: linear-gradient(90deg, transparent, #c084fc, #fbbf24, transparent);
+}
+
+/* Status Readout */
+.scanloader-status-line {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.scanloader-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: scanDotBlink 1.2s infinite;
+}
+
+.scanloader-overlay.variant-superAdmin .scanloader-live-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+/* ==========================================================
+   KEYFRAME ANIMATIONS
+========================================================== */
+
+@keyframes scanFadeIn {
+  from {
+    transform: scale(0.96) translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scanLaserUpDown {
+  0% {
+    top: 0%;
+  }
+  100% {
+    top: 97%;
+  }
+}
+
+@keyframes scanSheenUpDown {
+  0% {
+    top: 0%;
+    transform: translateY(-100%);
+  }
+  100% {
+    top: 97%;
+    transform: translateY(0%);
+  }
+}
+
+@keyframes scanRadarSweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanSpinRing {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes scanSpinRingReverse {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes scanTrackSweep {
+  0% {
+    left: -45%;
+  }
+  100% {
+    left: 105%;
+  }
+}
+
+@keyframes scanAmbientGlow {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.15);
+    opacity: 0.45;
+  }
+}
+
+@keyframes scanDotBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+}
+
+@media (max-width: 480px) {
+  .scanloader-title {
+    font-size: 20px;
+  }
+  .scanloader-subtitle {
+    font-size: 13px;
+  }
+  .scanloader-circle-hub {
+    width: 120px;
+    height: 120px;
+  }
+  .scanloader-logo-circle {
+    width: 82px;
+    height: 82px;
+  }
+  .scanloader-circle-glyph {
+    font-size: 38px;
+  }
+}

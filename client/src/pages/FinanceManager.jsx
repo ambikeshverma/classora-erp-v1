@@ -1,18 +1,29 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./financeManager.css";
+import { MODULES_REGISTRY } from "../constants/modulesRegistry";
+import { useModulePermissions } from "../hooks/useModulePermissions";
+
 function FinanceManager() {
-  const cards = [
-    { title: "Account Groups", icon: "📂" },
-    { title: "Account Heads", icon: "🧾" },
-    { title: "Income Entry", icon: "📥" },
-    { title: "Expense Entry", icon: "📤" },
-    { title: "Analytics and Reports", icon: "📊" }
-  ];
+  const navigate = useNavigate();
+  const MODULE_KEY = "finance";
+  const { isSubModuleEnabled, showLockNotice, toastMessage } = useModulePermissions(MODULE_KEY);
+
+  const moduleDef = MODULES_REGISTRY.find((m) => m.key === MODULE_KEY);
+  const cards = moduleDef ? moduleDef.subModules : [];
+
+  const handleCardClick = (card) => {
+    if (!isSubModuleEnabled(card.key)) {
+      showLockNotice(card.name);
+      return;
+    }
+    navigate(card.route);
+  };
 
   return (
     <div className="finance-page">
       <div className="finance-header">
-        <button className="back-btn" onClick={() => window.location.href = "/dashboard"}>
+        <button className="back-btn" onClick={() => navigate("/dashboard")}>
           ←
         </button>
 
@@ -23,40 +34,28 @@ function FinanceManager() {
       </div>
 
       <div className="finance-grid">
-        {cards.map((card, index) => (
-          <div
-  className="finance-card"
-  key={index}
-  onClick={() => {
-    if (card.title === "Account Groups") {
-      window.location.href = "/account-groups";
-    }
-
-    else if (card.title === "Account Heads") {
-      window.location.href = "/account-heads";
-    }
-
-    else if (card.title === "Income Entry") {
-      window.location.href = "/income-entry";
-    }
-    else if (card.title === "Expense Entry") {
-  window.location.href = "/expense-entry";
-}
-
-  else if (
-  card.title === "Analytics and Reports"
-) {
-  window.location.href =
-    "/finance-manager/reports";
-}
-  }}
->
-  
-  <div className="finance-icon">{card.icon}</div>
-  <h3>{card.title}</h3>
-</div>
-        ))}
+        {cards.map((card) => {
+          const enabled = isSubModuleEnabled(card.key);
+          return (
+            <div
+              className={`finance-card ${!enabled ? "submodule-card-locked" : ""}`}
+              key={card.key}
+              onClick={() => handleCardClick(card)}
+              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
+            >
+              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
+              <div className="finance-icon">{card.icon}</div>
+              <h3>{card.name}</h3>
+            </div>
+          );
+        })}
       </div>
+
+      {toastMessage && (
+        <div className="submodule-toast-banner">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

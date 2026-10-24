@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import AppButton from "../components/AppButton";
 import { schoolService } from "../services/api";
+import { MODULES_REGISTRY } from "../constants/modulesRegistry";
+import { useAuth } from "../context/AuthContext";
+import ScanLoader from "../components/ScanLoader";
+
 function Dashboard() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [pageLoading, setPageLoading] = useState(true);
   const today = new Date();
 
   const getCurrentSession = () => {
@@ -96,27 +104,7 @@ function Dashboard() {
     "2022-2023",
   ];
 
-  const modules = [
-    { key: "user_control", name: "User Control", icon: "🔐", path: "/user-control" },
-    { key: "admin_panel", name: "Admin Panel", icon: "⚙️", path: "/admin-panel" },
-    { key: "admissions", name: "Admissions", icon: "📝", path: "/admissions" },
-    { key: "reception", name: "Reception Desk", icon: "🏢", path: "/reception-desk" },
-    { key: "student_hub", name: "Student Hub", icon: "🎓", path: "/student-hub" },
-    { key: "academic_zone", name: "Academic Zone", icon: "📚", path: "/academic-zone" },
-    { key: "attendance", name: "Attendance System", icon: "✅", path: "/attendance-system" },
-    { key: "fee_manager", name: "Fee Manager", icon: "💳", path: "/fee-manager" },
-    { key: "transport", name: "Transport System", icon: "🚌", path: "/transport-system" },
-    { key: "finance", name: "Finance Manager", icon: "📊", path: "/finance-manager" },
-    { key: "student_app_access", name: "Student App Access", icon: "📱", path: "/student-app-access" },
-    { key: "hr_staff", name: "HR & Staff Management", icon: "👨‍🏫", path: "/staff-control" },
-    { key: "exam_tools", name: "Exam Tools", icon: "🧾", path: "/exam-tools" },
-    {
-      key: "report_cards",
-      name: "Report Card Management",
-      icon: "📄",
-      path: "/report-card-management",
-    },
-  ];
+  const modules = MODULES_REGISTRY;
 
   const getEnabledModules = () => enabledModules;
 
@@ -129,17 +117,37 @@ function Dashboard() {
   // Fetch fresh enabledModules + notices from server on every mount
   // This ensures Super Admin changes are reflected without re-login
   useEffect(() => {
-    schoolService.getProfile().then((res) => {
-      if (res.data?.success && res.data.data?.enabledModules) {
-        const fresh = res.data.data.enabledModules;
-        setEnabledModules(fresh);
-        localStorage.setItem("enabledModules", JSON.stringify(fresh));
-      }
-    }).catch(() => {});
+    let isMounted = true;
+    setPageLoading(true);
 
-    schoolService.getNotices().then((res) => {
-      if (res.data?.success) setNotices(res.data.notices || []);
-    }).catch(() => {});
+    Promise.allSettled([
+      schoolService.getProfile().then((res) => {
+        if (!isMounted) return;
+        if (res.data?.success) {
+          if (res.data.data?.enabledModules) {
+            const fresh = res.data.data.enabledModules;
+            setEnabledModules(fresh);
+            localStorage.setItem("enabledModules", JSON.stringify(fresh));
+          }
+          if (res.data.data?.enabledSubModules) {
+            localStorage.setItem(
+              "enabledSubModules",
+              JSON.stringify(res.data.data.enabledSubModules)
+            );
+          }
+        }
+      }).catch(() => {}),
+      schoolService.getNotices().then((res) => {
+        if (!isMounted) return;
+        if (res.data?.success) setNotices(res.data.notices || []);
+      }).catch(() => {}),
+    ]).finally(() => {
+      if (isMounted) setPageLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const dismissNotice = (id) => {
@@ -307,7 +315,7 @@ function Dashboard() {
       return;
     }
     if (module.path) {
-      window.location.href = module.path;
+      navigate(module.path);
     }
   };
 
@@ -315,12 +323,23 @@ function Dashboard() {
     try {
       await schoolService.logout();
     } catch (e) {}
-    localStorage.clear();
-    window.location.href = "/";
+    logout({ redirect: true, redirectPath: "/" });
   };
 
   return (
     <div className="layout">
+      {/* 🚀 Modern Holographic Scanning Page Overlay Loader */}
+      <ScanLoader
+        loading={pageLoading}
+        title="Classora ERP"
+        subtitle="Initializing secure campus session & modules..."
+        badgeText="CAMPUS SCAN • ENCRYPTED SESSION"
+        readout="Synchronizing Campus Intelligence & Permissions..."
+        variant="school"
+        delay={100}
+        minDuration={300}
+      />
+
       <button
         className="mobile-menu-btn"
         onClick={() => setMobileSidebar(true)}
@@ -378,8 +397,8 @@ function Dashboard() {
         <header className="topbar">
           <div className="top-left">
             <h1 style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span>{localStorage.getItem("userName") || "School Dashboard"}</span>
-              {localStorage.getItem("campusId") && (
+              <span>{user?.name || user?.schoolName || localStorage.getItem("userName") || "School Dashboard"}</span>
+              {(user?.campusId || localStorage.getItem("campusId")) && (
                 <span
                   style={{
                     fontSize: "12px",
@@ -391,7 +410,7 @@ function Dashboard() {
                     border: "1px solid #c7d2fe",
                   }}
                 >
-                  Campus ID: {localStorage.getItem("campusId")}
+                  Campus ID: {user?.campusId || localStorage.getItem("campusId")}
                 </span>
               )}
             </h1>

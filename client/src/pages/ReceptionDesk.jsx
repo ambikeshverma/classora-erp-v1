@@ -1,23 +1,29 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./receptionDesk.css";
+import { MODULES_REGISTRY } from "../constants/modulesRegistry";
+import { useModulePermissions } from "../hooks/useModulePermissions";
 
 function ReceptionDesk() {
-  const cards = [
-    { title: "Enquiry Sources", icon: "📰" },
-    { title: "Follow-up Management", icon: "🔄" },
-    { title: "Gate Pass Management", icon: "🚪" },
-    { title: "Student ID Management",icon: "🎓" },
-    { title: "Parent ID Management", icon: "👨‍👩‍👧" },
-    { title: "Appointment Scheduling", icon: "📅" },
-    { title: "Visitor Management", icon: "🛂", },
-    { title: "Support & Complaints", icon: "🛠️" },
-    { title: "Analytics and Reports", icon: "📊" }
-  ];
+  const navigate = useNavigate();
+  const MODULE_KEY = "reception";
+  const { isSubModuleEnabled, showLockNotice, toastMessage } = useModulePermissions(MODULE_KEY);
+
+  const moduleDef = MODULES_REGISTRY.find((m) => m.key === MODULE_KEY);
+  const cards = moduleDef ? moduleDef.subModules : [];
+
+  const handleCardClick = (card) => {
+    if (!isSubModuleEnabled(card.key)) {
+      showLockNotice(card.name);
+      return;
+    }
+    navigate(card.route);
+  };
 
   return (
     <div className="reception-page">
       <div className="reception-header">
-        <button className="back-btn" onClick={() => window.location.href = "/dashboard"}>
+        <button className="back-btn" onClick={() => navigate("/dashboard")}>
           ←
         </button>
 
@@ -28,57 +34,28 @@ function ReceptionDesk() {
       </div>
 
       <div className="reception-grid">
-        {cards.map((card, index) => (
-          <div
-            className="reception-card"
-            key={index}
-            onClick={() => {
-
-              if (card.title === "Enquiry Sources") {
-                window.location.href = "/enquiry-sources";
-              }
-              else if (card.title === "Enquiry Management") {
-                window.location.href = "/enquiry-management";
-              }
-              else if (card.title === "Follow-up Management") {
-                window.location.href = "/follow-up-management";
-              }
-              else if (card.title === "Gate Pass Management") {
-                window.location.href =
-                  "/gate-pass-management";
-              }
-              else if (card.title === "Student ID Management") {
-                window.location.href =
-                  "/student-id-management";
-              }
-              else if (card.title === "Parent ID Management") {
-                window.location.href =
-                  "/parent-id-management";
-              }
-              else if (card.title === "Visitor Management") {
-                window.location.href =
-                  "/visitor-management";
-              }
-              else if (card.title === "Appointment Scheduling") {
-                window.location.href =
-                  "/appointment-scheduling";
-              }
-              else if (card.title === "Support & Complaints") {
-                window.location.href =
-                  "/support-complaint";
-              }
-              else if (card.title === "Analytics and Reports") {
-                window.location.href =
-                  "/reception-reports";
-              }
-
-            }}
-          >
-            <div className="reception-icon">{card.icon}</div>
-            <h3>{card.title}</h3>
-          </div>
-        ))}
+        {cards.map((card) => {
+          const enabled = isSubModuleEnabled(card.key);
+          return (
+            <div
+              className={`reception-card ${!enabled ? "submodule-card-locked" : ""}`}
+              key={card.key}
+              onClick={() => handleCardClick(card)}
+              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
+            >
+              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
+              <div className="reception-icon">{card.icon}</div>
+              <h3>{card.name}</h3>
+            </div>
+          );
+        })}
       </div>
+
+      {toastMessage && (
+        <div className="submodule-toast-banner">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

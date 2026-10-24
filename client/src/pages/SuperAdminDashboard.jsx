@@ -14,31 +14,23 @@ import {
   Trash2,
   Copy,
   Check,
-  RefreshCw,
   Phone,
   Mail,
   MapPin,
   Sparkles,
   Sliders,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import "./superAdminDashboard.css";
 
-const ALL_MODULES = [
-  { key: "admissions", name: "Admissions & Enquiries", icon: "📝", desc: "Admissions, enquiry forms, and admission leads" },
-  { key: "student_hub", name: "Student Hub", icon: "🎓", desc: "Student records, profiles, and roll numbers" },
-  { key: "academic_zone", name: "Academic Zone", icon: "📚", desc: "Classes, sections, mediums, and subject mapping" },
-  { key: "attendance", name: "Attendance System", icon: "✅", desc: "Student & staff daily attendance and bulk logs" },
-  { key: "fee_manager", name: "Fee Management", icon: "💳", desc: "Fee plans, collection receipts, and fee schemes" },
-  { key: "exam_tools", name: "Exam Tools", icon: "🧾", desc: "Exam setups, timetables, and mark entries" },
-  { key: "report_cards", name: "Report Cards", icon: "📊", desc: "Report card generation and grade sheets" },
-  { key: "hr_staff", name: "HR & Staff Management", icon: "👨‍🏫", desc: "Staff directory, leaves, and salary slips" },
-  { key: "transport", name: "Transport System", icon: "🚌", desc: "Vehicles, routes, and student allocations" },
-  { key: "finance", name: "Finance Manager", icon: "💰", desc: "Account heads, income, and expense records" },
-  { key: "reception", name: "Reception Desk", icon: "🏢", desc: "Visitor passes, appointments, and complaints" },
-  { key: "student_app_access", name: "Student App Access", icon: "📱", desc: "Mobile app notices, news, and banners" },
-  { key: "admin_panel", name: "Admin Panel", icon: "⚙️", desc: "School parameters and preferences" },
-  { key: "user_control", name: "User Control", icon: "🔐", desc: "School internal staff roles and access" },
-];
+import {
+  MODULES_REGISTRY as ALL_MODULES,
+  getDefaultSubModulesMap as getDefaultSubModules,
+  TOTAL_SUB_MODULES_COUNT as TOTAL_SUB_MODULES,
+} from "../constants/modulesRegistry";
+import ScanLoader from "../components/ScanLoader";
+import { SkeletonCard, SkeletonList } from "../components/Skeleton";
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -48,6 +40,7 @@ const SuperAdminDashboard = () => {
     activeSchools: 0,
     inactiveSchools: 0,
     allModulesCount: ALL_MODULES.length,
+    allSubModulesCount: TOTAL_SUB_MODULES,
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -62,6 +55,11 @@ const SuperAdminDashboard = () => {
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // Accordion & Filter states for Modules modals
+  const [expandedCreateModules, setExpandedCreateModules] = useState({});
+  const [expandedEditModules, setExpandedEditModules] = useState({});
+  const [modulesFilterSearch, setModulesFilterSearch] = useState("");
 
   // Notice modal
   const [noticeModalOpen, setNoticeModalOpen] = useState(false);
@@ -81,6 +79,7 @@ const SuperAdminDashboard = () => {
     website: "",
     schoolLogo: "",
     enabledModules: ALL_MODULES.map((m) => m.key),
+    enabledSubModules: getDefaultSubModules(),
   });
 
   // Form state for Reset Password
@@ -199,20 +198,258 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Accordion Expand Helpers
+  const toggleExpandCreate = (modKey) => {
+    setExpandedCreateModules((prev) => ({
+      ...prev,
+      [modKey]: !prev[modKey],
+    }));
+  };
+
+  const toggleExpandEdit = (modKey) => {
+    setExpandedEditModules((prev) => ({
+      ...prev,
+      [modKey]: !prev[modKey],
+    }));
+  };
+
+  // --- Create School Sub-module Handlers ---
+  const toggleModuleInNewSchool = (modKey) => {
+    const isSelected = newSchoolData.enabledModules.includes(modKey);
+    const modDef = ALL_MODULES.find((m) => m.key === modKey);
+    const allSubs = (modDef?.subModules || []).map((s) => s.key);
+
+    if (isSelected) {
+      const updatedModules = newSchoolData.enabledModules.filter((k) => k !== modKey);
+      const updatedSubs = { ...newSchoolData.enabledSubModules };
+      delete updatedSubs[modKey];
+      setNewSchoolData({
+        ...newSchoolData,
+        enabledModules: updatedModules,
+        enabledSubModules: updatedSubs,
+      });
+    } else {
+      const updatedModules = [...newSchoolData.enabledModules, modKey];
+      const updatedSubs = {
+        ...newSchoolData.enabledSubModules,
+        [modKey]: allSubs,
+      };
+      setNewSchoolData({
+        ...newSchoolData,
+        enabledModules: updatedModules,
+        enabledSubModules: updatedSubs,
+      });
+    }
+  };
+
+  const toggleSubModuleInNewSchool = (modKey, subModKey) => {
+    const isModSelected = newSchoolData.enabledModules.includes(modKey);
+    const currentSubs = newSchoolData.enabledSubModules[modKey] || [];
+    const isSubSelected = currentSubs.includes(subModKey);
+
+    const updatedSubsList = isSubSelected
+      ? currentSubs.filter((k) => k !== subModKey)
+      : [...currentSubs, subModKey];
+
+    const updatedModules = isModSelected
+      ? newSchoolData.enabledModules
+      : [...newSchoolData.enabledModules, modKey];
+
+    setNewSchoolData({
+      ...newSchoolData,
+      enabledModules: updatedModules,
+      enabledSubModules: {
+        ...newSchoolData.enabledSubModules,
+        [modKey]: updatedSubsList,
+      },
+    });
+  };
+
+  const selectAllSubModulesInNewSchool = (modKey) => {
+    const modDef = ALL_MODULES.find((m) => m.key === modKey);
+    const allSubs = (modDef?.subModules || []).map((s) => s.key);
+    const isModSelected = newSchoolData.enabledModules.includes(modKey);
+    const updatedModules = isModSelected
+      ? newSchoolData.enabledModules
+      : [...newSchoolData.enabledModules, modKey];
+
+    setNewSchoolData({
+      ...newSchoolData,
+      enabledModules: updatedModules,
+      enabledSubModules: {
+        ...newSchoolData.enabledSubModules,
+        [modKey]: allSubs,
+      },
+    });
+  };
+
+  const clearAllSubModulesInNewSchool = (modKey) => {
+    setNewSchoolData({
+      ...newSchoolData,
+      enabledSubModules: {
+        ...newSchoolData.enabledSubModules,
+        [modKey]: [],
+      },
+    });
+  };
+
+  const selectAllInNewSchool = () => {
+    setNewSchoolData({
+      ...newSchoolData,
+      enabledModules: ALL_MODULES.map((m) => m.key),
+      enabledSubModules: getDefaultSubModules(),
+    });
+  };
+
+  const clearAllInNewSchool = () => {
+    setNewSchoolData({
+      ...newSchoolData,
+      enabledModules: [],
+      enabledSubModules: {},
+    });
+  };
+
+  // --- Edit School Modules & Sub-modules Handlers ---
+  const openModulesModal = (school) => {
+    const currentEnabledModules = school.enabledModules || [];
+    let currentSubModules = {};
+    if (school.enabledSubModules && typeof school.enabledSubModules === "object") {
+      currentSubModules = { ...school.enabledSubModules };
+    }
+    currentEnabledModules.forEach((modKey) => {
+      if (!currentSubModules[modKey]) {
+        const modDef = ALL_MODULES.find((m) => m.key === modKey);
+        currentSubModules[modKey] = modDef ? (modDef.subModules || []).map((s) => s.key) : [];
+      }
+    });
+
+    setSelectedSchool({
+      ...school,
+      enabledModules: currentEnabledModules,
+      enabledSubModules: currentSubModules,
+    });
+    setModulesFilterSearch("");
+    setModulesModalOpen(true);
+  };
+
+  const toggleModuleInSelected = (modKey) => {
+    if (!selectedSchool) return;
+    const currentMods = selectedSchool.enabledModules || [];
+    const isSelected = currentMods.includes(modKey);
+    const modDef = ALL_MODULES.find((m) => m.key === modKey);
+    const allSubs = (modDef?.subModules || []).map((s) => s.key);
+
+    if (isSelected) {
+      const updatedMods = currentMods.filter((k) => k !== modKey);
+      const updatedSubs = { ...(selectedSchool.enabledSubModules || {}) };
+      delete updatedSubs[modKey];
+      setSelectedSchool({
+        ...selectedSchool,
+        enabledModules: updatedMods,
+        enabledSubModules: updatedSubs,
+      });
+    } else {
+      const updatedMods = [...currentMods, modKey];
+      const updatedSubs = {
+        ...(selectedSchool.enabledSubModules || {}),
+        [modKey]: allSubs,
+      };
+      setSelectedSchool({
+        ...selectedSchool,
+        enabledModules: updatedMods,
+        enabledSubModules: updatedSubs,
+      });
+    }
+  };
+
+  const toggleSubModuleInSelected = (modKey, subModKey) => {
+    if (!selectedSchool) return;
+    const currentMods = selectedSchool.enabledModules || [];
+    const isModSelected = currentMods.includes(modKey);
+    const currentSubs = selectedSchool.enabledSubModules?.[modKey] || [];
+    const isSubSelected = currentSubs.includes(subModKey);
+
+    const updatedSubsList = isSubSelected
+      ? currentSubs.filter((k) => k !== subModKey)
+      : [...currentSubs, subModKey];
+
+    const updatedMods = isModSelected ? currentMods : [...currentMods, modKey];
+
+    setSelectedSchool({
+      ...selectedSchool,
+      enabledModules: updatedMods,
+      enabledSubModules: {
+        ...(selectedSchool.enabledSubModules || {}),
+        [modKey]: updatedSubsList,
+      },
+    });
+  };
+
+  const selectAllSubModulesInSelected = (modKey) => {
+    if (!selectedSchool) return;
+    const modDef = ALL_MODULES.find((m) => m.key === modKey);
+    const allSubs = (modDef?.subModules || []).map((s) => s.key);
+    const currentMods = selectedSchool.enabledModules || [];
+    const updatedMods = currentMods.includes(modKey) ? currentMods : [...currentMods, modKey];
+
+    setSelectedSchool({
+      ...selectedSchool,
+      enabledModules: updatedMods,
+      enabledSubModules: {
+        ...(selectedSchool.enabledSubModules || {}),
+        [modKey]: allSubs,
+      },
+    });
+  };
+
+  const clearAllSubModulesInSelected = (modKey) => {
+    if (!selectedSchool) return;
+    setSelectedSchool({
+      ...selectedSchool,
+      enabledSubModules: {
+        ...(selectedSchool.enabledSubModules || {}),
+        [modKey]: [],
+      },
+    });
+  };
+
+  const selectAllModulesForSelected = () => {
+    if (!selectedSchool) return;
+    setSelectedSchool({
+      ...selectedSchool,
+      enabledModules: ALL_MODULES.map((m) => m.key),
+      enabledSubModules: getDefaultSubModules(),
+    });
+  };
+
+  const clearAllModulesForSelected = () => {
+    if (!selectedSchool) return;
+    setSelectedSchool({
+      ...selectedSchool,
+      enabledModules: [],
+      enabledSubModules: {},
+    });
+  };
+
   // Save Module Permissions for Selected School
   const handleSaveModules = async () => {
     if (!selectedSchool) return;
     try {
       const res = await superAdminService.updateSchoolModules(
         selectedSchool._id,
-        selectedSchool.enabledModules
+        selectedSchool.enabledModules,
+        selectedSchool.enabledSubModules
       );
       if (res.data.success) {
         showToast(res.data.message);
         setSchools((prev) =>
           prev.map((s) =>
             s._id === selectedSchool._id
-              ? { ...s, enabledModules: selectedSchool.enabledModules }
+              ? {
+                  ...s,
+                  enabledModules: res.data.data.enabledModules,
+                  enabledSubModules: res.data.data.enabledSubModules,
+                }
               : s
           )
         );
@@ -221,29 +458,6 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       showToast(err.response?.data?.message || "Failed to update modules", "error");
     }
-  };
-
-  // Toggle Single Module in Modal
-  const toggleModuleInSelected = (modKey) => {
-    if (!selectedSchool) return;
-    const current = selectedSchool.enabledModules || [];
-    const exists = current.includes(modKey);
-    const updated = exists ? current.filter((k) => k !== modKey) : [...current, modKey];
-    setSelectedSchool({ ...selectedSchool, enabledModules: updated });
-  };
-
-  const selectAllModulesForSelected = () => {
-    setSelectedSchool({
-      ...selectedSchool,
-      enabledModules: ALL_MODULES.map((m) => m.key),
-    });
-  };
-
-  const clearAllModulesForSelected = () => {
-    setSelectedSchool({
-      ...selectedSchool,
-      enabledModules: [],
-    });
   };
 
   // Reset School Password
@@ -327,6 +541,7 @@ const SuperAdminDashboard = () => {
           website: "",
           schoolLogo: "",
           enabledModules: ALL_MODULES.map((m) => m.key),
+          enabledSubModules: getDefaultSubModules(),
         });
 
         fetchSchools();
@@ -377,6 +592,18 @@ const SuperAdminDashboard = () => {
 
   return (
     <div className="sa-dashboard-wrapper">
+      {/* 🚀 Modern Holographic Scanning Page Overlay Loader */}
+      <ScanLoader
+        loading={loading}
+        title="Classora Master Control"
+        subtitle="Synchronizing Multi-School Governance & Security Registry..."
+        badgeText="CENTRAL CORE • GOVERNANCE SCAN"
+        readout="Verifying Multi-Campus Security & Network..."
+        variant="superAdmin"
+        delay={100}
+        minDuration={300}
+      />
+
       {/* Toast Notification */}
       {toast && (
         <div
@@ -518,9 +745,8 @@ const SuperAdminDashboard = () => {
         {/* Schools List */}
         <section className="sa-schools-container">
           {loading ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: "#94a3b8" }}>
-              <RefreshCw size={32} style={{ animation: "spin 1s linear infinite" }} />
-              <p style={{ marginTop: "16px", fontSize: "15px" }}>Loading registered schools...</p>
+            <div style={{ padding: "8px 0" }}>
+              <SkeletonCard count={4} lines={3} theme="dark" />
             </div>
           ) : filteredSchools.length === 0 ? (
             <div className="sa-empty-state">
@@ -590,6 +816,19 @@ const SuperAdminDashboard = () => {
                       <span>{activeCount} / {ALL_MODULES.length} Modules</span>
                     </div>
 
+                    {(() => {
+                      const subCount = Object.values(school.enabledSubModules || {}).reduce(
+                        (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+                        0
+                      );
+                      return (
+                        <div className="sa-submodules-badge" title={`${subCount} sub-modules active`}>
+                          <Layers size={13} />
+                          <span>{subCount} Sub-modules</span>
+                        </div>
+                      );
+                    })()}
+
                     {/* Active / Inactive Switch Toggle */}
                     <div className="sa-status-toggle-wrapper">
                       <label className="sa-toggle-switch">
@@ -610,13 +849,10 @@ const SuperAdminDashboard = () => {
                   <div className="sa-school-actions">
                     <button
                       className="sa-btn-icon-label manage-modules"
-                      onClick={() => {
-                        setSelectedSchool({ ...school });
-                        setModulesModalOpen(true);
-                      }}
-                      title="Enable or disable specific features for this school"
+                      onClick={() => openModulesModal(school)}
+                      title="Enable or disable specific features and sub-modules for this school"
                     >
-                      <Sliders size={14} /> Modules
+                      <Sliders size={14} /> Modules & Sub-modules
                     </button>
 
                     <button
@@ -844,56 +1080,140 @@ const SuperAdminDashboard = () => {
 
                 {/* Module Permissions Selection */}
                 <div className="sa-modules-header-bar">
-                  <h4>
-                    Enable Modules for this School ({newSchoolData.enabledModules.length} selected)
-                  </h4>
+                  <div>
+                    <h4>
+                      Module & Sub-module Permissions
+                    </h4>
+                    <p style={{ fontSize: "12px", color: "#94a3b8", margin: "4px 0 0 0" }}>
+                      {newSchoolData.enabledModules.length} of {ALL_MODULES.length} Modules active (
+                      {Object.values(newSchoolData.enabledSubModules || {}).reduce(
+                        (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+                        0
+                      )} of {TOTAL_SUB_MODULES} Sub-modules active)
+                    </p>
+                  </div>
                   <div className="sa-quick-toggle-actions">
                     <button
                       type="button"
                       className="sa-mini-btn"
-                      onClick={() =>
-                        setNewSchoolData({
-                          ...newSchoolData,
-                          enabledModules: ALL_MODULES.map((m) => m.key),
-                        })
-                      }
+                      onClick={selectAllInNewSchool}
                     >
-                      Select All
+                      Enable All
                     </button>
                     <button
                       type="button"
                       className="sa-mini-btn"
-                      onClick={() =>
-                        setNewSchoolData({ ...newSchoolData, enabledModules: [] })
-                      }
+                      onClick={clearAllInNewSchool}
                     >
                       Clear All
                     </button>
                   </div>
                 </div>
 
-                <div className="sa-modules-grid">
+                <div className="sa-modules-accordion-list">
                   {ALL_MODULES.map((mod) => {
                     const isSelected = newSchoolData.enabledModules.includes(mod.key);
+                    const selectedSubs = newSchoolData.enabledSubModules[mod.key] || [];
+                    const isExpanded = !!expandedCreateModules[mod.key];
+                    const subCount = mod.subModules?.length || 0;
+
                     return (
                       <div
                         key={mod.key}
-                        className={`sa-module-tile ${isSelected ? "active" : ""}`}
-                        onClick={() => {
-                          const updated = isSelected
-                            ? newSchoolData.enabledModules.filter((k) => k !== mod.key)
-                            : [...newSchoolData.enabledModules, mod.key];
-                          setNewSchoolData({ ...newSchoolData, enabledModules: updated });
-                        }}
+                        className={`sa-module-accordion ${isSelected ? "active" : ""}`}
                       >
-                        <span className="sa-module-icon">{mod.icon}</span>
-                        <span className="sa-module-name">{mod.name}</span>
-                        <input
-                          type="checkbox"
-                          className="sa-module-checkbox"
-                          checked={isSelected}
-                          readOnly
-                        />
+                        <div
+                          className="sa-module-accordion-header"
+                          onClick={() => toggleExpandCreate(mod.key)}
+                        >
+                          <span className="sa-module-accordion-icon">{mod.icon}</span>
+                          <div className="sa-module-accordion-info">
+                            <div className="sa-module-accordion-title">
+                              <span>{mod.name}</span>
+                              <span
+                                className={`sa-submodule-pill ${
+                                  selectedSubs.length > 0 ? "" : "muted"
+                                }`}
+                              >
+                                {selectedSubs.length} / {subCount} Sub-modules
+                              </span>
+                            </div>
+                            <div className="sa-module-accordion-desc">{mod.desc}</div>
+                          </div>
+
+                          <div
+                            style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              className="sa-module-checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleModuleInNewSchool(mod.key)}
+                              title={isSelected ? "Disable module" : "Enable module"}
+                            />
+                            <button
+                              type="button"
+                              className="sa-accordion-expand-btn"
+                              onClick={() => toggleExpandCreate(mod.key)}
+                              title={isExpanded ? "Collapse sub-modules" : "Expand sub-modules"}
+                            >
+                              {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="sa-submodules-container">
+                            <div className="sa-submodules-toolbar">
+                              <span className="sa-submodules-toolbar-label">
+                                Sub-modules for {mod.name}:
+                              </span>
+                              <div className="sa-quick-toggle-actions">
+                                <button
+                                  type="button"
+                                  className="sa-mini-btn"
+                                  onClick={() => selectAllSubModulesInNewSchool(mod.key)}
+                                >
+                                  Select All
+                                </button>
+                                <button
+                                  type="button"
+                                  className="sa-mini-btn"
+                                  onClick={() => clearAllSubModulesInNewSchool(mod.key)}
+                                >
+                                  Clear
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="sa-submodules-grid">
+                              {(mod.subModules || []).map((sub) => {
+                                const isSubActive = selectedSubs.includes(sub.key);
+                                return (
+                                  <div
+                                    key={sub.key}
+                                    className={`sa-submodule-chip ${
+                                      isSubActive ? "active" : ""
+                                    }`}
+                                    onClick={() => toggleSubModuleInNewSchool(mod.key, sub.key)}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      className="sa-submodule-checkbox"
+                                      checked={isSubActive}
+                                      onChange={() =>
+                                        toggleSubModuleInNewSchool(mod.key, sub.key)
+                                      }
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <span className="sa-submodule-chip-label">{sub.name}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -922,10 +1242,10 @@ const SuperAdminDashboard = () => {
       ========================================================== */}
       {modulesModalOpen && selectedSchool && (
         <div className="sa-modal-backdrop" onClick={() => setModulesModalOpen(false)}>
-          <div className="sa-modal-card wide" onClick={(e) => e.stopPropagation()}>
+          <div className="sa-modal-card extra-wide" onClick={(e) => e.stopPropagation()}>
             <div className="sa-modal-header">
               <h3>
-                <Sliders size={22} color="#0ea5e9" /> Feature Control: {selectedSchool.schoolName}
+                <Sliders size={22} color="#0ea5e9" /> Feature & Sub-Module Control: {selectedSchool.schoolName}
               </h3>
               <button
                 className="sa-modal-close-btn"
@@ -936,22 +1256,58 @@ const SuperAdminDashboard = () => {
             </div>
 
             <div className="sa-modal-body">
-              <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 0, marginBottom: "20px" }}>
-                Toggle which features this school campus can access. Any disabled module will be locked
-                in the school dashboard and inaccessible to staff.
+              <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 0, marginBottom: "16px" }}>
+                Toggle which features and sub-modules this school campus can access. Any disabled module or sub-module
+                will be locked in the school dashboard and inaccessible to school staff.
               </p>
 
+              {/* Search Bar for Modules & Sub-modules */}
+              <div className="sa-modules-search-bar">
+                <Search size={16} color="#94a3b8" />
+                <input
+                  type="text"
+                  placeholder="Filter modules or sub-modules by name (e.g., Attendance, Fee, Report Card, Visitor)..."
+                  value={modulesFilterSearch}
+                  onChange={(e) => setModulesFilterSearch(e.target.value)}
+                />
+                {modulesFilterSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setModulesFilterSearch("")}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#94a3b8",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
               <div className="sa-modules-header-bar">
-                <h4>
-                  Modules Enabled: {selectedSchool.enabledModules?.length || 0} of {ALL_MODULES.length}
-                </h4>
+                <div>
+                  <h4>
+                    Modules Active: {selectedSchool.enabledModules?.length || 0} of {ALL_MODULES.length}
+                  </h4>
+                  <p style={{ fontSize: "12px", color: "#94a3b8", margin: "2px 0 0 0" }}>
+                    Sub-modules Active:{" "}
+                    {Object.values(selectedSchool.enabledSubModules || {}).reduce(
+                      (sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0),
+                      0
+                    )}{" "}
+                    of {TOTAL_SUB_MODULES}
+                  </p>
+                </div>
                 <div className="sa-quick-toggle-actions">
                   <button
                     type="button"
                     className="sa-mini-btn"
                     onClick={selectAllModulesForSelected}
                   >
-                    Enable All
+                    Enable All Features
                   </button>
                   <button
                     type="button"
@@ -963,28 +1319,120 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="sa-modules-grid">
-                {ALL_MODULES.map((mod) => {
+              <div className="sa-modules-accordion-list">
+                {ALL_MODULES.filter((mod) => {
+                  if (!modulesFilterSearch) return true;
+                  const q = modulesFilterSearch.toLowerCase();
+                  if (mod.name.toLowerCase().includes(q) || mod.desc.toLowerCase().includes(q)) return true;
+                  return (mod.subModules || []).some(
+                    (s) => s.name.toLowerCase().includes(q) || s.key.toLowerCase().includes(q)
+                  );
+                }).map((mod) => {
                   const isEnabled = selectedSchool.enabledModules?.includes(mod.key);
+                  const selectedSubs = selectedSchool.enabledSubModules?.[mod.key] || [];
+                  const subCount = mod.subModules?.length || 0;
+                  // If searching, auto-expand matching modules
+                  const isExpanded = modulesFilterSearch
+                    ? true
+                    : !!expandedEditModules[mod.key];
+
                   return (
                     <div
                       key={mod.key}
-                      className={`sa-module-tile ${isEnabled ? "active" : ""}`}
-                      onClick={() => toggleModuleInSelected(mod.key)}
+                      className={`sa-module-accordion ${isEnabled ? "active" : ""}`}
                     >
-                      <span className="sa-module-icon">{mod.icon}</span>
-                      <div style={{ flex: 1 }}>
-                        <div className="sa-module-name">{mod.name}</div>
-                        <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                          {mod.desc}
+                      <div
+                        className="sa-module-accordion-header"
+                        onClick={() => toggleExpandEdit(mod.key)}
+                      >
+                        <span className="sa-module-accordion-icon">{mod.icon}</span>
+                        <div className="sa-module-accordion-info">
+                          <div className="sa-module-accordion-title">
+                            <span>{mod.name}</span>
+                            <span
+                              className={`sa-submodule-pill ${
+                                selectedSubs.length > 0 ? "" : "muted"
+                              }`}
+                            >
+                              {selectedSubs.length} / {subCount} Sub-modules Active
+                            </span>
+                          </div>
+                          <div className="sa-module-accordion-desc">{mod.desc}</div>
+                        </div>
+
+                        <div
+                          style={{ display: "flex", alignItems: "center", gap: "10px" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sa-module-checkbox"
+                            checked={isEnabled}
+                            onChange={() => toggleModuleInSelected(mod.key)}
+                            title={isEnabled ? "Disable this module" : "Enable this module"}
+                          />
+                          <button
+                            type="button"
+                            className="sa-accordion-expand-btn"
+                            onClick={() => toggleExpandEdit(mod.key)}
+                            title={isExpanded ? "Collapse sub-modules" : "Expand sub-modules"}
+                          >
+                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                          </button>
                         </div>
                       </div>
-                      <input
-                        type="checkbox"
-                        className="sa-module-checkbox"
-                        checked={isEnabled}
-                        readOnly
-                      />
+
+                      {isExpanded && (
+                        <div className="sa-submodules-container">
+                          <div className="sa-submodules-toolbar">
+                            <span className="sa-submodules-toolbar-label">
+                              Sub-modules in {mod.name}:
+                            </span>
+                            <div className="sa-quick-toggle-actions">
+                              <button
+                                type="button"
+                                className="sa-mini-btn"
+                                onClick={() => selectAllSubModulesInSelected(mod.key)}
+                              >
+                                Select All
+                              </button>
+                              <button
+                                type="button"
+                                className="sa-mini-btn"
+                                onClick={() => clearAllSubModulesInSelected(mod.key)}
+                              >
+                                Clear
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="sa-submodules-grid">
+                            {(mod.subModules || []).map((sub) => {
+                              const isSubActive = selectedSubs.includes(sub.key);
+                              return (
+                                <div
+                                  key={sub.key}
+                                  className={`sa-submodule-chip ${
+                                    isSubActive ? "active" : ""
+                                  }`}
+                                  onClick={() => toggleSubModuleInSelected(mod.key, sub.key)}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="sa-submodule-checkbox"
+                                    checked={isSubActive}
+                                    onChange={() =>
+                                      toggleSubModuleInSelected(mod.key, sub.key)
+                                    }
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <span className="sa-submodule-chip-label">{sub.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1004,7 +1452,7 @@ const SuperAdminDashboard = () => {
                 className="sa-modal-btn-submit"
                 onClick={handleSaveModules}
               >
-                Save Feature Permissions
+                Save Feature & Sub-Module Permissions
               </button>
             </div>
           </div>
@@ -1176,7 +1624,9 @@ const SuperAdminDashboard = () => {
                 Existing Notices ({schoolNotices.length})
               </div>
               {noticeLoading ? (
-                <div style={{ textAlign: "center", padding: "20px", color: "#64748b" }}>Loading notices...</div>
+                <div style={{ padding: "8px 0" }}>
+                  <SkeletonList count={3} theme="dark" />
+                </div>
               ) : schoolNotices.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "20px", color: "#64748b", fontSize: "13px" }}>No notices sent yet.</div>
               ) : (

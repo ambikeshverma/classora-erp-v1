@@ -1,105 +1,61 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import "./studentAppAccess.css";
+import { MODULES_REGISTRY } from "../constants/modulesRegistry";
+import { useModulePermissions } from "../hooks/useModulePermissions";
 
 function StudentAppAccess() {
+  const navigate = useNavigate();
+  const MODULE_KEY = "student_app_access";
+  const { isSubModuleEnabled, showLockNotice, toastMessage } = useModulePermissions(MODULE_KEY);
 
-  const cards = [
-    {
-      title: "Student Login Management",
-      icon: "📱",
-      route: "/student-login-management",
-    },
+  const moduleDef = MODULES_REGISTRY.find((m) => m.key === MODULE_KEY);
+  const cards = moduleDef ? moduleDef.subModules : [];
 
-    {
-      title: "App Banners",
-      icon: "🖼️",
-      route: "/app-banners",
-    },
-
-    {
-      title: "Teacher Circulars",
-      icon: "📢",
-      route: "/teacher-circulars",
-    },
-
-    {
-      title: "App News",
-      icon: "📰",
-      route: "/app-news",
-    },
-
-    {
-      title: "App Notice Board",
-      icon: "🔔",
-      route: "/app-notice-board",
-    },
-
-    {
-      title: "Fee Due Notice",
-      icon: "💳",
-      route: "/fee-due-notice",
-    },
-
-    {
-      title: "App Permissions",
-      icon: "🔐",
-      route: "/app-permissions",
-    },
-
-    {
-      title: "Analytics and Reports",
-      icon: "📊",
-      route: "/student-app-analytics-reports",
-    },
-  ];
+  const handleCardClick = (card) => {
+    if (!isSubModuleEnabled(card.key)) {
+      showLockNotice(card.name);
+      return;
+    }
+    navigate(card.route);
+  };
 
   return (
     <div className="student-app-page">
-
       <div className="student-app-header">
-
-        <button
-          className="back-btn"
-          onClick={() =>
-            (window.location.href = "/dashboard")
-          }
-        >
+        <button className="back-btn" onClick={() => navigate("/dashboard")}>
           ←
         </button>
 
         <div>
           <h1>Student App Access</h1>
-
-          <p>
-            Manage student app login,
-            banners, notices, news and permissions
-          </p>
+          <p>Manage student app login, banners, notices, news and permissions</p>
         </div>
-
       </div>
 
       <div className="student-app-grid">
-
-        {cards.map((card, index) => (
-
-          <div
-            className="student-app-card"
-            key={index}
-            onClick={() => {
-              window.location.href =
-                card.route;
-            }}
-          >
-            <div className="student-app-icon">
-              {card.icon}
+        {cards.map((card) => {
+          const enabled = isSubModuleEnabled(card.key);
+          return (
+            <div
+              className={`student-app-card ${!enabled ? "submodule-card-locked" : ""}`}
+              key={card.key}
+              onClick={() => handleCardClick(card)}
+              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
+            >
+              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
+              <div className="student-app-icon">{card.icon}</div>
+              <h3>{card.name}</h3>
             </div>
-
-            <h3>{card.title}</h3>
-          </div>
-
-        ))}
-
+          );
+        })}
       </div>
+
+      {toastMessage && (
+        <div className="submodule-toast-banner">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

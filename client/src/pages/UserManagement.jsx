@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import "./userManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
 
 function UserManagement() {
+  const [loading, setLoading] = useState(false);
 
   /* ===============================
      Multi School Safe
@@ -594,13 +596,15 @@ function UserManagement() {
                   value={
                     filterData.userType
                   }
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLoading(true);
                     setFilterData({
                       ...filterData,
-                      userType:
-                        e.target.value,
-                    })
-                  }
+                      userType: val,
+                    });
+                    setTimeout(() => setLoading(false), 250);
+                  }}
                 >
                   <option value="">
                     All Users
@@ -633,13 +637,15 @@ function UserManagement() {
                   value={
                     filterData.status
                   }
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setLoading(true);
                     setFilterData({
                       ...filterData,
-                      status:
-                        e.target.value,
-                    })
-                  }
+                      status: val,
+                    });
+                    setTimeout(() => setLoading(false), 250);
+                  }}
                 >
                   <option>
                     Active Users
@@ -810,8 +816,13 @@ function UserManagement() {
                 </thead>
 
                 <tbody>
-
-                  {filteredUsers.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="11" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={11} />
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length === 0 ? (
 
                     <tr>
 
