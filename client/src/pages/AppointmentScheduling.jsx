@@ -1,1170 +1,361 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./appointmentScheduling.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { receptionService } from "../services/api";
+
+const appointmentStatuses = ["Pending", "Approved", "Rejected", "Completed", "Cancelled"];
 
 function AppointmentScheduling() {
+  const [showForm, setShowForm] = useState(false);
+  const [appointments, setAppointments] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [viewData, setViewData] = useState(null);
+  const [toast, setToast] = useState("");
 
-const appointmentStatuses = [
-"Pending",
-"Approved",
-"Rejected",
-"Completed",
-"Cancelled",
-];
+  const [appointmentDate, setAppointmentDate] = useState(new Date().toISOString().split("T")[0]);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [isSearched, setIsSearched] = useState(false);
 
-const departments = [
-  { id: 1, schoolId: "SCH001", departmentName: "Administration" },
-  { id: 2, schoolId: "SCH001", departmentName: "Teaching" },
-  { id: 3, schoolId: "SCH001", departmentName: "Accounts" },
-  { id: 4, schoolId: "SCH001", departmentName: "Transport" },
-];
+  const [formData, setFormData] = useState({
+    visitorName: "",
+    mobile: "",
+    departmentId: "",
+    departmentName: "",
+    personToMeetId: "",
+    personToMeet: "",
+    appointmentDate: new Date().toISOString().split("T")[0],
+    timeSlot: "",
+    purpose: "",
+    remarks: "",
+    status: "Pending",
+  });
 
-const staffMembers = [
-  { id: 1, schoolId: "SCH001", departmentId: 1, staffName: "Principal" },
-  { id: 2, schoolId: "SCH001", departmentId: 2, staffName: "Ankit Verma" },
-  { id: 3, schoolId: "SCH001", departmentId: 3, staffName: "Account Office" },
-  { id: 4, schoolId: "SCH001", departmentId: 4, staffName: "Transport Incharge" },
-];
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-const [showForm, setShowForm] =
-useState(false);
+  const fetchMeta = useCallback(async () => {
+    try {
+      const res = await receptionService.getMeta();
+      setDepartments(res.data?.data?.departments || []);
+      setStaff(res.data?.data?.staff || []);
+    } catch { /* meta failure is non-critical */ }
+  }, []);
 
-const [appointments, setAppointments] =
-useState([]);
+  useEffect(() => { fetchMeta(); }, [fetchMeta]);
 
-const [selectedIds, setSelectedIds] =
-useState([]);
+  const fetchAppointments = useCallback(async () => {
+    if (!isSearched) return;
+    setLoading(true);
+    try {
+      const params = {};
+      if (appointmentDate) params.appointmentDate = appointmentDate;
+      if (statusFilter) params.status = statusFilter;
+      if (searchText) params.search = searchText;
+      const res = await receptionService.getAppointments(params);
+      setAppointments(res.data?.data || []);
+    } catch {
+      showToast("Failed to load appointments");
+    } finally {
+      setLoading(false);
+    }
+  }, [appointmentDate, statusFilter, searchText, isSearched]);
 
-const [viewData, setViewData] =
-useState(null);
+  useEffect(() => { fetchAppointments(); }, [fetchAppointments]);
 
-const [appointmentDate, setAppointmentDate] =
-useState("");
+  const handleSearch = () => { setIsSearched(true); fetchAppointments(); setSelectedIds([]); };
 
-const [statusFilter, setStatusFilter] =
-useState("");
-
-const [searchText, setSearchText] =
-useState("");
-
-const [isSearched, setIsSearched] =
-useState(false);
-
-const [appliedFilters, setAppliedFilters] =
-useState({
-appointmentDate: "",
-statusFilter: "",
-searchText: "",
-});
-
-const [formData, setFormData] =
-useState({
-visitorName: "",
-mobile: "",
-departmentId: "",
-personToMeetId: "",
-appointmentDate:
-new Date()
-.toISOString()
-.split("T")[0],
-timeSlot: "",
-purpose: "",
-remarks: "",
-status: "Pending",
-});
-
-const resetForm = () => {
-
-setFormData({
-visitorName: "",
-mobile: "",
-departmentId: "",
-personToMeetId: "",
-appointmentDate:
-new Date()
-.toISOString()
-.split("T")[0],
-timeSlot: "",
-purpose: "",
-remarks: "",
-status: "Pending",
-});
-
-};
-
-const handleChange = (e) => {
-
-const { name, value } = e.target;
-
-setFormData({
-...formData,
-[name]: value,
-...(name === "departmentId"
-  ? { personToMeetId: "" }
-  : {}),
-});
-
-};
-
-const filteredStaff = staffMembers.filter(
-  (item) =>
-    formData.departmentId &&
-    item.departmentId === Number(formData.departmentId)
-);
-
-const getDepartmentName = (id) =>
-  departments.find(
-    (item) => item.id === Number(id)
-  )?.departmentName || "-";
-
-const getStaffName = (id) =>
-  staffMembers.find(
-    (item) => item.id === Number(id)
-  )?.staffName || "-";
-
-const handleSave = () => {
-
-if (
-!formData.visitorName ||
-!formData.mobile ||
-!formData.departmentId ||
-!formData.personToMeetId ||
-!formData.timeSlot
-) {
-alert(
-"Please fill required fields"
-);
-return;
-}
-
-const newAppointment = {
-id: Date.now(),
-appointmentId:
-"APT" + Date.now(),
-schoolId: "SCH001",
-...formData,
-};
-
-setAppointments([
-...appointments,
-newAppointment,
-]);
-
-alert(
-"Appointment created successfully"
-);
-
-resetForm();
-setShowForm(false);
-setIsSearched(true);
-
-};
-
-const handleSearch = () => {
-
-  const filters = {
-    appointmentDate,
-    statusFilter,
-    searchText,
+  const resetForm = () => {
+    setFormData({
+      visitorName: "", mobile: "", departmentId: "", departmentName: "",
+      personToMeetId: "", personToMeet: "",
+      appointmentDate: new Date().toISOString().split("T")[0],
+      timeSlot: "", purpose: "", remarks: "", status: "Pending",
+    });
   };
 
-  setAppliedFilters(filters);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+      ...(name === "departmentId" ? {
+        departmentName: departments.find((d) => String(d._id) === value)?.departmentName || "",
+        personToMeetId: "",
+        personToMeet: "",
+      } : {}),
+      ...(name === "personToMeetId" ? {
+        personToMeet: staff.find((s) => String(s._id) === value)?.fullName || "",
+      } : {}),
+    }));
+  };
 
-  const result =
-    appointments.filter((item) => {
+  const filteredStaff = staff.filter((s) => String(s.departmentId) === String(formData.departmentId));
 
-      const dateMatch =
-        filters.appointmentDate
-          ? item.appointmentDate ===
-            filters.appointmentDate
-          : true;
+  const handleSave = async () => {
+    if (!formData.visitorName || !formData.mobile || !formData.appointmentDate || !formData.timeSlot) {
+      showToast("Please fill required fields");
+      return;
+    }
+    setSaving(true);
+    try {
+      await receptionService.createAppointment(formData);
+      showToast("Appointment created successfully");
+      resetForm();
+      setShowForm(false);
+      setIsSearched(true);
+      fetchAppointments();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to create appointment");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-      const statusMatch =
-        filters.statusFilter
-          ? item.status ===
-            filters.statusFilter
-          : true;
+  const handleStatusUpdate = async (id, status) => {
+    try {
+      await receptionService.updateAppointmentStatus(id, status);
+      showToast(`Appointment ${status.toLowerCase()} successfully`);
+      setSelectedIds([]);
+      fetchAppointments();
+    } catch {
+      showToast("Failed to update appointment status");
+    }
+  };
 
-      const searchMatch =
-        filters.searchText
-          ? item.visitorName
-              .toLowerCase()
-              .includes(
-                filters.searchText.toLowerCase()
-              ) ||
-            item.mobile.includes(
-              filters.searchText
-            )
-          : true;
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) { showToast("Select appointment(s) to delete"); return; }
+    if (!window.confirm("Delete selected appointment(s)?")) return;
+    try {
+      await Promise.all(selectedIds.map((id) => receptionService.deleteAppointment(id)));
+      showToast("Appointment(s) deleted successfully");
+      setSelectedIds([]);
+      fetchAppointments();
+    } catch {
+      showToast("Failed to delete appointment");
+    }
+  };
 
-      return (
-        dateMatch &&
-        statusMatch &&
-        searchMatch
-      );
-
-    });
-
-  if (result.length === 0) {
-
-    alert(
-      "No appointment found"
-    );
-
-  }
-
-  setIsSearched(true);
-
-};
-
-const filteredAppointments =
-appointments.filter((item) => {
-
-const dateMatch =
-appliedFilters.appointmentDate
-? item.appointmentDate ===
-appliedFilters.appointmentDate
-: true;
-
-const statusMatch =
-appliedFilters.statusFilter
-? item.status ===
-appliedFilters.statusFilter
-: true;
-
-const searchMatch =
-    appliedFilters.searchText
-      ? item.visitorName
-          .toLowerCase()
-          .includes(
-            appliedFilters.searchText.toLowerCase()
-          ) ||
-        item.mobile.includes(
-          appliedFilters.searchText
-        )
-      : true;
+  const selectedList = appointments.filter((a) => selectedIds.includes(a._id));
+  const singleItem = selectedList.length === 1 ? selectedList[0] : null;
 
   return (
-    dateMatch &&
-    statusMatch &&
-    searchMatch
-  );
-
-});
-
-const selectedAppointments =
-  appointments.filter((item) =>
-    selectedIds.includes(item.id)
-  );
-
-const selectedSingle =
-  selectedAppointments.length === 1
-    ? selectedAppointments[0]
-    : null;
-
-const handleApprove = () => {
-
-  if (!selectedSingle) {
-    alert(
-      "Select one appointment"
-    );
-    return;
-  }
-
-  setAppointments(
-    appointments.map((item) =>
-      item.id === selectedSingle.id
-        ? {
-            ...item,
-            status: "Approved",
-          }
-        : item
-    )
-  );
-
-  setSelectedIds([]);
-
-};
-
-const handleReject = () => {
-
-  if (!selectedSingle) {
-    alert(
-      "Select one appointment"
-    );
-    return;
-  }
-
-  setAppointments(
-    appointments.map((item) =>
-      item.id === selectedSingle.id
-        ? {
-            ...item,
-            status: "Rejected",
-          }
-        : item
-    )
-  );
-
-  setSelectedIds([]);
-
-};
-
-const handleComplete = () => {
-
-  if (!selectedSingle) {
-    alert(
-      "Select one appointment"
-    );
-    return;
-  }
-
-  setAppointments(
-    appointments.map((item) =>
-      item.id === selectedSingle.id
-        ? {
-            ...item,
-            status: "Completed",
-          }
-        : item
-    )
-  );
-
-  setSelectedIds([]);
-
-};
-
-const handleCancel = () => {
-
-  if (!selectedSingle) {
-    alert(
-      "Select one appointment"
-    );
-    return;
-  }
-
-  setAppointments(
-    appointments.map((item) =>
-      item.id === selectedSingle.id
-        ? {
-            ...item,
-            status: "Cancelled",
-          }
-        : item
-    )
-  );
-
-  setSelectedIds([]);
-
-};
-
-const handleDelete = () => {
-
-  if (selectedIds.length === 0) {
-    alert(
-      "Select appointment"
-    );
-    return;
-  }
-
-  const ok = window.confirm(
-    "Delete selected appointment?"
-  );
-
-  if (!ok) return;
-
-  setAppointments(
-    appointments.filter(
-      (item) =>
-        !selectedIds.includes(
-          item.id
-        )
-    )
-  );
-
-  setSelectedIds([]);
-
-};
-
-return (<div className="appointment-page">
-
-  <div className="common-page-header">
-
-    <AppButton
-      type="back"
-      onClick={() => {
-
-        if (showForm) {
-
-          resetForm();
-          setShowForm(false);
-
-        } else {
-
-          window.location.href =
-            "/reception-desk";
-
-        }
-
-      }}
-    >
-      ←
-    </AppButton>
-
-    <div>
-
-      <h1>
-        Appointment Scheduling
-      </h1>
-
-      <p>
-        Manage visitor appointments
-      </p>
-
-    </div>
-
-  </div>
-
-  {!showForm && (
-
-    <>
-
-      <div className="common-card">
-
-        <div className="filter-grid">
-
-          <div className="form-group">
-
-            <label>
-              Appointment Date
-            </label>
-
-            <input
-              type="date"
-              value={appointmentDate}
-              onChange={(e) =>
-                setAppointmentDate(
-                  e.target.value
-                )
-              }
-            />
-
-          </div>
-
-          <div className="form-group">
-
-            <label>
-              Status
-            </label>
-
-            <select
-              value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(
-                  e.target.value
-                )
-              }
-            >
-
-              <option value="">
-                All
-              </option>
-
-              {appointmentStatuses.map(
-                (status) => (
-                  <option
-                    key={status}
-                    value={status}
-                  >
-                    {status}
-                  </option>
-                )
-              )}
-
-            </select>
-
-          </div>
-
-          <div className="form-group">
-
-            <label>
-              Search
-            </label>
-
-            <input
-              type="text"
-              placeholder="Name or mobile"
-              value={searchText}
-              onChange={(e) =>
-                setSearchText(
-                  e.target.value
-                )
-              }
-            />
-
-          </div>
-
-        </div>
-
-        <div className="search-btn-row">
-
-          <AppButton
-            type="primary"
-            onClick={handleSearch}
-          >
-            Search
-          </AppButton>
-
-        </div>
-
-      </div>
-
-      <div className="common-card">
-
-        <div className="list-header">
-
-          <h2>
-            Appointment List
-          </h2>
-
-          <div className="list-action-buttons">
-
-            <AppButton
-              type="primary"
-              onClick={() =>
-                setShowForm(true)
-              }
-            >
-              + Add Appointment
-            </AppButton>
-
-            <AppButton
-              type="view"
-              onClick={() => {
-
-                if (!selectedSingle) {
-
-                  alert(
-                    "Select one appointment"
-                  );
-
-                  return;
-
-                }
-
-                setViewData(
-                  selectedSingle
-                );
-
-              }}
-            >
-              View
-            </AppButton>
-
-            {selectedSingle?.status ===
-              "Pending" && (
-
-              <>
-
-                <AppButton
-                  type="primary"
-                  onClick={
-                    handleApprove
-                  }
-                >
-                  Approve
-                </AppButton>
-
-                <AppButton
-                  type="delete"
-                  onClick={
-                    handleReject
-                  }
-                >
-                  Reject
-                </AppButton>
-
-              </>
-
-            )}
-
-            {selectedSingle?.status ===
-              "Approved" && (
-
-              <>
-
-                <AppButton
-                  type="primary"
-                  onClick={
-                    handleComplete
-                  }
-                >
-                  Complete
-                </AppButton>
-
-                <AppButton
-                  type="delete"
-                  onClick={
-                    handleCancel
-                  }
-                >
-                  Cancel
-                </AppButton>
-
-              </>
-
-            )}
-
-            <AppButton
-              type="delete"
-              onClick={
-                handleDelete
-              }
-            >
-              Delete
-            </AppButton>
-
-          </div>
-
-        </div>
-        <div className="table-wrap">
-
-          <table>
-
-            <thead>
-
-              <tr>
-
-                <th>
-
-                  <input
-                    type="checkbox"
-                    checked={
-                      filteredAppointments.length >
-                        0 &&
-                      selectedIds.length ===
-                        filteredAppointments.length
-                    }
-                    onChange={(e) => {
-
-                      if (
-                        e.target.checked
-                      ) {
-
-                        setSelectedIds(
-                          filteredAppointments.map(
-                            (item) =>
-                              item.id
-                          )
-                        );
-
-                      } else {
-
-                        setSelectedIds(
-                          []
-                        );
-
-                      }
-
-                    }}
-                  />
-
-                </th>
-
-                <th>
-                  S.No
-                </th>
-
-                <th>
-                  Appointment ID
-                </th>
-
-                <th>
-                  Visitor
-                </th>
-
-                <th>
-                  Mobile
-                </th>
-
-                <th>
-                  Person To Meet
-                </th>
-
-                <th>
-                  Department
-                </th>
-
-                <th>
-                  Date
-                </th>
-
-                <th>
-                  Time Slot
-                </th>
-
-                <th>
-                  Status
-                </th>
-
-              </tr>
-
-            </thead>
-
-           <tbody>
-
-  {!isSearched ? (
-
-    <tr>
-      <td colSpan="10" className="empty-row">
-        Click Search to view appointments
-      </td>
-    </tr>
-
-  ) : filteredAppointments.length === 0 ? (
-
-    <tr>
-      <td colSpan="10" className="empty-row">
-        No appointment found
-      </td>
-    </tr>
-
-  ) : (
-
-    filteredAppointments.map((item, index) => (
-
-      <tr key={item.id}>
-
-        <td>
-
-          <input
-            type="checkbox"
-            checked={selectedIds.includes(item.id)}
-            onChange={() => {
-
-              setSelectedIds((prev) =>
-
-                prev.includes(item.id)
-                  ? prev.filter(
-                      (id) => id !== item.id
-                    )
-                  : [...prev, item.id]
-
-              );
-
-            }}
-          />
-
-        </td>
-
-        <td>{index + 1}</td>
-
-        <td>{item.appointmentId}</td>
-
-        <td>{item.visitorName}</td>
-
-        <td>{item.mobile}</td>
-
-        <td>
-          {getStaffName(item.personToMeetId)}
-        </td>
-
-        <td>
-          {getDepartmentName(item.departmentId)}
-        </td>
-
-        <td>{item.appointmentDate}</td>
-
-        <td>{item.timeSlot}</td>
-
-        <td>{item.status}</td>
-
-      </tr>
-
-    ))
-
-  )}
-
-</tbody>
-
-              
-
-          </table>
-
-        </div>
-
-      </div>
-
-    </>
-
-  )}
-  {showForm && (
-
-    <div className="common-card">
-
-      <div className="enquiry-form-grid">
-
-        <div className="form-group">
-
-          <label>
-            Visitor Name
-          </label>
-
-          <input
-            type="text"
-            name="visitorName"
-            value={
-              formData.visitorName
-            }
-            onChange={handleChange}
-          />
-
-        </div>
-
-        <div className="form-group">
-
-          <label>
-            Mobile
-          </label>
-
-          <input
-            type="text"
-            name="mobile"
-            value={formData.mobile}
-            onChange={handleChange}
-          />
-
-        </div>
-
-        <div className="form-group">
-
-          <label>
-            Department
-          </label>
-
-          <select
-            name="departmentId"
-            value={formData.departmentId}
-            onChange={handleChange}
-          >
-
-            <option value="">
-              Select Department
-            </option>
-
-            {departments.map((item) => (
-              <option
-                key={item.id}
-                value={item.id}
-              >
-                {item.departmentName}
-              </option>
-            ))}
-
-          </select>
-
-        </div>
-
-        <div className="form-group">
-
-          <label>
-            Person To Meet
-          </label>
-
-          <select
-            name="personToMeetId"
-            value={formData.personToMeetId}
-            onChange={handleChange}
-            disabled={!formData.departmentId}
-          >
-
-            <option value="">
-              Select Person
-            </option>
-
-            {filteredStaff.map((item) => (
-              <option
-                key={item.id}
-                value={item.id}
-              >
-                {item.staffName}
-              </option>
-            ))}
-
-          </select>
-
-        </div>
-
-        <div className="form-group">
-
-          <label>
-            Appointment Date
-          </label>
-
-          <input
-            type="date"
-            name="appointmentDate"
-            value={
-              formData.appointmentDate
-            }
-            onChange={handleChange}
-          />
-
-        </div>
-
-        <div className="form-group">
-
-          <label>
-            Time Slot
-          </label>
-
-          <input
-            type="text"
-            name="timeSlot"
-            placeholder="10:00 AM"
-            value={
-              formData.timeSlot
-            }
-            onChange={handleChange}
-          />
-
-        </div>
-
-        <div className="form-group full-width">
-
-          <label>
-            Purpose
-          </label>
-
-          <textarea
-            name="purpose"
-            value={formData.purpose}
-            onChange={handleChange}
-          ></textarea>
-
-        </div>
-
-        <div className="form-group full-width">
-
-          <label>
-            Remarks
-          </label>
-
-          <textarea
-            name="remarks"
-            value={formData.remarks}
-            onChange={handleChange}
-          ></textarea>
-
-        </div>
-
-      </div>
-
-      <div className="form-actions">
-
+    <div className="appointment-page">
+      <div className="common-page-header">
         <AppButton
-          type="primary"
-          onClick={handleSave}
-        >
-          Save
-        </AppButton>
-
-        <AppButton
-          type="secondary"
+          type="back"
           onClick={() => {
-
-            resetForm();
-            setShowForm(false);
-
+            if (showForm) { resetForm(); setShowForm(false); }
+            else window.location.href = "/reception-desk";
           }}
         >
-          Go Back
+          ←
         </AppButton>
-
+        <div>
+          <h1>Appointment Scheduling</h1>
+          <p>Manage visitor appointments</p>
+        </div>
       </div>
 
-    </div>
+      {!showForm && (
+        <>
+          <div className="common-card">
+            <div className="filter-grid">
+              <div className="form-group">
+                <label>Appointment Date</label>
+                <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label>Status</label>
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="">All</option>
+                  {appointmentStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Search</label>
+                <input type="text" placeholder="Name or mobile" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
+              </div>
+            </div>
+            <div className="search-btn-row">
+              <AppButton type="primary" onClick={handleSearch}>Search</AppButton>
+            </div>
+          </div>
 
-  )}
-  {viewData && (
+          <div className="common-card">
+            <div className="list-header">
+              <h2>Appointment List</h2>
+              <div className="list-action-buttons">
+                <AppButton type="primary" onClick={() => { resetForm(); setShowForm(true); }}>
+                  + Add Appointment
+                </AppButton>
+                <AppButton type="view" onClick={() => { if (!singleItem) { showToast("Select one appointment to view"); return; } setViewData(singleItem); }}>
+                  View
+                </AppButton>
+                {singleItem?.status === "Pending" && (
+                  <>
+                    <AppButton type="primary" onClick={() => handleStatusUpdate(singleItem._id, "Approved")}>Approve</AppButton>
+                    <AppButton type="delete" onClick={() => handleStatusUpdate(singleItem._id, "Rejected")}>Reject</AppButton>
+                  </>
+                )}
+                {singleItem?.status === "Approved" && (
+                  <>
+                    <AppButton type="primary" onClick={() => handleStatusUpdate(singleItem._id, "Completed")}>Complete</AppButton>
+                    <AppButton type="delete" onClick={() => handleStatusUpdate(singleItem._id, "Cancelled")}>Cancel</AppButton>
+                  </>
+                )}
+                <AppButton type="delete" onClick={handleDelete}>Delete</AppButton>
+              </div>
+            </div>
 
-    <div className="popup-overlay">
+            <div className="table-wrap">
+              {!isSearched ? (
+                <table><tbody><tr><td colSpan="10" className="empty-row">Click Search to view appointments</td></tr></tbody></table>
+              ) : loading ? (
+                <SkeletonTable columns={10} rows={5} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={appointments.length > 0 && selectedIds.length === appointments.length}
+                          onChange={(e) => setSelectedIds(e.target.checked ? appointments.map((a) => a._id) : [])}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Appt. ID</th>
+                      <th>Visitor</th>
+                      <th>Mobile</th>
+                      <th>Person To Meet</th>
+                      <th>Department</th>
+                      <th>Date</th>
+                      <th>Time Slot</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {appointments.length === 0 ? (
+                      <tr><td colSpan="10" className="empty-row">No appointment found</td></tr>
+                    ) : (
+                      appointments.map((item, index) => (
+                        <tr key={item._id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(item._id)}
+                              onChange={() =>
+                                setSelectedIds((prev) =>
+                                  prev.includes(item._id)
+                                    ? prev.filter((id) => id !== item._id)
+                                    : [...prev, item._id]
+                                )
+                              }
+                            />
+                          </td>
+                          <td>{index + 1}</td>
+                          <td>{item.appointmentId}</td>
+                          <td>{item.visitorName}</td>
+                          <td>{item.mobile}</td>
+                          <td>{item.personToMeet || "-"}</td>
+                          <td>{item.departmentName || "-"}</td>
+                          <td>{item.appointmentDate}</td>
+                          <td>{item.timeSlot}</td>
+                          <td>{item.status}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-      <div className="view-popup">
-
-        <div className="popup-head">
-
-          <h2>
-            Appointment Details
-          </h2>
-
-          <button
-            className="popup-close-btn"
-            onClick={() =>
-              setViewData(null)
-            }
-          >
-            ×
-          </button>
-
+      {showForm && (
+        <div className="common-card">
+          <div className="enquiry-form-grid">
+            <div className="form-group">
+              <label>Visitor Name *</label>
+              <input type="text" name="visitorName" value={formData.visitorName} onChange={handleChange} placeholder="Enter visitor name" />
+            </div>
+            <div className="form-group">
+              <label>Mobile *</label>
+              <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} placeholder="Enter mobile number" />
+            </div>
+            <div className="form-group">
+              <label>Department</label>
+              <select name="departmentId" value={formData.departmentId} onChange={handleChange}>
+                <option value="">Select Department</option>
+                {departments.map((d) => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Person To Meet</label>
+              <select name="personToMeetId" value={formData.personToMeetId} onChange={handleChange} disabled={!formData.departmentId}>
+                <option value="">Select Person</option>
+                {filteredStaff.map((s) => <option key={s._id} value={s._id}>{s.fullName}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Appointment Date *</label>
+              <input type="date" name="appointmentDate" value={formData.appointmentDate} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Time Slot *</label>
+              <input type="time" name="timeSlot" value={formData.timeSlot} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Purpose</label>
+              <input type="text" name="purpose" value={formData.purpose} onChange={handleChange} placeholder="Purpose of visit" />
+            </div>
+            <div className="form-group full-width">
+              <label>Remarks</label>
+              <textarea name="remarks" value={formData.remarks} onChange={handleChange} />
+            </div>
+          </div>
+          <div className="form-actions">
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </AppButton>
+            <AppButton type="secondary" onClick={() => { resetForm(); setShowForm(false); }}>Go Back</AppButton>
+          </div>
         </div>
+      )}
 
-        <div className="view-grid">
-
-          <p>
-
-            <strong>
-              Appointment ID:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.appointmentId
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Visitor:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.visitorName
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Mobile:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.mobile
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Person To Meet:
-            </strong>
-
-            {" "}
-
-            {
-              getStaffName(viewData.personToMeetId)
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Department:
-            </strong>
-
-            {" "}
-
-            {
-              getDepartmentName(viewData.departmentId)
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Appointment Date:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.appointmentDate
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Time Slot:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.timeSlot
-            }
-
-          </p>
-
-          <p>
-
-            <strong>
-              Status:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.status
-            }
-
-          </p>
-
-          <p className="full-width">
-
-            <strong>
-              Purpose:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.purpose ||
-              "-"
-            }
-
-          </p>
-
-          <p className="full-width">
-
-            <strong>
-              Remarks:
-            </strong>
-
-            {" "}
-
-            {
-              viewData.remarks ||
-              "-"
-            }
-
-          </p>
-
+      {viewData && (
+        <div className="popup-overlay">
+          <div className="view-popup">
+            <div className="popup-head">
+              <h2>Appointment Details</h2>
+              <button className="popup-close-btn" onClick={() => setViewData(null)}>×</button>
+            </div>
+            <div className="view-grid">
+              <p><strong>Appointment ID:</strong> {viewData.appointmentId}</p>
+              <p><strong>Visitor:</strong> {viewData.visitorName}</p>
+              <p><strong>Mobile:</strong> {viewData.mobile}</p>
+              <p><strong>Person To Meet:</strong> {viewData.personToMeet || "-"}</p>
+              <p><strong>Department:</strong> {viewData.departmentName || "-"}</p>
+              <p><strong>Date:</strong> {viewData.appointmentDate}</p>
+              <p><strong>Time Slot:</strong> {viewData.timeSlot}</p>
+              <p><strong>Status:</strong> {viewData.status}</p>
+              <p className="full-width"><strong>Purpose:</strong> {viewData.purpose || "-"}</p>
+              <p className="full-width"><strong>Remarks:</strong> {viewData.remarks || "-"}</p>
+            </div>
+          </div>
         </div>
+      )}
 
-      </div>
-
+      {toast && <div className="submodule-toast-banner">{toast}</div>}
     </div>
-
-  )}
-
-</div>
-
-);
-
+  );
 }
 
 export default AppointmentScheduling;
+

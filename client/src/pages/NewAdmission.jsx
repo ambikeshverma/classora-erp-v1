@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./newAdmission.css";
 import AppButton from "../components/AppButton";
-import api from "../services/api";
+import { admissionService } from "../services/api";
 
 const statesOfIndia = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -15,31 +15,31 @@ const statesOfIndia = [
   "Lakshadweep"
 ];
 
-const classOptions = [
+const defaultClassOptions = [
   "Nursery", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
   "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
   "Class 11", "Class 12"
 ];
 
-const sectionOptions = ["A", "B", "C", "Hindi Medium", "English Medium"];
+const defaultSectionOptions = ["A", "B", "C", "Hindi Medium", "English Medium"];
 
-const mediumOptions = ["Hindi Medium", "English Medium"];
+const defaultMediumOptions = ["Hindi Medium", "English Medium"];
 
-const feePlans = [
+const defaultFeePlans = [
   { id: 1, className: "Class 6", planName: "6HM", medium: "Hindi Medium", totalFee: 18500 },
   { id: 2, className: "Class 6", planName: "6EM", medium: "English Medium", totalFee: 22500 },
   { id: 3, className: "Class 7", planName: "7HM", medium: "Hindi Medium", totalFee: 19500 },
   { id: 4, className: "Class 7", planName: "7EM", medium: "English Medium", totalFee: 23500 },
 ];
 
-const siblingGroups = [
+const defaultSiblingGroups = [
   "No Siblings",
   "Rahul Kumar Group",
   "Priya Singh Group",
   "Aman Verma Group",
 ];
 
-const concessionPlans = [
+const defaultConcessionPlans = [
   "No Concession Plan",
   "Staff Child",
   "Sibling Concession",
@@ -87,6 +87,58 @@ function NewAdmission() {
   const currentSession =
     localStorage.getItem("currentSession") || "2026-2027";
 
+  const [classOptions, setClassOptions] = useState(defaultClassOptions);
+  const [classSections, setClassSections] = useState({});
+  const [feePlans, setFeePlans] = useState(defaultFeePlans);
+  const [concessionPlans, setConcessionPlans] = useState(defaultConcessionPlans);
+  const [siblingGroups, setSiblingGroups] = useState(defaultSiblingGroups);
+  const [mediumOptions, setMediumOptions] = useState(defaultMediumOptions);
+  const [allSubjects, setAllSubjects] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    admissionService
+      .getMeta()
+      .then((res) => {
+        if (res.data?.data) {
+          const { classes, feePlans: fps, concessions, siblingGroups: sgs, mediums: meds, subjects: subs } = res.data.data;
+          if (classes && classes.length > 0) {
+            setClassOptions(classes.map((c) => c.className));
+            const secMap = {};
+            classes.forEach((c) => {
+              if (c.sections && c.sections.length > 0) {
+                secMap[c.className] = c.sections;
+              }
+            });
+            setClassSections(secMap);
+          }
+          if (fps && fps.length > 0) {
+            setFeePlans(fps.map((f) => ({
+              id: f._id,
+              className: f.className,
+              planName: f.feePlanName,
+              totalFee: f.newTotal || f.oldTotal || 0,
+            })));
+          }
+          if (concessions && concessions.length > 0) {
+            setConcessionPlans(["No Concession Plan", ...concessions.map((c) => c.concessionName)]);
+          }
+          if (sgs && sgs.length > 0) {
+            setSiblingGroups(["No Siblings", ...sgs.map((s) => s.groupName)]);
+          }
+          if (meds && meds.length > 0) {
+            setMediumOptions(meds.map((m) => m.mediumName));
+          }
+          if (subs && subs.length > 0) {
+            setAllSubjects(subs.map((s) => s.subjectName));
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load admissions meta:", err);
+      });
+  }, []);
+
   const [form, setForm] = useState({
     className: "", feePlan: "", section: "", admissionDate: "", gender: "",
     studentName: "", fatherName: "", motherName: "", dob: "", mobile: "",
@@ -117,7 +169,15 @@ function NewAdmission() {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [studentImagePreview, setStudentImagePreview] = useState("");
 
-  const subjects = classSubjectMappings[form.className] || [];
+  const subjects =
+    allSubjects.length > 0
+      ? allSubjects
+      : classSubjectMappings[form.className] || [];
+
+  const sectionOptions =
+    form.className && classSections[form.className] && classSections[form.className].length > 0
+      ? classSections[form.className]
+      : defaultSectionOptions;
 
   const availableFeePlans = feePlans.filter(
     (item) => item.className === form.className
@@ -134,7 +194,7 @@ function NewAdmission() {
         medium: mediumOptions[0],
       }));
     }
-  }, [form.medium]);
+  }, [form.medium, mediumOptions]);
 
   useEffect(() => {
     if (availableFeePlans.length === 1) {
@@ -144,7 +204,7 @@ function NewAdmission() {
       }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.className]);
+  }, [form.className, feePlans]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -244,15 +304,15 @@ function NewAdmission() {
         totalFee: selectedFeePlan?.totalFee || 0
       };
 
-      const res = await api.post(
-        "/api/admissions/add",
-        finalData
-      );
+      setSubmitting(true);
+      const res = await admissionService.createAdmission(finalData);
 
       alert(res.data.msg || "Admission saved successfully ✅");
-      window.location.href = "/admission";
+      window.location.href = "/admissions";
     } catch (err) {
-      alert(err.response?.data?.msg || "Admission save failed ❌");
+      alert(err.response?.data?.msg || err.response?.data?.message || "Admission save failed ❌");
+    } finally {
+      setSubmitting(false);
     }
   };
   const field = (
@@ -590,7 +650,7 @@ function NewAdmission() {
 
         <AppButton
           type="secondary"
-          onClick={() => (window.location.href = "/admission")}
+          onClick={() => (window.location.href = "/admissions")}
         >
           Go Back
         </AppButton>

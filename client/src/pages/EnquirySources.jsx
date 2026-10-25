@@ -1,132 +1,104 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./enquirySources.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { receptionService } from "../services/api";
 
 function EnquirySources() {
   const [showForm, setShowForm] = useState(false);
-
-  const [sources, setSources] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      sourceName: "Walk-in",
-      description: "Direct school visit enquiry",
-      isUsed: true,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      sourceName: "WhatsApp",
-      description: "Enquiry received from WhatsApp",
-      isUsed: false,
-    },
-  ]);
-
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [editId, setEditId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [toast, setToast] = useState("");
 
-  const [formData, setFormData] = useState({
-    sourceName: "",
-    description: "",
-  });
+  const [formData, setFormData] = useState({ sourceName: "", description: "" });
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(""), 3000);
+  };
+
+  const fetchSources = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await receptionService.getEnquirySources();
+      setSources(res.data?.data || []);
+    } catch {
+      showToast("Failed to load enquiry sources");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchSources(); }, [fetchSources]);
 
   const resetForm = () => {
-    setFormData({
-      sourceName: "",
-      description: "",
-    });
-
+    setFormData({ sourceName: "", description: "" });
     setEditId(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = () => {
-    if (!formData.sourceName) {
-      alert("Please enter source name");
+  const handleSave = async () => {
+    if (!formData.sourceName.trim()) {
+      showToast("Please enter source name");
       return;
     }
-
-    if (editId) {
-      setSources(
-        sources.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-              }
-            : item
-        )
-      );
-
-      alert("Enquiry source updated successfully");
-    } else {
-      const newSource = {
-        id: Date.now(),
-        schoolId: "SCH001",
-        ...formData,
-        isUsed: false,
-      };
-
-      setSources([...sources, newSource]);
-
-      alert("Enquiry source added successfully");
+    setSaving(true);
+    try {
+      if (editId) {
+        await receptionService.updateEnquirySource(editId, formData);
+        showToast("Enquiry source updated successfully");
+      } else {
+        await receptionService.createEnquirySource(formData);
+        showToast("Enquiry source added successfully");
+      }
+      resetForm();
+      setShowForm(false);
+      setSelectedIds([]);
+      fetchSources();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to save enquiry source");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
-    setSelectedIds([]);
   };
 
   const handleEdit = (item) => {
     if (!item) return;
-
     if (item.isUsed) {
-      alert("This enquiry source is already used in enquiry records");
+      showToast("This enquiry source is already used in enquiry records");
       return;
     }
-
-    setEditId(item.id);
-
-    setFormData({
-      sourceName: item.sourceName,
-      description: item.description,
-    });
-
+    setEditId(item._id);
+    setFormData({ sourceName: item.sourceName, description: item.description || "" });
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select source");
+      showToast("Select at least one source to delete");
       return;
     }
-
-    const usedSource = sources.find(
-      (item) => selectedIds.includes(item.id) && item.isUsed
-    );
-
+    const usedSource = sources.find((item) => selectedIds.includes(item._id) && item.isUsed);
     if (usedSource) {
-      alert("This enquiry source is already used in enquiry records");
+      showToast("Cannot delete: source is already in use");
       return;
     }
-
-    const confirmDelete = window.confirm("Delete selected enquiry source?");
-
-    if (!confirmDelete) return;
-
-    setSources(
-      sources.filter((item) => !selectedIds.includes(item.id))
-    );
-
-    setSelectedIds([]);
+    if (!window.confirm("Delete selected enquiry source(s)?")) return;
+    try {
+      await Promise.all(selectedIds.map((id) => receptionService.deleteEnquirySource(id)));
+      showToast("Enquiry source(s) deleted successfully");
+      setSelectedIds([]);
+      fetchSources();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to delete enquiry source");
+    }
   };
 
   return (
@@ -135,24 +107,14 @@ function EnquirySources() {
         <AppButton
           type="back"
           onClick={() => {
-            if (showForm) {
-              resetForm();
-              setShowForm(false);
-            } else {
-              window.location.href = "/reception-desk";
-            }
+            if (showForm) { resetForm(); setShowForm(false); }
+            else window.location.href = "/reception-desk";
           }}
         >
           ←
         </AppButton>
-
         <div>
-          <h1>
-            {showForm
-              ? "Add / Edit Enquiry Source"
-              : "Enquiry Sources"}
-          </h1>
-
+          <h1>{showForm ? "Add / Edit Enquiry Source" : "Enquiry Sources"}</h1>
           <p>Manage enquiry source master records</p>
         </div>
       </div>
@@ -160,10 +122,7 @@ function EnquirySources() {
       {!showForm && (
         <>
           <div className="top-action-bar">
-            <AppButton
-              type="primary"
-              onClick={() => setShowForm(true)}
-            >
+            <AppButton type="primary" onClick={() => { resetForm(); setShowForm(true); }}>
               + Add Source
             </AppButton>
           </div>
@@ -171,93 +130,68 @@ function EnquirySources() {
           <div className="common-card">
             <div className="list-header">
               <h2>Enquiry Source List</h2>
-
               <div className="list-action-buttons">
                 <AppButton
                   type="primary"
                   onClick={() => {
-                    if (selectedIds.length !== 1) {
-                      alert("Select one source");
-                      return;
-                    }
-
-                    const selected = sources.find(
-                      (item) => item.id === selectedIds[0]
-                    );
-
-                    handleEdit(selected);
+                    if (selectedIds.length !== 1) { showToast("Select exactly one source to edit"); return; }
+                    const item = sources.find((s) => s._id === selectedIds[0]);
+                    handleEdit(item);
                   }}
                 >
                   Edit
                 </AppButton>
-
-                <AppButton
-                  type="delete"
-                  onClick={handleDelete}
-                >
-                  Delete
-                </AppButton>
+                <AppButton type="delete" onClick={handleDelete}>Delete</AppButton>
               </div>
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          sources.length > 0 &&
-                          selectedIds.length === sources.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(sources.map((item) => item.id));
-                          } else {
-                            setSelectedIds([]);
-                          }
-                        }}
-                      />
-                    </th>
-                    <th>S.No</th>
-                    <th>Source Name</th>
-                    <th>Description</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {sources.length === 0 ? (
+              {loading ? (
+                <SkeletonTable columns={4} rows={5} />
+              ) : (
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan="4" className="empty-row">
-                        No enquiry source found
-                      </td>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={sources.length > 0 && selectedIds.length === sources.length}
+                          onChange={(e) => setSelectedIds(e.target.checked ? sources.map((s) => s._id) : [])}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Source Name</th>
+                      <th>Description</th>
                     </tr>
-                  ) : (
-                    sources.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
-                          />
-                        </td>
-
-                        <td>{index + 1}</td>
-                        <td>{item.sourceName}</td>
-                        <td>{item.description || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sources.length === 0 ? (
+                      <tr><td colSpan="4" className="empty-row">No enquiry source found</td></tr>
+                    ) : (
+                      sources.map((item, index) => (
+                        <tr key={item._id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(item._id)}
+                              onChange={() =>
+                                setSelectedIds((prev) =>
+                                  prev.includes(item._id)
+                                    ? prev.filter((id) => id !== item._id)
+                                    : [...prev, item._id]
+                                )
+                              }
+                            />
+                          </td>
+                          <td>{index + 1}</td>
+                          <td>{item.sourceName}</td>
+                          <td>{item.description || "-"}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -267,8 +201,7 @@ function EnquirySources() {
         <div className="common-card">
           <div className="source-form-grid">
             <div className="form-group">
-              <label>Source Name</label>
-
+              <label>Source Name *</label>
               <input
                 type="text"
                 name="sourceName"
@@ -277,38 +210,31 @@ function EnquirySources() {
                 onChange={handleChange}
               />
             </div>
-
             <div className="form-group full-width">
               <label>Description</label>
-
               <textarea
                 name="description"
                 placeholder="Enter description"
                 value={formData.description}
                 onChange={handleChange}
-              ></textarea>
+              />
             </div>
           </div>
-
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
-
-            <AppButton
-              type="secondary"
-              onClick={() => {
-                resetForm();
-                setShowForm(false);
-              }}
-            >
+            <AppButton type="secondary" onClick={() => { resetForm(); setShowForm(false); }}>
               Go Back
             </AppButton>
           </div>
         </div>
       )}
+
+      {toast && <div className="submodule-toast-banner">{toast}</div>}
     </div>
   );
 }
 
 export default EnquirySources;
+

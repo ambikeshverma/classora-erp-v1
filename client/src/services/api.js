@@ -227,4 +227,165 @@ export const schoolService = {
   getNotices: () => api.get("/api/school/notices"),
 };
 
+// 🏢 HR & Staff Management Endpoints (Connected Prerequisites)
+export const hrService = {
+  // Departments
+  getDepartments: () => api.get("/api/hr/departments"),
+  createDepartment: (data) => api.post("/api/hr/departments", data),
+  updateDepartment: (id, data) => api.put(`/api/hr/departments/${id}`, data),
+  deleteDepartment: (id) => api.delete(`/api/hr/departments/${id}`),
+
+  // Positions
+  getPositions: (departmentId) =>
+    api.get("/api/hr/positions", { params: departmentId ? { departmentId } : {} }),
+  createPosition: (data) => api.post("/api/hr/positions", data),
+  updatePosition: (id, data) => api.put(`/api/hr/positions/${id}`, data),
+  deletePosition: (id) => api.delete(`/api/hr/positions/${id}`),
+
+  // Staff
+  getStaff: (params) => api.get("/api/hr/staff", { params }),
+  getStaffById: (id) => api.get(`/api/hr/staff/${id}`),
+  createStaff: (data) => api.post("/api/hr/staff", data),
+  updateStaff: (id, data) => api.put(`/api/hr/staff/${id}`, data),
+  toggleStaffStatus: (id) => api.patch(`/api/hr/staff/${id}/toggle-status`),
+  deleteStaff: (id) => api.delete(`/api/hr/staff/${id}`),
+};
+
+// 🔐 User Control Endpoints
+export const userControlService = {
+  // Meta: classes, subjects, and staff in one optimized query
+  getMeta: () => api.get("/api/user-control/meta"),
+
+  // User Management
+  getUsers: (params) => api.get("/api/user-control/users", { params }),
+  createUser: (data) => api.post("/api/user-control/users", data),
+  updateUser: (id, data) => api.put(`/api/user-control/users/${id}`, data),
+  toggleUserStatus: (id) => api.patch(`/api/user-control/users/${id}/toggle-status`),
+  resetUserPassword: (id) => api.post(`/api/user-control/users/${id}/reset-password`),
+  deleteUser: (id) => api.delete(`/api/user-control/users/${id}`),
+
+  // Class Teacher Assignment
+  getClassTeachers: () => api.get("/api/user-control/class-teachers"),
+  assignClassTeacher: (data) => api.post("/api/user-control/class-teachers/assign", data),
+  deleteClassTeacher: (id) => api.delete(`/api/user-control/class-teachers/${id}`),
+
+  // Subject Teacher Assignment
+  getSubjectTeachers: (params) => api.get("/api/user-control/subject-teachers", { params }),
+  assignSubjectTeacher: (data) => api.post("/api/user-control/subject-teachers/assign", data),
+  deleteSubjectTeacher: (id) => api.delete(`/api/user-control/subject-teachers/${id}`),
+};
+
+// 📚 Master Endpoints (Subjects, Classes, etc.)
+export const masterService = {
+  getSubjects: () => api.get("/api/master/subject/fetch"),
+  createSubject: (data) => api.post("/api/master/subject/create", data),
+  updateSubject: (id, data) => api.put(`/api/master/subject/${id}`, data),
+  deleteSubject: (id) => api.delete(`/api/master/subject/${id}`),
+  getClasses: () => api.get("/api/master/class/fetch"),
+  createClass: (data) => api.post("/api/master/class/create", data),
+};
+
+// ⚙️ Admin Panel Endpoints
+export const adminPanelService = {
+  getMeta: () => api.get("/api/admin-panel/meta"),
+
+  // Fee Scheme
+  getFeeScheme: () => api.get("/api/admin-panel/fee-scheme"),
+  updateFeeScheme: (data) => api.post("/api/admin-panel/fee-scheme", data),
+  addFeeHead: (data) => api.post("/api/admin-panel/fee-scheme/heads", data),
+  updateFeeHead: (id, data) => api.put(`/api/admin-panel/fee-scheme/heads/${id}`, data),
+  deleteFeeHead: (id) => api.delete(`/api/admin-panel/fee-scheme/heads/${id}`),
+
+  // Fee Plan Name Setup
+  getFeePlanNames: () => api.get("/api/admin-panel/fee-plan-names"),
+  createFeePlanName: (data) => api.post("/api/admin-panel/fee-plan-names", data),
+  updateFeePlanName: (id, data) => api.put(`/api/admin-panel/fee-plan-names/${id}`, data),
+  deleteFeePlanName: (id) => api.delete(`/api/admin-panel/fee-plan-names/${id}`),
+
+  // Fee Plan Management
+  getFeePlans: (params) => api.get("/api/admin-panel/fee-plans", { params }),
+  saveFeePlan: (data) => api.post("/api/admin-panel/fee-plans", data),
+  copyFeePlan: (data) => api.post("/api/admin-panel/fee-plans/copy", data),
+  deleteFeePlan: (id) => api.delete(`/api/admin-panel/fee-plans/${id}`),
+
+  // Concession Management
+  getConcessions: () => api.get("/api/admin-panel/concessions"),
+  createConcession: (data) => api.post("/api/admin-panel/concessions", data),
+  updateConcession: (id, data) => api.put(`/api/admin-panel/concessions/${id}`, data),
+  toggleConcessionStatus: (id) => api.patch(`/api/admin-panel/concessions/${id}/toggle-status`),
+  deleteConcession: (id) => api.delete(`/api/admin-panel/concessions/${id}`),
+
+  // Subscription Billing & Reports
+  getBilling: () => api.get("/api/admin-panel/billing"),
+  getReports: () => api.get("/api/admin-panel/reports"),
+};
+
+// 📝 Admissions Endpoints
+export const admissionService = {
+  getMeta: () => api.get("/api/admissions/meta"),
+  getAdmissions: (params) => api.get("/api/admissions", { params }),
+  getAdmissionById: (id) => api.get(`/api/admissions/${id}`),
+  createAdmission: (data) => api.post("/api/admissions/add", data),
+  updateAdmission: (id, data) => api.put(`/api/admissions/${id}`, data),
+  deleteAdmission: (id) => api.delete(`/api/admissions/${id}`),
+  bulkImportAdmissions: (data) => api.post("/api/admissions/bulk-import", data),
+
+  // Enquiries
+  getEnquiries: (params) => api.get("/api/admissions/enquiries", { params }),
+  createEnquiry: (data) => api.post("/api/admissions/enquiries", data),
+  updateEnquiry: (id, data) => api.put(`/api/admissions/enquiries/${id}`, data),
+  updateEnquiryStatus: (id, status) => api.patch(`/api/admissions/enquiries/${id}/status`, { status }),
+  deleteEnquiry: (id) => api.delete(`/api/admissions/enquiries/${id}`),
+
+  // Reports
+  getReports: () => api.get("/api/admissions/reports"),
+};
+
+// 🏢 Reception Desk Endpoints
+export const receptionService = {
+  // Meta batch
+  getMeta: () => api.get("/api/reception/meta"),
+
+  // Enquiry Sources
+  getEnquirySources: () => api.get("/api/reception/enquiry-sources"),
+  createEnquirySource: (data) => api.post("/api/reception/enquiry-sources", data),
+  updateEnquirySource: (id, data) => api.put(`/api/reception/enquiry-sources/${id}`, data),
+  deleteEnquirySource: (id) => api.delete(`/api/reception/enquiry-sources/${id}`),
+
+  // Follow-ups
+  getFollowUps: () => api.get("/api/reception/follow-ups"),
+  createFollowUp: (data) => api.post("/api/reception/follow-ups", data),
+  updateFollowUp: (id, data) => api.put(`/api/reception/follow-ups/${id}`, data),
+  deleteFollowUp: (id) => api.delete(`/api/reception/follow-ups/${id}`),
+
+  // Gate Passes
+  getGatePasses: (params) => api.get("/api/reception/gate-passes", { params }),
+  createGatePass: (data) => api.post("/api/reception/gate-passes", data),
+  updateGatePassStatus: (id, data) => api.patch(`/api/reception/gate-passes/${id}/status`, data),
+  deleteGatePass: (id) => api.delete(`/api/reception/gate-passes/${id}`),
+
+  // Appointments
+  getAppointments: (params) => api.get("/api/reception/appointments", { params }),
+  createAppointment: (data) => api.post("/api/reception/appointments", data),
+  updateAppointmentStatus: (id, status) => api.patch(`/api/reception/appointments/${id}/status`, { status }),
+  deleteAppointment: (id) => api.delete(`/api/reception/appointments/${id}`),
+
+  // Visitors
+  getVisitors: (params) => api.get("/api/reception/visitors", { params }),
+  getApprovedAppointments: () => api.get("/api/reception/visitors/approved-appointments"),
+  createVisitor: (data) => api.post("/api/reception/visitors", data),
+  updateVisitorStatus: (id, data) => api.patch(`/api/reception/visitors/${id}/status`, data),
+  deleteVisitor: (id) => api.delete(`/api/reception/visitors/${id}`),
+
+  // Support & Complaints
+  getComplaints: (params) => api.get("/api/reception/complaints", { params }),
+  createComplaint: (data) => api.post("/api/reception/complaints", data),
+  updateComplaintStatus: (id, data) => api.patch(`/api/reception/complaints/${id}/status`, data),
+  deleteComplaint: (id) => api.delete(`/api/reception/complaints/${id}`),
+
+  // Reports
+  getReports: () => api.get("/api/reception/reports"),
+};
+
 export default api;
+

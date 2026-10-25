@@ -1,258 +1,128 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./concessionManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { adminPanelService } from "../services/api";
 
 function ConcessionManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-
   const currentUser = {
     userId: localStorage.getItem("userId") || "USR001",
-    employeeName: localStorage.getItem("employeeName") || "Ankit Verma",
+    employeeName: localStorage.getItem("userName") || "School Admin",
   };
 
-  /*
-    Future API Source:
-    Fee Scheme Module se allowed fee scheme aur fee heads aayenge.
-  */
-  const feeSchemeData = {
-    schoolId: "SCH001",
-    feeScheme: "Monthly",
-    installmentCount: 3,
-    feeHeads: [
-      {
-        id: 1,
-        schoolId: "SCH001",
-        headName: "Monthly Fee",
-      },
-      {
-        id: 2,
-        schoolId: "SCH001",
-        headName: "Computer Fee",
-      },
-      {
-        id: 3,
-        schoolId: "SCH001",
-        headName: "Exam Fee",
-      },
-      {
-        id: 4,
-        schoolId: "SCH001",
-        headName: "Transport Fee",
-      },
-      {
-        id: 5,
-        schoolId: "SCH001",
-        headName: "Tie+Belt",
-      },
-      {
-        id: 6,
-        schoolId: "SCH001",
-        headName: "ID Card",
-      },
-    ],
-  };
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const allowedFeeSchemeConfig = feeSchemeData;
-
-  const getColumns = () => {
-    if (allowedFeeSchemeConfig.feeScheme === "Installment") {
-      return Array.from(
-        { length: allowedFeeSchemeConfig.installmentCount || 1 },
-        (_, index) => `Installment ${index + 1}`
-      );
-    }
-
-    if (allowedFeeSchemeConfig.feeScheme === "Quarterly") {
-      return ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4"];
-    }
-
-    if (allowedFeeSchemeConfig.feeScheme === "Half Yearly") {
-      return ["Half Yearly 1", "Half Yearly 2"];
-    }
-
-    if (
-      allowedFeeSchemeConfig.feeScheme === "Yearly" ||
-      allowedFeeSchemeConfig.feeScheme === "Annual"
-    ) {
-      return ["Annual"];
-    }
-
-    return [
-      "APR",
-      "MAY",
-      "JUN",
-      "JUL",
-      "AUG",
-      "SEP",
-      "OCT",
-      "NOV",
-      "DEC",
-      "JAN",
-      "FEB",
-      "MAR",
-    ];
-  };
-
-  const months = getColumns();
-
-  const feeHeads = feeSchemeData?.feeHeads || [];
-
-  const schoolFeeHeads = feeHeads.filter(
-    (item) => item.schoolId === schoolId
-  );
-
-  const createEmptyPercentages = () => {
-    const data = {};
-
-    schoolFeeHeads.forEach((head) => {
-      data[head.id] = {};
-
-      months.forEach((month) => {
-        data[head.id][month] = "";
-      });
-    });
-
-    return data;
-  };
+  const [allowedFeeScheme, setAllowedFeeScheme] = useState("Monthly");
+  const [installmentCount, setInstallmentCount] = useState(3);
+  const [feeHeads, setFeeHeads] = useState([]);
 
   const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [planName, setPlanName] = useState("");
-  const [percentages, setPercentages] = useState(createEmptyPercentages());
+  const [percentages, setPercentages] = useState({});
+  const [savedPlans, setSavedPlans] = useState([]);
 
-  const [savedPlans, setSavedPlans] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      planName: "Staff Child",
-      feeScheme: "Monthly",
-      columns: [
-        "APR",
-        "MAY",
-        "JUN",
-        "JUL",
-        "AUG",
-        "SEP",
-        "OCT",
-        "NOV",
-        "DEC",
-        "JAN",
-        "FEB",
-        "MAR",
-      ],
-      percentages: {
-        1: {
-          APR: "50",
-          MAY: "50",
-          JUN: "50",
-          JUL: "50",
-          AUG: "50",
-          SEP: "50",
-          OCT: "50",
-          NOV: "50",
-          DEC: "50",
-          JAN: "50",
-          FEB: "50",
-          MAR: "50",
-        },
-        2: {
-          APR: "25",
-          MAY: "25",
-          JUN: "25",
-          JUL: "25",
-          AUG: "25",
-          SEP: "25",
-          OCT: "25",
-          NOV: "25",
-          DEC: "25",
-          JAN: "25",
-          FEB: "25",
-          MAR: "25",
-        },
-        3: {},
-        4: {},
-        5: {},
-        6: {},
-      },
-      isLocked: false,
-      isUsed: false,
-      lockedBy: "",
-      lockedByUserId: "",
-      lockedOnDate: "",
-      lockedOnTime: "",
-      createdBy: "Ankit Verma",
-      updatedBy: "Ankit Verma",
-      updatedDate: "28/05/2026",
-      updatedTime: "10:30 AM",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      planName: "Sibling Concession",
-      feeScheme: "Monthly",
-      columns: [
-        "APR",
-        "MAY",
-        "JUN",
-        "JUL",
-        "AUG",
-        "SEP",
-        "OCT",
-        "NOV",
-        "DEC",
-        "JAN",
-        "FEB",
-        "MAR",
-      ],
-      percentages: {
-        1: {
-          APR: "20",
-          MAY: "20",
-          JUN: "20",
-          JUL: "20",
-          AUG: "20",
-          SEP: "20",
-          OCT: "20",
-          NOV: "20",
-          DEC: "20",
-          JAN: "20",
-          FEB: "20",
-          MAR: "20",
-        },
-        2: {},
-        3: {},
-        4: {},
-        5: {},
-        6: {},
-      },
-      isLocked: true,
-      isUsed: false,
-      lockedBy: "Ankit Verma",
-      lockedByUserId: "USR001",
-      lockedOnDate: "28/05/2026",
-      lockedOnTime: "11:15 AM",
-      createdBy: "Ankit Verma",
-      updatedBy: "Ankit Verma",
-      updatedDate: "28/05/2026",
-      updatedTime: "11:15 AM",
-    },
-  ]);
+  const getColumns = (scheme = allowedFeeScheme, count = installmentCount) => {
+    if (scheme === "Installment") {
+      return Array.from({ length: count || 1 }, (_, index) => `Installment ${index + 1}`);
+    }
+    if (scheme === "Quarterly") {
+      return ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4"];
+    }
+    if (scheme === "Half Yearly") {
+      return ["Half Yearly 1", "Half Yearly 2"];
+    }
+    if (scheme === "Yearly" || scheme === "Annual") {
+      return ["Annual"];
+    }
+    return [
+      "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
+      "OCT", "NOV", "DEC", "JAN", "FEB", "MAR",
+    ];
+  };
 
-  const schoolPlans = savedPlans.filter((item) => item.schoolId === schoolId);
+  const months = getColumns();
 
-  const selectedPlans = schoolPlans.filter((item) =>
-    selectedIds.includes(item.id)
-  );
+  const createEmptyPercentages = (heads = feeHeads, cols = months) => {
+    const data = {};
+    heads.forEach((head) => {
+      const key = head.id || head.headName;
+      data[key] = {};
+      cols.forEach((month) => {
+        data[key][month] = "";
+      });
+    });
+    return data;
+  };
 
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [metaRes, concRes] = await Promise.all([
+        adminPanelService.getMeta(),
+        adminPanelService.getConcessions(),
+      ]);
+
+      let currentHeads = [];
+      let currentScheme = "Monthly";
+      let currentInstallment = 3;
+
+      if (metaRes.data?.data?.feeScheme) {
+        const fs = metaRes.data.data.feeScheme;
+        currentScheme = fs.schemeType || "Monthly";
+        currentInstallment = fs.installmentCount || 3;
+        setAllowedFeeScheme(currentScheme);
+        setInstallmentCount(currentInstallment);
+
+        if (Array.isArray(fs.feeHeads)) {
+          currentHeads = fs.feeHeads.map((h, i) => ({
+            id: h._id || String(i + 1),
+            headName: h.feeHeadName,
+          }));
+          setFeeHeads(currentHeads);
+        }
+      }
+
+      if (concRes.data?.data) {
+        setSavedPlans(
+          concRes.data.data.map((c) => ({
+            id: c._id,
+            planName: c.concessionName,
+            feeScheme: c.feeScheme || currentScheme,
+            columns: c.applicableMonths?.length ? c.applicableMonths : getColumns(currentScheme, currentInstallment),
+            percentages: c.percentages || {},
+            isLocked: Boolean(c.isLocked),
+            isUsed: Boolean(c.isUsed),
+            lockedBy: c.lockedBy || "",
+            lockedOnDate: c.lockedOnDate || "",
+            lockedOnTime: c.lockedOnTime || "",
+            createdBy: c.createdBy || "",
+            updatedBy: c.updatedBy || "",
+            updatedDate: c.updatedDate || "",
+            updatedTime: c.updatedTime || "",
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to load concession data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedPlans = savedPlans.filter((item) => selectedIds.includes(item.id));
   const selectedSingle = selectedPlans.length === 1 ? selectedPlans[0] : null;
 
   const currentStatusText = selectedSingle?.isLocked
     ? "🔒 Locked"
     : "🔓 Editable";
-
-  const usableConcessionPlans = schoolPlans.filter((item) => item.isLocked);
 
   const resetForm = () => {
     setPlanName("");
@@ -266,7 +136,6 @@ function ConcessionManagement() {
 
     if (value !== "") {
       const num = Number(value);
-
       if (num < 0 || num > 100) {
         alert("Percentage must be between 0 and 100");
         return;
@@ -276,7 +145,7 @@ function ConcessionManagement() {
     setPercentages((prev) => ({
       ...prev,
       [headId]: {
-        ...prev[headId],
+        ...(prev[headId] || {}),
         [month]: value,
       },
     }));
@@ -288,10 +157,9 @@ function ConcessionManagement() {
       return false;
     }
 
-    const duplicate = schoolPlans.some(
+    const duplicate = savedPlans.some(
       (item) =>
-        item.planName.toLowerCase().trim() ===
-          planName.toLowerCase().trim() &&
+        item.planName.toLowerCase().trim() === planName.toLowerCase().trim() &&
         item.id !== editingId
     );
 
@@ -303,11 +171,10 @@ function ConcessionManagement() {
     return true;
   };
 
-  const handleSavePlan = () => {
+  const handleSavePlan = async () => {
     if (!validatePlan()) return;
 
     const now = new Date();
-
     const date = now.toLocaleDateString("en-IN");
     const time = now.toLocaleTimeString("en-IN", {
       hour: "2-digit",
@@ -315,65 +182,44 @@ function ConcessionManagement() {
       hour12: true,
     });
 
-    const planData = {
-      id: editingId || Date.now(),
-      schoolId,
-      planName: planName.trim(),
-      feeScheme: allowedFeeSchemeConfig.feeScheme,
-      columns: [...months],
+    const payload = {
+      concessionName: planName.trim(),
+      type: "percentage",
+      feeScheme: allowedFeeScheme,
+      applicableMonths: [...months],
+      applicableFeeHeads: feeHeads.map((h) => h.headName),
       percentages,
-      isLocked: false,
-      isUsed: false,
-      lockedBy: "",
-      lockedByUserId: "",
-      lockedOnDate: "",
-      lockedOnTime: "",
-      createdBy: currentUser.employeeName,
       updatedBy: currentUser.employeeName,
       updatedDate: date,
       updatedTime: time,
     };
 
-    if (editingId) {
-      const editingPlan = savedPlans.find((item) => item.id === editingId);
+    try {
+      setSaving(true);
+      if (editingId) {
+        const editingPlan = savedPlans.find((item) => item.id === editingId);
+        if (editingPlan?.isLocked) {
+          alert("Locked plan cannot be edited");
+          return;
+        }
 
-      if (editingPlan?.isLocked) {
-        alert("Locked plan cannot be edited");
-        return;
+        await adminPanelService.updateConcession(editingId, payload);
+        alert("Concession plan updated successfully");
+      } else {
+        payload.createdBy = currentUser.employeeName;
+        await adminPanelService.createConcession(payload);
+        alert("Concession plan saved successfully");
       }
 
-      if (editingPlan?.isUsed) {
-        alert("Used plan cannot be edited");
-        return;
-      }
-
-      setSavedPlans(
-        savedPlans.map((item) =>
-          item.id === editingId
-            ? {
-                ...item,
-                planName: planName.trim(),
-                feeScheme: allowedFeeSchemeConfig.feeScheme,
-                columns: [...months],
-                percentages,
-                updatedBy: currentUser.employeeName,
-                updatedDate: date,
-                updatedTime: time,
-              }
-            : item
-        )
-      );
-
-      alert("Concession plan updated successfully");
-    } else {
-      setSavedPlans([...savedPlans, planData]);
-
-      alert("Concession plan saved successfully");
+      resetForm();
+      setShowForm(false);
+      setSelectedIds([]);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save concession plan");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
-    setSelectedIds([]);
   };
 
   const handleView = () => {
@@ -383,7 +229,6 @@ function ConcessionManagement() {
     }
 
     const item = selectedSingle;
-
     setPlanName(item.planName);
     setPercentages({
       ...createEmptyPercentages(),
@@ -401,7 +246,6 @@ function ConcessionManagement() {
     }
 
     const item = selectedSingle;
-
     if (item.isLocked) {
       alert("Locked plan cannot be edited");
       return;
@@ -422,14 +266,13 @@ function ConcessionManagement() {
     setShowForm(true);
   };
 
-  const handleLockPlan = () => {
+  const handleLockPlan = async () => {
     if (selectedIds.length !== 1) {
       alert("Select one concession plan");
       return;
     }
 
     const item = selectedSingle;
-
     if (item.isLocked) {
       alert("Plan already locked");
       return;
@@ -438,31 +281,58 @@ function ConcessionManagement() {
     const ok = window.confirm(
       "Once locked, this plan cannot be edited by school admin. Continue?"
     );
-
     if (!ok) return;
 
     const now = new Date();
+    try {
+      setSaving(true);
+      await adminPanelService.updateConcession(item.id, {
+        isLocked: true,
+        lockedBy: currentUser.employeeName,
+        lockedOnDate: now.toLocaleDateString("en-IN"),
+        lockedOnTime: now.toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        }),
+      });
+      alert("Concession plan locked successfully");
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to lock plan");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-    setSavedPlans(
-      savedPlans.map((plan) =>
-        plan.id === item.id
-          ? {
-              ...plan,
-              isLocked: true,
-              lockedBy: currentUser.employeeName,
-              lockedByUserId: currentUser.userId,
-              lockedOnDate: now.toLocaleDateString("en-IN"),
-              lockedOnTime: now.toLocaleTimeString("en-IN", {
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              }),
-            }
-          : plan
-      )
-    );
+  const handleDeletePlan = async () => {
+    if (selectedIds.length === 0) {
+      alert("Select at least one plan to delete");
+      return;
+    }
 
-    alert("Concession plan locked successfully");
+    const lockedSelected = selectedPlans.some((p) => p.isLocked);
+    if (lockedSelected) {
+      alert("Locked plans cannot be deleted");
+      return;
+    }
+
+    const ok = window.confirm("Delete selected concession plans?");
+    if (!ok) return;
+
+    try {
+      setSaving(true);
+      for (const id of selectedIds) {
+        await adminPanelService.deleteConcession(id);
+      }
+      setSelectedIds([]);
+      alert("Concession plans deleted successfully");
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete concession plans");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -492,7 +362,6 @@ function ConcessionManagement() {
                 : "Add New Concession Plan"
               : "Concession Management"}
           </h1>
-
           <p>Manage concession percentage plans</p>
         </div>
       </div>
@@ -516,11 +385,10 @@ function ConcessionManagement() {
           <div className="filter-grid">
             <div className="form-group">
               <label>Concession Plan Name *</label>
-
               <input
                 type="text"
                 value={planName}
-                disabled={viewMode}
+                disabled={viewMode || saving}
                 onChange={(e) => setPlanName(e.target.value)}
                 placeholder="Enter concession plan name"
               />
@@ -532,7 +400,7 @@ function ConcessionManagement() {
           </div>
 
           <ConcessionPercentTable
-            feeHeads={schoolFeeHeads}
+            feeHeads={feeHeads}
             months={months}
             percentages={percentages}
             viewMode={viewMode}
@@ -541,8 +409,12 @@ function ConcessionManagement() {
 
           <div className="bottom-action-row">
             {!viewMode && (
-              <AppButton type="primary" onClick={handleSavePlan}>
-                {editingId ? "Update Plan" : "Save Plan"}
+              <AppButton
+                type="primary"
+                onClick={handleSavePlan}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : editingId ? "Update Plan" : "Save Plan"}
               </AppButton>
             )}
 
@@ -552,6 +424,7 @@ function ConcessionManagement() {
                 resetForm();
                 setShowForm(false);
               }}
+              disabled={saving}
             >
               Go Back
             </AppButton>
@@ -559,18 +432,13 @@ function ConcessionManagement() {
 
           <div className="last-edit-footer">
             <div>
-              <strong>Updated By:</strong>{" "}
-              {selectedSingle?.updatedBy || "-"}
+              <strong>Updated By:</strong> {selectedSingle?.updatedBy || "-"}
             </div>
-
             <div>
-              <strong>Updated Date:</strong>{" "}
-              {selectedSingle?.updatedDate || "-"}
+              <strong>Updated Date:</strong> {selectedSingle?.updatedDate || "-"}
             </div>
-
             <div>
-              <strong>Updated Time:</strong>{" "}
-              {selectedSingle?.updatedTime || "-"}
+              <strong>Updated Time:</strong> {selectedSingle?.updatedTime || "-"}
             </div>
           </div>
         </div>
@@ -581,95 +449,98 @@ function ConcessionManagement() {
           <div className="list-header">
             <div>
               <h2>Concession Plan List</h2>
-
               <p className="lock-status">
                 {selectedIds.length === 1 ? currentStatusText : "🔓 Editable"}
               </p>
             </div>
 
             <div className="list-action-buttons">
-              <AppButton type="primary" onClick={handleLockPlan}>
+              <AppButton type="primary" onClick={handleLockPlan} disabled={saving || loading}>
                 Lock Plan
               </AppButton>
 
-              <AppButton type="primary" onClick={handleView}>
+              <AppButton type="primary" onClick={handleView} disabled={saving || loading}>
                 View
               </AppButton>
 
-              <AppButton type="primary" onClick={handleEdit}>
+              <AppButton type="primary" onClick={handleEdit} disabled={saving || loading}>
                 Edit
+              </AppButton>
+
+              <AppButton type="secondary" onClick={handleDeletePlan} disabled={saving || loading}>
+                Delete
               </AppButton>
             </div>
           </div>
 
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>
-                    <input
-                      type="checkbox"
-                      checked={
-                        schoolPlans.length > 0 &&
-                        selectedIds.length === schoolPlans.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedIds(schoolPlans.map((item) => item.id));
-                        } else {
-                          setSelectedIds([]);
-                        }
-                      }}
-                    />
-                  </th>
-
-                  <th>S.No</th>
-                  <th>Concession Plan Name</th>
-                  <th>Locked By</th>
-                  <th>Locked On</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {schoolPlans.length === 0 ? (
+          {loading ? (
+            <SkeletonTable rows={4} columns={5} />
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
                   <tr>
-                    <td colSpan="5" className="empty-row">
-                      No concession plan found
-                    </td>
+                    <th>
+                      <input
+                        type="checkbox"
+                        checked={
+                          savedPlans.length > 0 &&
+                          selectedIds.length === savedPlans.length
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(savedPlans.map((item) => item.id));
+                          } else {
+                            setSelectedIds([]);
+                          }
+                        }}
+                      />
+                    </th>
+                    <th>S.No</th>
+                    <th>Concession Plan Name</th>
+                    <th>Locked By</th>
+                    <th>Locked On</th>
                   </tr>
-                ) : (
-                  schoolPlans.map((item, index) => (
-                    <tr key={item.id}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.includes(item.id)}
-                          onChange={() => {
-                            setSelectedIds((prev) =>
-                              prev.includes(item.id)
-                                ? prev.filter((id) => id !== item.id)
-                                : [...prev, item.id]
-                            );
-                          }}
-                        />
-                      </td>
+                </thead>
 
-                      <td>{index + 1}</td>
-                      <td>{item.planName}</td>
-                      <td>{item.lockedBy || "-"}</td>
-                      <td>
-                        {item.lockedOnDate
-                          ? `${item.lockedOnDate} ${item.lockedOnTime}`
-                          : "-"}
+                <tbody>
+                  {savedPlans.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="empty-row">
+                        No concession plan found
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <input type="hidden" value={usableConcessionPlans.length} readOnly />
+                  ) : (
+                    savedPlans.map((item, index) => (
+                      <tr key={item.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(item.id)}
+                            onChange={() => {
+                              setSelectedIds((prev) =>
+                                prev.includes(item.id)
+                                  ? prev.filter((id) => id !== item.id)
+                                  : [...prev, item.id]
+                              );
+                            }}
+                          />
+                        </td>
+                        <td>{index + 1}</td>
+                        <td>{item.planName}</td>
+                        <td>{item.lockedBy || "-"}</td>
+                        <td>
+                          {item.lockedOnDate
+                            ? `${item.lockedOnDate} ${item.lockedOnTime}`
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -683,13 +554,22 @@ function ConcessionPercentTable({
   viewMode,
   onChange,
 }) {
+  if (!feeHeads || feeHeads.length === 0) {
+    return (
+      <div className="table-wrap">
+        <p style={{ padding: "16px", textAlign: "center", color: "#64748b" }}>
+          No fee heads found. Please configure fee heads in Fee Scheme first.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrap">
       <table>
         <thead>
           <tr>
             <th>Fee Head</th>
-
             {months.map((month) => (
               <th key={month}>{month}</th>
             ))}
@@ -697,28 +577,30 @@ function ConcessionPercentTable({
         </thead>
 
         <tbody>
-          {feeHeads.map((head) => (
-            <tr key={head.id}>
-              <td>{head.headName}</td>
-
-              {months.map((month) => (
-                <td key={month}>
-                  <input
-                    className="amount-input"
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={percentages?.[head.id]?.[month] || ""}
-                    disabled={viewMode}
-                    onChange={(e) =>
-                      onChange(head.id, month, e.target.value)
-                    }
-                    placeholder="%"
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
+          {feeHeads.map((head) => {
+            const headKey = head.id || head.headName;
+            return (
+              <tr key={headKey}>
+                <td>{head.headName}</td>
+                {months.map((month) => (
+                  <td key={month}>
+                    <input
+                      className="amount-input"
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={percentages?.[headKey]?.[month] || ""}
+                      disabled={viewMode}
+                      onChange={(e) =>
+                        onChange(headKey, month, e.target.value)
+                      }
+                      placeholder="%"
+                    />
+                  </td>
+                ))}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./feeScheme.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { adminPanelService } from "../services/api";
 
 function FeeScheme() {
   const schoolId = localStorage.getItem("schoolId") || "SCH001";
@@ -28,35 +30,62 @@ function FeeScheme() {
     "MAR",
   ];
 
-  const [selectedFeeType, setSelectedFeeType] =
-    useState("Monthly");
+  const [selectedFeeType, setSelectedFeeType] = useState("Monthly");
+  const [feeHeads, setFeeHeads] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showAddPopup, setShowAddPopup] = useState(false);
+  const [showEditPopup, setShowEditPopup] = useState(false);
+  const [feeHeadName, setFeeHeadName] = useState("");
+  const [selectedMonths, setSelectedMonths] = useState([]);
+  const [editingId, setEditingId] = useState(null);
+  const [editingFeeType, setEditingFeeType] = useState("");
+  const [isLocked, setIsLocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const [feeHeads, setFeeHeads] =
-    useState([]);
+  useEffect(() => {
+    fetchFeeScheme();
+  }, []);
 
-  const [selectedIds, setSelectedIds] =
-    useState([]);
+  const fetchFeeScheme = async () => {
+    try {
+      setLoading(true);
+      const res = await adminPanelService.getFeeScheme();
+      if (res.data?.data) {
+        const scheme = res.data.data;
+        if (scheme.schemeType) setSelectedFeeType(scheme.schemeType);
+        setIsLocked(Boolean(scheme.isLocked));
+        if (Array.isArray(scheme.feeHeads)) {
+          setFeeHeads(
+            scheme.feeHeads.map((h) => ({
+              id: h._id || h.id,
+              feeHeadName: h.feeHeadName,
+              feeType: h.feeType,
+              months: h.months,
+              isUsedInFeePlan: Boolean(h.isUsedInFeePlan),
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load fee scheme", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const [showAddPopup, setShowAddPopup] =
-    useState(false);
-
-  const [showEditPopup, setShowEditPopup] =
-    useState(false);
-
-  const [feeHeadName, setFeeHeadName] =
-    useState("");
-
-  const [selectedMonths, setSelectedMonths] =
-    useState([]);
-
-  const [editingId, setEditingId] =
-    useState(null);
-
-  const [editingFeeType, setEditingFeeType] =
-    useState("");
-
-  const [isLocked] =
-    useState(false);
+  const handleFeeTypeChange = async (type) => {
+    if (isLocked) {
+      alert("Fee scheme locked by super admin");
+      return;
+    }
+    setSelectedFeeType(type);
+    try {
+      await adminPanelService.updateFeeScheme({ schemeType: type });
+    } catch (err) {
+      console.error("Failed to save fee scheme type", err);
+    }
+  };
 
   const getMonthsText = (feeType = selectedFeeType) => {
     if (feeType === "Monthly") {
@@ -89,7 +118,6 @@ function FeeScheme() {
     return feeHeads
       .filter(
         (item) =>
-          item.schoolId === schoolId &&
           item.feeType === "Installment" &&
           item.id !== editingId
       )
@@ -108,125 +136,88 @@ function FeeScheme() {
     return item.isUsedInFeePlan === true;
   };
 
-  const handleAddFeeHead = () => {
+  const handleAddFeeHead = async () => {
     if (isLocked) {
-      alert(
-        "Fee scheme locked by super admin"
-      );
-
+      alert("Fee scheme locked by super admin");
       return;
     }
 
     if (!feeHeadName.trim()) {
-      alert(
-        "Enter fee head name"
-      );
-
+      alert("Enter fee head name");
       return;
     }
 
-    const duplicateFeeHead =
-      feeHeads.find(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.feeType === selectedFeeType &&
-          item.feeHeadName
-            .trim()
-            .toLowerCase() ===
-            feeHeadName
-              .trim()
-              .toLowerCase()
-      );
-
-    if (duplicateFeeHead) {
-      alert(
-        "Fee head already exists"
-      );
-
-      return;
-    }
-
-    if (
-      selectedFeeType === "Installment" &&
-      selectedMonths.length === 0
-    ) {
-      alert(
-        "Select months"
-      );
-
-      return;
-    }
-
-    const newItem = {
-      id: Date.now(),
-      schoolId,
-      feeHeadName,
-      feeType: selectedFeeType,
-      months: getMonthsText(selectedFeeType),
-      isUsedInFeePlan: false,
-    };
-
-    setFeeHeads([
-      ...feeHeads,
-      newItem,
-    ]);
-
-    alert(
-      "Fee head added successfully"
+    const duplicateFeeHead = feeHeads.find(
+      (item) =>
+        item.feeType === selectedFeeType &&
+        item.feeHeadName.trim().toLowerCase() === feeHeadName.trim().toLowerCase()
     );
 
-    resetForm();
-    setShowAddPopup(false);
+    if (duplicateFeeHead) {
+      alert("Fee head already exists");
+      return;
+    }
+
+    if (selectedFeeType === "Installment" && selectedMonths.length === 0) {
+      alert("Select months");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await adminPanelService.addFeeHead({
+        feeHeadName: feeHeadName.trim(),
+        feeType: selectedFeeType,
+        months: getMonthsText(selectedFeeType),
+      });
+
+      if (res.data?.data) {
+        setFeeHeads(
+          res.data.data.map((h) => ({
+            id: h._id || h.id,
+            feeHeadName: h.feeHeadName,
+            feeType: h.feeType,
+            months: h.months,
+            isUsedInFeePlan: Boolean(h.isUsedInFeePlan),
+          }))
+        );
+      }
+      alert("Fee head added successfully");
+      resetForm();
+      setShowAddPopup(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to add fee head");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleEditOpen = () => {
     if (isLocked) {
-      alert(
-        "Fee scheme locked by super admin"
-      );
-
+      alert("Fee scheme locked by super admin");
       return;
     }
 
-    if (
-      selectedIds.length !== 1
-    ) {
-      alert(
-        "Select one fee head"
-      );
-
+    if (selectedIds.length !== 1) {
+      alert("Select one fee head");
       return;
     }
 
-    const item = feeHeads.find(
-      (head) =>
-        head.id === selectedIds[0]
-    );
+    const item = feeHeads.find((head) => head.id === selectedIds[0]);
 
     if (!item) return;
 
     if (isFeeHeadUsed(item)) {
-      alert(
-        "This fee head is used in Fee Plan Management and cannot be edited/deleted."
-      );
-
+      alert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
       return;
     }
 
     setEditingId(item.id);
     setEditingFeeType(item.feeType);
-    setFeeHeadName(
-      item.feeHeadName
-    );
+    setFeeHeadName(item.feeHeadName);
 
-    if (
-      item.feeType === "Installment"
-    ) {
-      setSelectedMonths(
-        item.months
-          ? item.months.split(", ")
-          : []
-      );
+    if (item.feeType === "Installment") {
+      setSelectedMonths(item.months ? item.months.split(", ") : []);
     } else {
       setSelectedMonths([]);
     }
@@ -234,144 +225,99 @@ function FeeScheme() {
     setShowEditPopup(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!feeHeadName.trim()) {
-      alert(
-        "Enter fee head name"
-      );
-
+      alert("Enter fee head name");
       return;
     }
 
-    const duplicateFeeHead =
-      feeHeads.find(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.feeType === editingFeeType &&
-          item.feeHeadName
-            .trim()
-            .toLowerCase() ===
-            feeHeadName
-              .trim()
-              .toLowerCase() &&
-          item.id !== editingId
-      );
+    const duplicateFeeHead = feeHeads.find(
+      (item) =>
+        item.feeType === editingFeeType &&
+        item.feeHeadName.trim().toLowerCase() === feeHeadName.trim().toLowerCase() &&
+        item.id !== editingId
+    );
 
     if (duplicateFeeHead) {
-      alert(
-        "Fee head already exists"
-      );
-
+      alert("Fee head already exists");
       return;
     }
 
-    if (
-      editingFeeType === "Installment" &&
-      selectedMonths.length === 0
-    ) {
-      alert(
-        "Select months"
-      );
-
+    if (editingFeeType === "Installment" && selectedMonths.length === 0) {
+      alert("Select months");
       return;
     }
 
-    setFeeHeads(
-      feeHeads.map((item) => {
-        if (
-          item.id !== editingId
-        ) {
-          return item;
-        }
+    try {
+      setSaving(true);
+      const res = await adminPanelService.updateFeeHead(editingId, {
+        feeHeadName: feeHeadName.trim(),
+        feeType: editingFeeType,
+        months: getMonthsText(editingFeeType),
+      });
 
-        return {
-          ...item,
-          feeHeadName,
-          months: getMonthsText(editingFeeType),
-        };
-      })
-    );
-
-    alert(
-      "Fee head updated successfully"
-    );
-
-    resetForm();
-    setSelectedIds([]);
-    setShowEditPopup(false);
+      if (res.data?.data) {
+        setFeeHeads(
+          res.data.data.map((h) => ({
+            id: h._id || h.id,
+            feeHeadName: h.feeHeadName,
+            feeType: h.feeType,
+            months: h.months,
+            isUsedInFeePlan: Boolean(h.isUsedInFeePlan),
+          }))
+        );
+      }
+      alert("Fee head updated successfully");
+      resetForm();
+      setSelectedIds([]);
+      setShowEditPopup(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update fee head");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (isLocked) {
-      alert(
-        "Fee scheme locked by super admin"
-      );
-
+      alert("Fee scheme locked by super admin");
       return;
     }
 
-    if (
-      selectedIds.length === 0
-    ) {
-      alert(
-        "Select fee head"
-      );
-
+    if (selectedIds.length === 0) {
+      alert("Select fee head");
       return;
     }
 
-    const selectedFeeHeads =
-      feeHeads.filter((item) =>
-        selectedIds.includes(item.id)
-      );
-
-    const usedFeeHead =
-      selectedFeeHeads.some((item) =>
-        isFeeHeadUsed(item)
-      );
+    const selectedFeeHeads = feeHeads.filter((item) => selectedIds.includes(item.id));
+    const usedFeeHead = selectedFeeHeads.some((item) => isFeeHeadUsed(item));
 
     if (usedFeeHead) {
-      alert(
-        "This fee head is used in Fee Plan Management and cannot be edited/deleted."
-      );
-
+      alert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
       return;
     }
 
-    const ok =
-      window.confirm(
-        "Delete selected fee heads?"
-      );
-
+    const ok = window.confirm("Delete selected fee heads?");
     if (!ok) return;
 
-    setFeeHeads(
-      feeHeads.filter(
-        (item) =>
-          !selectedIds.includes(
-            item.id
-          )
-      )
-    );
-
-    setSelectedIds([]);
-
-    alert(
-      "Fee heads deleted successfully"
-    );
+    try {
+      setSaving(true);
+      for (const id of selectedIds) {
+        await adminPanelService.deleteFeeHead(id);
+      }
+      setFeeHeads((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+      setSelectedIds([]);
+      alert("Fee heads deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete fee heads");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const visibleFeeHeads =
-    feeHeads
-      .filter(
-        (item) =>
-          item.schoolId === schoolId
-      )
-      .sort((a, b) =>
-        a.feeHeadName.localeCompare(
-          b.feeHeadName
-        )
-      );
+  const visibleFeeHeads = [...feeHeads].sort((a, b) =>
+    a.feeHeadName.localeCompare(b.feeHeadName)
+  );
 
   return (
     <div className="fee-scheme-page">
@@ -409,9 +355,7 @@ function FeeScheme() {
                     : "fee-type-card"
                 }
                 onClick={() => {
-                  setSelectedFeeType(
-                    item
-                  );
+                  handleFeeTypeChange(item);
                 }}
               >
                 <h3>
@@ -464,118 +408,72 @@ function FeeScheme() {
           </div>
         </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={
-                      visibleFeeHeads.length > 0 &&
-                      selectedIds.length ===
-                        visibleFeeHeads.length
-                    }
-                    onChange={(e) => {
-                      if (
-                        e.target.checked
-                      ) {
-                        setSelectedIds(
-                          visibleFeeHeads.map(
-                            (item) =>
-                              item.id
-                          )
-                        );
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                  />
-                </th>
-
-                <th>
-                  S.No
-                </th>
-
-                <th>
-                  Fee Head Name
-                </th>
-
-                <th>
-                  Fee Type
-                </th>
-
-                <th>
-                  Months / Installment
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {visibleFeeHeads.length === 0 ? (
+        {loading ? (
+          <SkeletonTable rows={5} columns={5} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td
-                    colSpan="5"
-                    className="empty-row"
-                  >
-                    No fee head found
-                  </td>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={
+                        visibleFeeHeads.length > 0 &&
+                        selectedIds.length === visibleFeeHeads.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(visibleFeeHeads.map((item) => item.id));
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                    />
+                  </th>
+
+                  <th>S.No</th>
+                  <th>Fee Head Name</th>
+                  <th>Fee Type</th>
+                  <th>Months / Installment</th>
                 </tr>
-              ) : (
-                visibleFeeHeads.map(
-                  (
-                    item,
-                    index
-                  ) => (
+              </thead>
+
+              <tbody>
+                {visibleFeeHeads.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="empty-row">
+                      No fee head found
+                    </td>
+                  </tr>
+                ) : (
+                  visibleFeeHeads.map((item, index) => (
                     <tr key={item.id}>
                       <td>
                         <input
                           type="checkbox"
-                          checked={selectedIds.includes(
-                            item.id
-                          )}
+                          checked={selectedIds.includes(item.id)}
                           onChange={() => {
-                            setSelectedIds(
-                              (prev) =>
-                                prev.includes(
-                                  item.id
-                                )
-                                  ? prev.filter(
-                                      (id) =>
-                                        id !==
-                                        item.id
-                                    )
-                                  : [
-                                      ...prev,
-                                      item.id,
-                                    ]
+                            setSelectedIds((prev) =>
+                              prev.includes(item.id)
+                                ? prev.filter((id) => id !== item.id)
+                                : [...prev, item.id]
                             );
                           }}
                         />
                       </td>
 
-                      <td>
-                        {index + 1}
-                      </td>
-
-                      <td>
-                        {item.feeHeadName}
-                      </td>
-
-                      <td>
-                        {item.feeType}
-                      </td>
-
-                      <td>
-                        {item.months}
-                      </td>
+                      <td>{index + 1}</td>
+                      <td>{item.feeHeadName}</td>
+                      <td>{item.feeType}</td>
+                      <td>{item.months}</td>
                     </tr>
-                  )
-                )
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showAddPopup && (

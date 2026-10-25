@@ -1,62 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./visitorManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { receptionService } from "../services/api";
+
+const visitorStatuses = ["Waiting", "Inside Campus", "Exited", "Cancelled"];
+const visitorTypes = ["Walk-In Visitor", "Appointment Visitor"];
 
 function VisitorManagement() {
-  const demoAppointments = [
-    {
-      id: 1,
-      appointmentId: "APT001",
-      visitorName: "Ramesh Kumar",
-      mobile: "9876543210",
-      purpose: "Admission enquiry",
-      whomToMeet: "Principal",
-      department: "Admin",
-      status: "Approved",
-    },
-    {
-      id: 2,
-      appointmentId: "APT002",
-      visitorName: "Sunita Devi",
-      mobile: "9876543211",
-      purpose: "Fee discussion",
-      whomToMeet: "Account Office",
-      department: "Finance",
-      status: "Approved",
-    },
-  ];
-
-  const departmentOptions = {
-    Admin: ["Principal", "Vice Principal"],
-    Finance: ["Account Office", "Accountant"],
-    Academic: ["Coordinator", "Teacher"],
-    Transport: ["Transport Incharge", "Driver"],
-  };
-
-  const visitorStatuses = ["Waiting", "Inside Campus", "Exited", "Cancelled"];
-  const visitorTypes = ["Walk-In Visitor", "Appointment Visitor"];
-
   const [showForm, setShowForm] = useState(false);
   const [visitors, setVisitors] = useState([]);
+  const [approvedAppointments, setApprovedAppointments] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewData, setViewData] = useState(null);
+  const [toast, setToast] = useState("");
 
-  const [visitDate, setVisitDate] = useState("");
+  const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [searchText, setSearchText] = useState("");
-
   const [isSearched, setIsSearched] = useState(false);
-  const [appliedFilters, setAppliedFilters] = useState({
-    visitDate: "",
-    statusFilter: "",
-    typeFilter: "",
-    searchText: "",
-  });
 
   const [formData, setFormData] = useState({
     visitorType: "Walk-In Visitor",
-    appointmentId: "",
+    appointmentRef: "",
     visitorName: "",
     mobile: "",
     address: "",
@@ -66,216 +37,133 @@ function VisitorManagement() {
     idProof: "",
     remarks: "",
     visitDate: new Date().toISOString().split("T")[0],
-    inTime: "",
-    outTime: "",
     status: "Waiting",
   });
 
-  const selectedVisitors = visitors.filter((item) =>
-    selectedIds.includes(item.id)
-  );
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  const selectedSingle =
-    selectedVisitors.length === 1 ? selectedVisitors[0] : null;
+  const fetchMeta = useCallback(async () => {
+    try {
+      const [metaRes, apptRes] = await Promise.all([
+        receptionService.getMeta(),
+        receptionService.getApprovedAppointments(),
+      ]);
+      setDepartments(metaRes.data?.data?.departments || []);
+      setStaff(metaRes.data?.data?.staff || []);
+      setApprovedAppointments(apptRes.data?.data || []);
+    } catch { /* non-critical */ }
+  }, []);
 
-  const handleCheckIn = () => {
-    if (!selectedSingle) {
-      alert("Select one visitor");
-      return;
+  useEffect(() => { fetchMeta(); }, [fetchMeta]);
+
+  const fetchVisitors = useCallback(async () => {
+    if (!isSearched) return;
+    setLoading(true);
+    try {
+      const params = {};
+      if (visitDate) params.visitDate = visitDate;
+      if (statusFilter) params.status = statusFilter;
+      if (typeFilter) params.visitorType = typeFilter;
+      if (searchText) params.search = searchText;
+      const res = await receptionService.getVisitors(params);
+      setVisitors(res.data?.data || []);
+    } catch {
+      showToast("Failed to load visitors");
+    } finally {
+      setLoading(false);
     }
+  }, [visitDate, statusFilter, typeFilter, searchText, isSearched]);
 
-    setVisitors(
-      visitors.map((item) =>
-        item.id === selectedSingle.id
-          ? {
-              ...item,
-              status: "Inside Campus",
-              inTime: new Date().toLocaleTimeString(),
-            }
-          : item
-      )
-    );
+  useEffect(() => { fetchVisitors(); }, [fetchVisitors]);
 
-   setSelectedIds([]);
-  };
-
-  const handleCheckOut = () => {
-    if (!selectedSingle) {
-      alert("Select one visitor");
-      return;
-    }
-
-    setVisitors(
-      visitors.map((item) =>
-        item.id === selectedSingle.id
-          ? {
-              ...item,
-              status: "Exited",
-              outTime: new Date().toLocaleTimeString(),
-            }
-          : item
-      )
-    );
-
-    setSelectedIds([]);
-  };
-const handlePrintPass = () => {
-  if (!selectedSingle) {
-    alert("Select one visitor");
-    return;
-  }
-
-  alert("Visitor pass printed successfully");
-};
-
-const handleReprintPass = () => {
-  if (!selectedSingle) {
-    alert("Select one visitor");
-    return;
-  }
-
-  alert("Visitor pass reprinted successfully");
-};
-  const handleDelete = () => {
-    if (selectedIds.length === 0) {
-      alert("Select visitor");
-      return;
-    }
-
-    const ok = window.confirm("Delete selected visitor?");
-    if (!ok) return;
-
-    setVisitors(visitors.filter((item) => !selectedIds.includes(item.id)));
-
-    setSelectedIds([]);
-  };
-
-  const filteredVisitors = visitors.filter((item) => {
-    const dateMatch = appliedFilters.visitDate
-      ? item.visitDate === appliedFilters.visitDate
-      : true;
-
-    const statusMatch = appliedFilters.statusFilter
-      ? item.status === appliedFilters.statusFilter
-      : true;
-
-    const typeMatch = appliedFilters.typeFilter
-      ? item.visitorType === appliedFilters.typeFilter
-      : true;
-
-    const searchMatch = appliedFilters.searchText
-      ? item.visitorName
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase()) ||
-        item.mobile.includes(appliedFilters.searchText)
-      : true;
-
-    return dateMatch && statusMatch && typeMatch && searchMatch;
-  });
-
-  const handleSearch = () => {
-    setAppliedFilters({
-      visitDate,
-      statusFilter,
-      typeFilter,
-      searchText,
-    });
-
-    setIsSearched(true);
-    setSelectedIds([]);
-
-    const result = visitors.filter((item) => {
-      const dateMatch = visitDate ? item.visitDate === visitDate : true;
-      const statusMatch = statusFilter ? item.status === statusFilter : true;
-      const typeMatch = typeFilter ? item.visitorType === typeFilter : true;
-
-      const searchMatch = searchText
-        ? item.visitorName.toLowerCase().includes(searchText.toLowerCase()) ||
-          item.mobile.includes(searchText)
-        : true;
-
-      return dateMatch && statusMatch && typeMatch && searchMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No visitor found");
-    }
-  };
+  const handleSearch = () => { setIsSearched(true); fetchVisitors(); setSelectedIds([]); };
 
   const resetForm = () => {
     setFormData({
-      visitorType: "Walk-In Visitor",
-      appointmentId: "",
-      visitorName: "",
-      mobile: "",
-      address: "",
-      purpose: "",
-      whomToMeet: "",
-      department: "",
-      idProof: "",
-      remarks: "",
-      visitDate: new Date().toISOString().split("T")[0],
-      inTime: "",
-      outTime: "",
-      status: "Waiting",
+      visitorType: "Walk-In Visitor", appointmentRef: "",
+      visitorName: "", mobile: "", address: "", purpose: "",
+      whomToMeet: "", department: "", idProof: "", remarks: "",
+      visitDate: new Date().toISOString().split("T")[0], status: "Waiting",
     });
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
       ...(name === "department" ? { whomToMeet: "" } : {}),
+      ...(name === "visitorType" && value === "Walk-In Visitor" ? {
+        appointmentRef: "", visitorName: "", mobile: "", purpose: "", whomToMeet: "", department: "",
+      } : {}),
     }));
   };
 
   const handleAppointmentSelect = (e) => {
-    const appointment = demoAppointments.find(
-      (item) => item.appointmentId === e.target.value
-    );
-
-    if (!appointment) return;
-
+    const apt = approvedAppointments.find((a) => a._id === e.target.value);
+    if (!apt) return;
     setFormData((prev) => ({
       ...prev,
-      visitorType: "Appointment Visitor",
-      appointmentId: appointment.appointmentId,
-      visitorName: appointment.visitorName,
-      mobile: appointment.mobile,
-      purpose: appointment.purpose,
-      whomToMeet: appointment.whomToMeet,
-      department: appointment.department,
-      status: "Waiting",
+      appointmentRef: apt._id,
+      visitorName: apt.visitorName,
+      mobile: apt.mobile,
+      purpose: apt.purpose || "",
+      whomToMeet: apt.personToMeet || "",
+      department: apt.department || "",
     }));
   };
 
-  const handleSave = () => {
-    if (!formData.visitorName || !formData.mobile) {
-      alert("Visitor name and mobile are required");
+  const filteredStaff = staff.filter((s) => {
+    const dept = departments.find((d) => d.departmentName === formData.department);
+    return dept ? String(s.departmentId) === String(dept._id) : false;
+  });
+
+  const handleSave = async () => {
+    if (!formData.visitorName || !formData.mobile || !formData.visitDate) {
+      showToast("Visitor name, mobile and visit date are required");
       return;
     }
-
-    if (
-      formData.visitorType === "Appointment Visitor" &&
-      visitors.some((item) => item.appointmentId === formData.appointmentId)
-    ) {
-      alert("This appointment visitor is already checked in.");
-      return;
+    setSaving(true);
+    try {
+      await receptionService.createVisitor(formData);
+      showToast("Visitor added successfully");
+      resetForm();
+      setShowForm(false);
+      setIsSearched(true);
+      fetchVisitors();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to add visitor");
+    } finally {
+      setSaving(false);
     }
-
-    const newVisitor = {
-      ...formData,
-      id: Date.now(),
-    };
-
-    setVisitors((prev) => [...prev, newVisitor]);
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(false);
   };
+
+  const handleStatusUpdate = async (item, status, extraData = {}) => {
+    try {
+      await receptionService.updateVisitorStatus(item._id, { status, ...extraData });
+      showToast(`Visitor ${status === "Inside Campus" ? "checked in" : "checked out"} successfully`);
+      setSelectedIds([]);
+      fetchVisitors();
+    } catch {
+      showToast("Failed to update visitor status");
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) { showToast("Select visitor(s) to delete"); return; }
+    if (!window.confirm("Delete selected visitor(s)?")) return;
+    try {
+      await Promise.all(selectedIds.map((id) => receptionService.deleteVisitor(id)));
+      showToast("Visitor(s) deleted successfully");
+      setSelectedIds([]);
+      fetchVisitors();
+    } catch {
+      showToast("Failed to delete visitor");
+    }
+  };
+
+  const selectedList = visitors.filter((v) => selectedIds.includes(v._id));
+  const singleItem = selectedList.length === 1 ? selectedList[0] : null;
 
   return (
     <div className="visitor-page">
@@ -283,24 +171,15 @@ const handleReprintPass = () => {
         <AppButton
           type="back"
           onClick={() => {
-            if (showForm) {
-              resetForm();
-              setShowForm(false);
-            } else {
-              window.location.href = "/reception-desk";
-            }
+            if (showForm) { resetForm(); setShowForm(false); }
+            else window.location.href = "/reception-desk";
           }}
         >
           ←
         </AppButton>
-
         <div>
           <h1>Visitor Management</h1>
-
-          <p>
-            Manage visitor entry,
-            check-in and check-out
-          </p>
+          <p>Manage visitor entry, check-in and check-out</p>
         </div>
       </div>
 
@@ -310,203 +189,117 @@ const handleReprintPass = () => {
             <div className="filter-grid">
               <div className="form-group">
                 <label>Visit Date</label>
-
-                <input
-                  type="date"
-                  value={visitDate}
-                  onChange={(e) => {
-                    setVisitDate(e.target.value);
-                  }}
-                />
+                <input type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
               </div>
-
               <div className="form-group">
                 <label>Visitor Status</label>
-
-                <select
-                  value={statusFilter}
-                  onChange={(e) => {
-                    setStatusFilter(e.target.value);
-                  }}
-                >
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                   <option value="">All</option>
-
-                  {visitorStatuses.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
+                  {visitorStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-
               <div className="form-group">
                 <label>Visitor Type</label>
-
-                <select
-                  value={typeFilter}
-                  onChange={(e) => {
-                    setTypeFilter(e.target.value);
-                  }}
-                >
+                <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                   <option value="">All</option>
-
-                  {visitorTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
+                  {visitorTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
-
               <div className="form-group">
                 <label>Search</label>
-
-                <input
-                  type="text"
-                  placeholder="Name or mobile"
-                  value={searchText}
-                  onChange={(e) => {
-                    setSearchText(e.target.value);
-                  }}
-                />
+                <input type="text" placeholder="Name or mobile" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
               </div>
             </div>
-
             <div className="search-btn-row">
-              <AppButton type="primary" onClick={handleSearch}>
-                Search
-              </AppButton>
+              <AppButton type="primary" onClick={handleSearch}>Search</AppButton>
             </div>
           </div>
 
           <div className="common-card">
             <div className="list-header">
               <h2>Visitor List</h2>
-
               <div className="list-action-buttons">
-                <AppButton type="primary" onClick={() => setShowForm(true)}>
+                <AppButton type="primary" onClick={() => { resetForm(); setShowForm(true); }}>
                   + Add Visitor
                 </AppButton>
-
-                <AppButton
-                  type="view"
-                  onClick={() => {
-                    if (!selectedSingle) {
-                      alert("Select one visitor");
-                      return;
-                    }
-
-                    setViewData(selectedSingle);
-                  }}
-                >
+                <AppButton type="view" onClick={() => { if (!singleItem) { showToast("Select one visitor to view"); return; } setViewData(singleItem); }}>
                   View
                 </AppButton>
-
-                {selectedSingle?.status === "Waiting" ? (
-  <AppButton type="primary" onClick={handleCheckIn}>
-    Check-In
-  </AppButton>
-) : selectedSingle?.status === "Inside Campus" ? (
-  <>
-    <AppButton type="primary" onClick={handlePrintPass}>
-      Print Pass
-    </AppButton>
-
-    <AppButton type="primary" onClick={handleCheckOut}>
-      Check-Out
-    </AppButton>
-  </>
-) : selectedSingle?.status === "Exited" ? (
-  <AppButton type="primary" onClick={handleReprintPass}>
-    Reprint Pass
-  </AppButton>
-) : null}
-
-                <AppButton type="delete" onClick={handleDelete}>
-                  Delete
-                </AppButton>
+                {singleItem?.status === "Waiting" && (
+                  <AppButton type="primary" onClick={() => handleStatusUpdate(singleItem, "Inside Campus", { inTime: new Date().toLocaleTimeString() })}>
+                    Check-In
+                  </AppButton>
+                )}
+                {singleItem?.status === "Inside Campus" && (
+                  <AppButton type="primary" onClick={() => handleStatusUpdate(singleItem, "Exited", { outTime: new Date().toLocaleTimeString() })}>
+                    Check-Out
+                  </AppButton>
+                )}
+                <AppButton type="delete" onClick={handleDelete}>Delete</AppButton>
               </div>
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredVisitors.length > 0 &&
-                          selectedIds.length === filteredVisitors.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredVisitors.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
-                          }
-                        }}
-                      />
-                    </th>
-
-                    <th>S.No</th>
-                    <th>Visitor</th>
-                    <th>Mobile</th>
-                    <th>Purpose</th>
-                    <th>Whom To Meet</th>
-                    <th>In Time</th>
-                    <th>Out Time</th>
-                    <th>Status</th>
-                    <th>Type</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!isSearched ? (
+              {!isSearched ? (
+                <table><tbody><tr><td colSpan="10" className="empty-row">Click Search to view visitors</td></tr></tbody></table>
+              ) : loading ? (
+                <SkeletonTable columns={10} rows={5} />
+              ) : (
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan="10" className="empty-row">
-                        Click Search to view visitors
-                      </td>
+                      <th>
+                        <input
+                          type="checkbox"
+                          checked={visitors.length > 0 && selectedIds.length === visitors.length}
+                          onChange={(e) => setSelectedIds(e.target.checked ? visitors.map((v) => v._id) : [])}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Visitor</th>
+                      <th>Mobile</th>
+                      <th>Purpose</th>
+                      <th>Whom To Meet</th>
+                      <th>In Time</th>
+                      <th>Out Time</th>
+                      <th>Status</th>
+                      <th>Type</th>
                     </tr>
-                  ) : filteredVisitors.length === 0 ? (
-                    <tr>
-                      <td colSpan="10" className="empty-row">
-                        No visitor found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredVisitors.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
-                          />
-                        </td>
-
-                        <td>{index + 1}</td>
-                        <td>{item.visitorName}</td>
-                        <td>{item.mobile}</td>
-                        <td>{item.purpose}</td>
-                        <td>{item.whomToMeet}</td>
-                        <td>{item.inTime || "-"}</td>
-                        <td>{item.outTime || "-"}</td>
-                        <td>{item.status}</td>
-                        <td>{item.visitorType}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {visitors.length === 0 ? (
+                      <tr><td colSpan="10" className="empty-row">No visitor found</td></tr>
+                    ) : (
+                      visitors.map((item, index) => (
+                        <tr key={item._id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(item._id)}
+                              onChange={() =>
+                                setSelectedIds((prev) =>
+                                  prev.includes(item._id)
+                                    ? prev.filter((id) => id !== item._id)
+                                    : [...prev, item._id]
+                                )
+                              }
+                            />
+                          </td>
+                          <td>{index + 1}</td>
+                          <td>{item.visitorName}</td>
+                          <td>{item.mobile}</td>
+                          <td>{item.purpose || "-"}</td>
+                          <td>{item.whomToMeet || "-"}</td>
+                          <td>{item.inTime || "-"}</td>
+                          <td>{item.outTime || "-"}</td>
+                          <td>{item.status}</td>
+                          <td>{item.visitorType}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -517,114 +310,52 @@ const handleReprintPass = () => {
           <div className="enquiry-form-grid">
             <div className="form-group">
               <label>Visitor Type</label>
-
-              <select
-                name="visitorType"
-                value={formData.visitorType}
-                onChange={handleChange}
-              >
-                {visitorTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
+              <select name="visitorType" value={formData.visitorType} onChange={handleChange}>
+                {visitorTypes.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
 
             {formData.visitorType === "Appointment Visitor" && (
               <div className="form-group">
                 <label>Select Appointment</label>
-
-                <select onChange={handleAppointmentSelect}>
+                <select onChange={handleAppointmentSelect} value={formData.appointmentRef}>
                   <option value="">Select Appointment</option>
-
-                  {demoAppointments
-                    .filter((item) => item.status === "Approved")
-                    .map((item) => (
-                      <option key={item.id} value={item.appointmentId}>
-                        {item.visitorName}
-                        {" - "}
-                        {item.whomToMeet}
-                      </option>
-                    ))}
+                  {approvedAppointments.map((apt) => (
+                    <option key={apt._id} value={apt._id}>
+                      {apt.visitorName} - {apt.personToMeet || "Staff"}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
 
             <div className="form-group">
-              <label>Visitor Name</label>
-
-              <input
-                type="text"
-                name="visitorName"
-                value={formData.visitorName}
-                onChange={handleChange}
-                readOnly={formData.visitorType === "Appointment Visitor"}
-              />
+              <label>Visitor Name *</label>
+              <input type="text" name="visitorName" value={formData.visitorName} onChange={handleChange} readOnly={formData.visitorType === "Appointment Visitor"} />
             </div>
-
             <div className="form-group">
-              <label>Mobile</label>
-
-              <input
-                type="text"
-                name="mobile"
-                value={formData.mobile}
-                onChange={handleChange}
-                readOnly={formData.visitorType === "Appointment Visitor"}
-              />
+              <label>Mobile *</label>
+              <input type="text" name="mobile" value={formData.mobile} onChange={handleChange} readOnly={formData.visitorType === "Appointment Visitor"} />
             </div>
-
             <div className="form-group">
               <label>Purpose</label>
-
-              <input
-                type="text"
-                name="purpose"
-                value={formData.purpose}
-                onChange={handleChange}
-                readOnly={formData.visitorType === "Appointment Visitor"}
-              />
+              <input type="text" name="purpose" value={formData.purpose} onChange={handleChange} readOnly={formData.visitorType === "Appointment Visitor"} />
             </div>
 
             {formData.visitorType === "Walk-In Visitor" ? (
               <>
                 <div className="form-group">
                   <label>Department</label>
-
-                  <select
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                  >
+                  <select name="department" value={formData.department} onChange={handleChange}>
                     <option value="">Select Department</option>
-
-                    {Object.keys(departmentOptions).map((department) => (
-                      <option key={department} value={department}>
-                        {department}
-                      </option>
-                    ))}
+                    {departments.map((d) => <option key={d._id} value={d.departmentName}>{d.departmentName}</option>)}
                   </select>
                 </div>
-
                 <div className="form-group">
                   <label>Whom To Meet</label>
-
-                  <select
-                    name="whomToMeet"
-                    value={formData.whomToMeet}
-                    onChange={handleChange}
-                    disabled={!formData.department}
-                  >
+                  <select name="whomToMeet" value={formData.whomToMeet} onChange={handleChange} disabled={!formData.department}>
                     <option value="">Select Person</option>
-
-                    {(departmentOptions[formData.department] || []).map(
-                      (person) => (
-                        <option key={person} value={person}>
-                          {person}
-                        </option>
-                      )
-                    )}
+                    {filteredStaff.map((s) => <option key={s._id} value={s.fullName}>{s.fullName}</option>)}
                   </select>
                 </div>
               </>
@@ -632,88 +363,37 @@ const handleReprintPass = () => {
               <>
                 <div className="form-group">
                   <label>Whom To Meet</label>
-
-                  <input
-                    type="text"
-                    name="whomToMeet"
-                    value={formData.whomToMeet}
-                    onChange={handleChange}
-                    readOnly
-                  />
+                  <input type="text" value={formData.whomToMeet} readOnly />
                 </div>
-
                 <div className="form-group">
                   <label>Department</label>
-
-                  <input
-                    type="text"
-                    name="department"
-                    value={formData.department}
-                    onChange={handleChange}
-                    readOnly
-                  />
+                  <input type="text" value={formData.department} readOnly />
                 </div>
               </>
             )}
 
             <div className="form-group">
               <label>Address</label>
-
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-              />
+              <input type="text" name="address" value={formData.address} onChange={handleChange} />
             </div>
-
             <div className="form-group">
               <label>ID Proof</label>
-
-              <input
-                type="text"
-                name="idProof"
-                value={formData.idProof}
-                onChange={handleChange}
-              />
+              <input type="text" name="idProof" value={formData.idProof} onChange={handleChange} />
             </div>
-
             <div className="form-group">
-              <label>Visit Date</label>
-
-              <input
-                type="date"
-                name="visitDate"
-                value={formData.visitDate}
-                onChange={handleChange}
-              />
+              <label>Visit Date *</label>
+              <input type="date" name="visitDate" value={formData.visitDate} onChange={handleChange} />
             </div>
-
             <div className="form-group full-width">
               <label>Remarks</label>
-
-              <textarea
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-              ></textarea>
+              <textarea name="remarks" value={formData.remarks} onChange={handleChange} />
             </div>
           </div>
-
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              Save
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
             </AppButton>
-
-            <AppButton
-              type="secondary"
-              onClick={() => {
-                resetForm();
-                setShowForm(false);
-              }}
-            >
-              Go Back
-            </AppButton>
+            <AppButton type="secondary" onClick={() => { resetForm(); setShowForm(false); }}>Go Back</AppButton>
           </div>
         </div>
       )}
@@ -723,73 +403,31 @@ const handleReprintPass = () => {
           <div className="view-popup">
             <div className="popup-head">
               <h2>Visitor Details</h2>
-
-              <button
-                className="popup-close-btn"
-                onClick={() => setViewData(null)}
-              >
-                ×
-              </button>
+              <button className="popup-close-btn" onClick={() => setViewData(null)}>×</button>
             </div>
-
             <div className="view-grid">
-              <p>
-                <strong>Visitor:</strong> {viewData.visitorName}
-              </p>
-
-              <p>
-                <strong>Mobile:</strong> {viewData.mobile}
-              </p>
-
-              <p>
-                <strong>Purpose:</strong> {viewData.purpose}
-              </p>
-
-              <p>
-                <strong>Whom To Meet:</strong> {viewData.whomToMeet}
-              </p>
-
-              <p>
-                <strong>Department:</strong> {viewData.department}
-              </p>
-
-              <p>
-                <strong>Address:</strong> {viewData.address}
-              </p>
-
-              <p>
-                <strong>ID Proof:</strong> {viewData.idProof}
-              </p>
-
-              <p>
-                <strong>Visit Date:</strong> {viewData.visitDate}
-              </p>
-
-              <p>
-                <strong>In Time:</strong> {viewData.inTime || "-"}
-              </p>
-
-              <p>
-                <strong>Out Time:</strong> {viewData.outTime || "-"}
-              </p>
-
-              <p>
-                <strong>Status:</strong> {viewData.status}
-              </p>
-
-              <p>
-                <strong>Visitor Type:</strong> {viewData.visitorType}
-              </p>
-
-              <p className="full-width">
-                <strong>Remarks:</strong> {viewData.remarks || "-"}
-              </p>
+              <p><strong>Visitor:</strong> {viewData.visitorName}</p>
+              <p><strong>Mobile:</strong> {viewData.mobile}</p>
+              <p><strong>Purpose:</strong> {viewData.purpose || "-"}</p>
+              <p><strong>Whom To Meet:</strong> {viewData.whomToMeet || "-"}</p>
+              <p><strong>Department:</strong> {viewData.department || "-"}</p>
+              <p><strong>Address:</strong> {viewData.address || "-"}</p>
+              <p><strong>ID Proof:</strong> {viewData.idProof || "-"}</p>
+              <p><strong>Visit Date:</strong> {viewData.visitDate}</p>
+              <p><strong>In Time:</strong> {viewData.inTime || "-"}</p>
+              <p><strong>Out Time:</strong> {viewData.outTime || "-"}</p>
+              <p><strong>Status:</strong> {viewData.status}</p>
+              <p><strong>Visitor Type:</strong> {viewData.visitorType}</p>
+              <p className="full-width"><strong>Remarks:</strong> {viewData.remarks || "-"}</p>
             </div>
           </div>
         </div>
       )}
+
+      {toast && <div className="submodule-toast-banner">{toast}</div>}
     </div>
   );
 }
 
 export default VisitorManagement;
+

@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import "./subscriptionBilling.css";
 import AppButton from "../components/AppButton";
 import { useAuth } from "../context/AuthContext";
 import { SkeletonTable } from "../components/Skeleton";
+import { adminPanelService } from "../services/api";
 
 function SubscriptionBilling() {
   const { user, role } = useAuth();
@@ -34,18 +35,29 @@ function SubscriptionBilling() {
     allowedBillingRoles.includes(currentUser.position);
 
   const canDownloadBills =
-  allowedBillingRoles.includes(
-    currentUser.role
-  ) ||
-  allowedBillingRoles.includes(
-    currentUser.position
-  );
+    allowedBillingRoles.includes(currentUser.role) ||
+    allowedBillingRoles.includes(currentUser.position);
 
-
-  const studentCounts = {
+  const [studentCounts, setStudentCounts] = useState({
     activeStudents: 350,
     inactiveStudents: 51,
-  };
+  });
+
+  useEffect(() => {
+    adminPanelService
+      .getBilling()
+      .then((res) => {
+        if (res.data?.data) {
+          setStudentCounts({
+            activeStudents: res.data.data.activeStudents ?? 350,
+            inactiveStudents: res.data.data.inactiveStudents ?? 51,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch billing info", err);
+      });
+  }, []);
 
   const billingConfig = {
     ratePerStudent: 4,

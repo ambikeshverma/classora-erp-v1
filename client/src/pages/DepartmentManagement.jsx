@@ -1,287 +1,157 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./departmentManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { hrService } from "../services/api";
 
 function DepartmentManagement() {
-  /* ===============================
-     Multi School Safe State
-  =============================== */
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [editId, setEditId] = useState(null);
+  const [departments, setDepartments] = useState([]);
 
-  const schoolId =
-    localStorage.getItem("schoolId") ||
-    "SCH001";
-
-  /* ===============================
-     Future Linked Data
-     Later replace with API data
-  =============================== */
-
-  const usedDepartmentReferences = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      departmentId: 1,
-      usedIn: "Position Management",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      departmentId: 1,
-      usedIn: "Staff Management",
-    },
-  ];
+  const [formData, setFormData] = useState({
+    departmentName: "",
+  });
 
   /* ===============================
-     States
+     Fetch Departments (Optimized: once on mount)
   =============================== */
-
-  const [showForm, setShowForm] =
-    useState(false);
-
-  const [selectedIds, setSelectedIds] =
-    useState([]);
-
-  const [editId, setEditId] =
-    useState(null);
-
-  const [departments, setDepartments] =
-    useState([
-      {
-        id: 1,
-        schoolId: "SCH001",
-        departmentName: "Teaching",
-      },
-
-      {
-        id: 2,
-        schoolId: "SCH001",
-        departmentName: "Accounts",
-      },
-    ]);
-
-  const [formData, setFormData] =
-    useState({
-      departmentName: "",
-    });
-
-  /* ===============================
-     Multi School Filter
-  =============================== */
-
-  const schoolDepartments =
-    departments.filter(
-      (item) =>
-        item.schoolId === schoolId
-    );
-
-  /* ===============================
-     Check Department Usage
-  =============================== */
-
-  const isDepartmentUsed = (
-    departmentId
-  ) => {
-    return usedDepartmentReferences.some(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.departmentId === departmentId
-    );
+  const fetchDepartments = async () => {
+    try {
+      setLoading(true);
+      const res = await hrService.getDepartments();
+      if (res.data?.success) {
+        setDepartments(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load departments:", err);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchDepartments();
+  }, []);
 
   /* ===============================
      Reset Form
   =============================== */
-
   const resetForm = () => {
     setFormData({
       departmentName: "",
     });
-
     setEditId(null);
   };
 
   /* ===============================
      Handle Change
   =============================== */
-
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]:
-        e.target.value,
+      [e.target.name]: e.target.value,
     });
   };
 
   /* ===============================
-     Save Department
+     Save Department (Create / Update)
   =============================== */
-
-  const handleSave = () => {
-    if (
-      !formData.departmentName.trim()
-    ) {
-      alert(
-        "Please enter department name"
-      );
-
+  const handleSave = async () => {
+    const name = formData.departmentName.trim();
+    if (!name) {
+      alert("Please enter department name");
       return;
     }
 
-    const alreadyExists =
-      schoolDepartments.some(
-        (item) =>
-          item.departmentName
-            .toLowerCase()
-            .trim() ===
-            formData.departmentName
-              .toLowerCase()
-              .trim() &&
-          item.id !== editId
-      );
+    const alreadyExists = departments.some(
+      (item) =>
+        item.departmentName.toLowerCase().trim() === name.toLowerCase() &&
+        (item._id || item.id) !== editId
+    );
 
     if (alreadyExists) {
-      alert(
-        "Department already exists"
-      );
-
+      alert("Department already exists");
       return;
     }
 
-    if (editId) {
-      if (isDepartmentUsed(editId)) {
-        alert(
-          "This department is already linked with another module and cannot be edited."
-        );
-
-        return;
+    try {
+      if (editId) {
+        const res = await hrService.updateDepartment(editId, { departmentName: name });
+        if (res.data?.success) {
+          alert("Department updated successfully");
+          setDepartments((prev) =>
+            prev.map((item) => ((item._id || item.id) === editId ? res.data.data : item))
+          );
+        }
+      } else {
+        const res = await hrService.createDepartment({ departmentName: name });
+        if (res.data?.success) {
+          alert("Department added successfully");
+          setDepartments((prev) => [...prev, res.data.data]);
+        }
       }
 
-      setDepartments(
-        departments.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                departmentName:
-                  formData.departmentName,
-              }
-            : item
-        )
-      );
-
-      alert(
-        "Department updated successfully"
-      );
-    } else {
-      const newDepartment = {
-        id: Date.now(),
-        schoolId,
-        departmentName:
-          formData.departmentName,
-      };
-
-      setDepartments([
-        ...departments,
-        newDepartment,
-      ]);
-
-      alert(
-        "Department added successfully"
-      );
+      resetForm();
+      setShowForm(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save department");
     }
-
-    resetForm();
-
-    setShowForm(false);
   };
 
   /* ===============================
      Edit Department
   =============================== */
-
   const handleEdit = (item) => {
     if (!item) return;
-
-    if (isDepartmentUsed(item.id)) {
-      alert(
-        "This department is already linked with another module and cannot be edited."
-      );
-
-      return;
-    }
-
-    setEditId(item.id);
-
+    const itemId = item._id || item.id;
+    setEditId(itemId);
     setFormData({
-      departmentName:
-        item.departmentName,
+      departmentName: item.departmentName,
     });
-
     setShowForm(true);
   };
 
   /* ===============================
      Delete Department
   =============================== */
-
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
       alert("Select department");
-
       return;
     }
 
-    const departmentInUse =
-      selectedIds.some((departmentId) =>
-        isDepartmentUsed(departmentId)
-      );
-
-    if (departmentInUse) {
-      alert(
-        "Selected department is already linked with another module and cannot be deleted."
-      );
-
-      return;
-    }
-
-    const ok = window.confirm(
-      "Delete selected department?"
-    );
-
+    const ok = window.confirm(`Delete ${selectedIds.length} selected department(s)?`);
     if (!ok) return;
 
-    setDepartments(
-      departments.filter(
-        (item) =>
-          !selectedIds.includes(
-            item.id
-          )
-      )
-    );
-
-    setSelectedIds([]);
-
-    alert(
-      "Department deleted successfully"
-    );
+    try {
+      for (const id of selectedIds) {
+        await hrService.deleteDepartment(id);
+      }
+      setDepartments((prev) =>
+        prev.filter((item) => !selectedIds.includes(item._id || item.id))
+      );
+      setSelectedIds([]);
+      alert("Department deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete department");
+    }
   };
 
   return (
     <div className="department-management-page">
-      {/* ===============================
-          Header
-      =============================== */}
-
+      {/* Header */}
       <div className="common-page-header">
         <AppButton
           type="back"
           onClick={() => {
             if (showForm) {
               resetForm();
-
               setShowForm(false);
             } else {
-              window.location.href =
-                "/staff-control";
+              window.location.href = "/staff-control";
             }
           }}
         >
@@ -291,29 +161,25 @@ function DepartmentManagement() {
         <div>
           <h1>
             {showForm
-              ? "Add / Edit Department"
+              ? editId
+                ? "Edit Department"
+                : "Add Department"
               : "Department Management"}
           </h1>
-
-          <p>
-            Add and manage school
-            departments
-          </p>
+          <p>Add and manage school departments</p>
         </div>
       </div>
 
-      {/* ===============================
-          List View
-      =============================== */}
-
+      {/* List View */}
       {!showForm && (
         <>
           <div className="top-action-bar">
             <AppButton
               type="primary"
-              onClick={() =>
-                setShowForm(true)
-              }
+              onClick={() => {
+                resetForm();
+                setShowForm(true);
+              }}
             >
               + Add Department
             </AppButton>
@@ -321,53 +187,32 @@ function DepartmentManagement() {
 
           <div className="common-card">
             <div className="list-header">
-              <h2>
-                Department List
-              </h2>
+              <h2>Department List</h2>
 
               <div className="list-action-buttons">
                 <AppButton
                   type="primary"
                   onClick={() => {
-                    if (
-                      selectedIds.length !==
-                      1
-                    ) {
-                      alert(
-                        "Select one department"
-                      );
-
+                    if (selectedIds.length !== 1) {
+                      alert("Select one department");
                       return;
                     }
-
-                    const selected =
-                      schoolDepartments.find(
-                        (item) =>
-                          item.id ===
-                          selectedIds[0]
-                      );
-
+                    const selected = departments.find(
+                      (item) => (item._id || item.id) === selectedIds[0]
+                    );
                     handleEdit(selected);
                   }}
                 >
                   Edit
                 </AppButton>
 
-                <AppButton
-                  type="delete"
-                  onClick={
-                    handleDelete
-                  }
-                >
+                <AppButton type="delete" onClick={handleDelete}>
                   Delete
                 </AppButton>
               </div>
             </div>
 
-            {/* ===============================
-                Table
-            =============================== */}
-
+            {/* Table with Shimmer */}
             <div className="table-wrap">
               <table>
                 <thead>
@@ -376,20 +221,13 @@ function DepartmentManagement() {
                       <input
                         type="checkbox"
                         checked={
-                          schoolDepartments.length >
-                            0 &&
-                          selectedIds.length ===
-                            schoolDepartments.length
+                          departments.length > 0 &&
+                          selectedIds.length === departments.length
                         }
                         onChange={(e) => {
-                          if (
-                            e.target.checked
-                          ) {
+                          if (e.target.checked) {
                             setSelectedIds(
-                              schoolDepartments.map(
-                                (item) =>
-                                  item.id
-                              )
+                              departments.map((item) => item._id || item.id)
                             );
                           } else {
                             setSelectedIds([]);
@@ -397,71 +235,47 @@ function DepartmentManagement() {
                         }}
                       />
                     </th>
-
                     <th>S.No</th>
-
-                    <th>
-                      Department Name
-                    </th>
+                    <th>Department Name</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {schoolDepartments.length ===
-                  0 ? (
+                  {loading ? (
                     <tr>
-                      <td
-                        colSpan="3"
-                        className="empty-row"
-                      >
+                      <td colSpan="3" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={4} columns={3} />
+                      </td>
+                    </tr>
+                  ) : departments.length === 0 ? (
+                    <tr>
+                      <td colSpan="3" className="empty-row">
                         No department found
                       </td>
                     </tr>
                   ) : (
-                    schoolDepartments.map(
-                      (
-                        item,
-                        index
-                      ) => (
-                        <tr key={item.id}>
+                    departments.map((item, index) => {
+                      const itemId = item._id || item.id;
+                      return (
+                        <tr key={itemId}>
                           <td>
                             <input
                               type="checkbox"
-                              checked={selectedIds.includes(
-                                item.id
-                              )}
+                              checked={selectedIds.includes(itemId)}
                               onChange={() => {
-                                setSelectedIds(
-                                  (prev) =>
-                                    prev.includes(
-                                      item.id
-                                    )
-                                      ? prev.filter(
-                                          (id) =>
-                                            id !==
-                                            item.id
-                                        )
-                                      : [
-                                          ...prev,
-                                          item.id,
-                                        ]
+                                setSelectedIds((prev) =>
+                                  prev.includes(itemId)
+                                    ? prev.filter((id) => id !== itemId)
+                                    : [...prev, itemId]
                                 );
                               }}
                             />
                           </td>
-
-                          <td>
-                            {index + 1}
-                          </td>
-
-                          <td>
-                            {
-                              item.departmentName
-                            }
-                          </td>
+                          <td>{index + 1}</td>
+                          <td>{item.departmentName}</td>
                         </tr>
-                      )
-                    )
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -470,47 +284,30 @@ function DepartmentManagement() {
         </>
       )}
 
-      {/* ===============================
-          Form View
-      =============================== */}
-
+      {/* Form View */}
       {showForm && (
         <div className="common-card">
           <div className="department-form-grid">
             <div className="form-group">
-              <label>
-                Department Name *
-              </label>
-
+              <label>Department Name *</label>
               <input
-                type="text"
                 name="departmentName"
-                value={
-                  formData.departmentName
-                }
-                onChange={
-                  handleChange
-                }
+                value={formData.departmentName}
+                onChange={handleChange}
                 placeholder="Enter department name"
               />
             </div>
           </div>
 
           <div className="form-actions">
-            <AppButton
-              type="primary"
-              onClick={handleSave}
-            >
-              {editId
-                ? "Update"
-                : "Save"}
+            <AppButton type="primary" onClick={handleSave}>
+              {editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
               type="secondary"
               onClick={() => {
                 resetForm();
-
                 setShowForm(false);
               }}
             >

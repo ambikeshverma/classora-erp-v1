@@ -12,7 +12,17 @@ const studentSchema = new mongoose.Schema({
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "School",
-    required: true
+    required: true,
+    index: true,
+  },
+  campusId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "School",
+    index: true,
+  },
+  status: {
+    type: String,
+    default: "Active",
   },
 
   createdAt: {

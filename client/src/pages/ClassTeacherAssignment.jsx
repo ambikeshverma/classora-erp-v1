@@ -1,247 +1,152 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./classTeacherAssignment.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { userControlService } from "../services/api";
 
 function ClassTeacherAssignment() {
-  const schoolId =
-    localStorage.getItem("schoolId") ||
-    "SCH001";
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
+  const [teachingStaff, setTeachingStaff] = useState([]);
+  const [assignments, setAssignments] = useState([]);
 
-  const classes = [
-    { id: 1, schoolId: "SCH001", className: "9" },
-    { id: 2, schoolId: "SCH001", className: "10" },
-  ];
+  const [filterClassId, setFilterClassId] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
 
-  const sections = [
-    { id: 1, schoolId: "SCH001", classId: 1, sectionName: "A" },
-    { id: 2, schoolId: "SCH001", classId: 1, sectionName: "B" },
-    { id: 3, schoolId: "SCH001", classId: 2, sectionName: "A" },
-  ];
+  const [teacherForm, setTeacherForm] = useState({
+    classTeacher1Id: "",
+    classTeacher2Id: "",
+  });
 
-  const staffList = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeName: "Amit Kumar",
-      departmentId: 1,
-      positionId: 1,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      employeeName: "Pooja Singh",
-      departmentId: 1,
-      positionId: 1,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      employeeName: "Ravi Verma",
-      departmentId: 1,
-      positionId: 2,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 4,
-      schoolId: "SCH001",
-      employeeName: "Accountant Staff",
-      departmentId: 2,
-      positionId: 3,
-      teachingStaff: "No",
-      isActive: true,
-    },
-  ];
+  /* ===============================
+     Fetch Data (Optimized: single initial load)
+  =============================== */
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [metaRes, assignRes] = await Promise.all([
+        userControlService.getMeta(),
+        userControlService.getClassTeachers(),
+      ]);
 
-  const [filterClassId, setFilterClassId] =
-    useState("");
+      if (metaRes.data?.success) {
+        setClasses(metaRes.data.data.classes || []);
+        setTeachingStaff(metaRes.data.data.teachingStaff || []);
+      }
 
-  const [showPopup, setShowPopup] =
-    useState(false);
-
-  const [selectedRow, setSelectedRow] =
-    useState(null);
-
-  const [teacherForm, setTeacherForm] =
-    useState({
-      classTeacher1Id: "",
-      classTeacher2Id: "",
-    });
-
-  const [assignments, setAssignments] =
-    useState([
-      {
-        id: 1,
-        schoolId: "SCH001",
-        classId: 1,
-        sectionId: 1,
-        classTeacher1Id: 1,
-        classTeacher2Id: 2,
-      },
-    ]);
-
-  const schoolClasses =
-    classes.filter(
-      (item) =>
-        item.schoolId === schoolId
-    );
-
-  const schoolSections =
-    sections.filter(
-      (item) =>
-        item.schoolId === schoolId
-    );
-
-  const teachingStaff =
-    staffList.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.teachingStaff === "Yes" &&
-        item.isActive
-    );
-
-  const classSectionRows =
-    schoolSections
-      .map((section) => {
-        const classInfo =
-          schoolClasses.find(
-            (cls) =>
-              cls.id === section.classId
-          );
-
-        return {
-          classId: section.classId,
-          sectionId: section.id,
-          className:
-            classInfo?.className || "",
-          sectionName:
-            section.sectionName,
-        };
-      })
-      .filter(
-        (item) =>
-          !filterClassId ||
-          item.classId ===
-            Number(filterClassId)
-      );
-
-  const getAssignment = (
-    classId,
-    sectionId
-  ) => {
-    return assignments.find(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.classId === classId &&
-        item.sectionId === sectionId
-    );
+      if (assignRes.data?.success) {
+        setAssignments(assignRes.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load class teacher assignments data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStaffName = (staffId) => {
-    const staff =
-      staffList.find(
-        (item) =>
-          item.id === staffId
-      );
+  useEffect(() => {
+    fetchData();
+  }, []);
 
+  /* ===============================
+     Construct Class-Section Rows
+  =============================== */
+  const classSectionRows = classes
+    .flatMap((cls) => {
+      const clsId = cls._id || cls.id;
+      const sections = cls.sections || [];
+      return sections.map((sec) => ({
+        classId: clsId,
+        sectionId: sec._id || sec.id || sec.sectionName,
+        className: cls.className,
+        sectionName: sec.sectionName,
+      }));
+    })
+    .filter((item) => !filterClassId || String(item.classId) === String(filterClassId));
+
+  const getAssignment = (classId, sectionId) => {
+    return assignments.find((item) => {
+      const itemClassId = item.classId?._id || item.classId;
+      return (
+        String(itemClassId) === String(classId) &&
+        String(item.sectionId) === String(sectionId)
+      );
+    });
+  };
+
+  const getStaffName = (staffObjOrId) => {
+    if (!staffObjOrId) return "-";
+    if (typeof staffObjOrId === "object" && staffObjOrId.employeeName) {
+      return staffObjOrId.employeeName;
+    }
+    const staff = teachingStaff.find(
+      (item) => String(item._id || item.id) === String(staffObjOrId)
+    );
     return staff?.employeeName || "-";
   };
 
   const openAssignPopup = (row) => {
-    const existing =
-      getAssignment(
-        row.classId,
-        row.sectionId
-      );
-
+    const existing = getAssignment(row.classId, row.sectionId);
     setSelectedRow(row);
 
     setTeacherForm({
       classTeacher1Id:
-        existing?.classTeacher1Id || "",
+        existing?.classTeacher1Id?._id || existing?.classTeacher1Id || "",
       classTeacher2Id:
-        existing?.classTeacher2Id || "",
+        existing?.classTeacher2Id?._id || existing?.classTeacher2Id || "",
     });
 
     setShowPopup(true);
   };
 
-  const handleAssign = () => {
-    if (
-      teacherForm.classTeacher1Id &&
-      teacherForm.classTeacher2Id &&
-      teacherForm.classTeacher1Id ===
-        teacherForm.classTeacher2Id
-    ) {
-      alert(
-        "Class Teacher I and Class Teacher II cannot be same"
-      );
-      return;
-    }
-
-    const existing =
-      getAssignment(
-        selectedRow.classId,
-        selectedRow.sectionId
-      );
-
-    if (existing) {
-      setAssignments(
-        assignments.map((item) =>
-          item.id === existing.id
-            ? {
-                ...item,
-                classTeacher1Id:
-                  teacherForm.classTeacher1Id,
-                classTeacher2Id:
-                  teacherForm.classTeacher2Id,
-              }
-            : item
-        )
-      );
-    } else {
-      const newAssignment = {
-        id: Date.now(),
-        schoolId,
-        classId: selectedRow.classId,
-        sectionId: selectedRow.sectionId,
-        classTeacher1Id:
-          teacherForm.classTeacher1Id,
-        classTeacher2Id:
-          teacherForm.classTeacher2Id,
-      };
-
-      setAssignments([
-        ...assignments,
-        newAssignment,
-      ]);
-    }
-
-    alert(
-      "Class teacher assigned successfully"
-    );
-
+  const closePopup = () => {
     setShowPopup(false);
     setSelectedRow(null);
-
     setTeacherForm({
       classTeacher1Id: "",
       classTeacher2Id: "",
     });
   };
 
-  const closePopup = () => {
-    setShowPopup(false);
-    setSelectedRow(null);
+  const handleAssign = async () => {
+    if (
+      teacherForm.classTeacher1Id &&
+      teacherForm.classTeacher2Id &&
+      teacherForm.classTeacher1Id === teacherForm.classTeacher2Id
+    ) {
+      alert("Class Teacher I and Class Teacher II cannot be the same person.");
+      return;
+    }
 
-    setTeacherForm({
-      classTeacher1Id: "",
-      classTeacher2Id: "",
-    });
+    try {
+      const res = await userControlService.assignClassTeacher({
+        classId: selectedRow.classId,
+        sectionId: selectedRow.sectionId,
+        sectionName: selectedRow.sectionName,
+        classTeacher1Id: teacherForm.classTeacher1Id || null,
+        classTeacher2Id: teacherForm.classTeacher2Id || null,
+      });
+
+      if (res.data?.success) {
+        alert("Class teacher assigned successfully");
+        const updatedAssignment = res.data.data;
+        setAssignments((prev) => {
+          const filtered = prev.filter((item) => {
+            const itemCls = item.classId?._id || item.classId;
+            return !(
+              String(itemCls) === String(selectedRow.classId) &&
+              String(item.sectionId) === String(selectedRow.sectionId)
+            );
+          });
+          return [...filtered, updatedAssignment];
+        });
+      }
+
+      closePopup();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to assign class teacher");
+    }
   };
 
   return (
@@ -249,58 +154,36 @@ function ClassTeacherAssignment() {
       <div className="common-page-header">
         <AppButton
           type="back"
-          onClick={() =>
-            (window.location.href =
-              "/user-control")
-          }
+          onClick={() => (window.location.href = "/user-control")}
         >
           ←
         </AppButton>
 
         <div>
-          <h1>
-            Class Teacher Assignment
-          </h1>
-
-          <p>
-            Assign class teachers section wise
-          </p>
+          <h1>Class Teacher Assignment</h1>
+          <p>Assign class teachers section wise</p>
         </div>
       </div>
 
       <div className="common-card">
-        <h2>
-          Filter Records
-        </h2>
+        <h2>Filter Records</h2>
 
         <div className="assignment-filter-grid">
           <div className="form-group">
-            <label>
-              Class
-            </label>
-
+            <label>Class</label>
             <select
               value={filterClassId}
-              onChange={(e) =>
-                setFilterClassId(
-                  e.target.value
-                )
-              }
+              onChange={(e) => setFilterClassId(e.target.value)}
             >
-              <option value="">
-                All Classes
-              </option>
-
-              {schoolClasses.map(
-                (item) => (
-                  <option
-                    key={item.id}
-                    value={item.id}
-                  >
+              <option value="">All Classes</option>
+              {classes.map((item) => {
+                const cId = item._id || item.id;
+                return (
+                  <option key={cId} value={cId}>
                     Class {item.className}
                   </option>
-                )
-              )}
+                );
+              })}
             </select>
           </div>
         </div>
@@ -308,9 +191,7 @@ function ClassTeacherAssignment() {
 
       <div className="common-card">
         <div className="list-header">
-          <h2>
-            Assignment List
-          </h2>
+          <h2>Assignment List</h2>
         </div>
 
         <div className="table-wrap">
@@ -327,73 +208,44 @@ function ClassTeacherAssignment() {
             </thead>
 
             <tbody>
-              {classSectionRows.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td
-                    colSpan="6"
-                    className="empty-row"
-                  >
+                  <td colSpan="6" style={{ padding: "4px 0", border: "none" }}>
+                    <SkeletonTable rows={5} columns={6} />
+                  </td>
+                </tr>
+              ) : classSectionRows.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="empty-row">
                     No class section found
                   </td>
                 </tr>
               ) : (
-                classSectionRows.map(
-                  (row, index) => {
-                    const assignment =
-                      getAssignment(
-                        row.classId,
-                        row.sectionId
-                      );
+                classSectionRows.map((row, index) => {
+                  const assignment = getAssignment(
+                    row.classId,
+                    row.sectionId
+                  );
 
-                    return (
-                      <tr
-                        key={`${row.classId}-${row.sectionId}`}
-                      >
-                        <td>{index + 1}</td>
-
-                        <td>
-                          Class {row.className}
-                        </td>
-
-                        <td>
-                          {row.sectionName}
-                        </td>
-
-                        <td>
-                          {assignment?.classTeacher1Id
-                            ? getStaffName(
-                                Number(
-                                  assignment.classTeacher1Id
-                                )
-                              )
-                            : "-"}
-                        </td>
-
-                        <td>
-                          {assignment?.classTeacher2Id
-                            ? getStaffName(
-                                Number(
-                                  assignment.classTeacher2Id
-                                )
-                              )
-                            : "-"}
-                        </td>
-
-                        <td>
-                          <button
-                            className="assign-icon-btn"
-                            onClick={() =>
-                              openAssignPopup(row)
-                            }
-                            title="Assign Class Teacher"
-                          >
-                            ⚙
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  }
-                )
+                  return (
+                    <tr key={`${row.classId}-${row.sectionId}`}>
+                      <td>{index + 1}</td>
+                      <td>Class {row.className}</td>
+                      <td>{row.sectionName}</td>
+                      <td>{getStaffName(assignment?.classTeacher1Id)}</td>
+                      <td>{getStaffName(assignment?.classTeacher2Id)}</td>
+                      <td>
+                        <button
+                          className="assign-icon-btn"
+                          onClick={() => openAssignPopup(row)}
+                          title="Assign Class Teacher"
+                        >
+                          ⚙
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -404,110 +256,72 @@ function ClassTeacherAssignment() {
         <div className="popup-overlay">
           <div className="assignment-popup">
             <div className="popup-head">
-              <h2>
-                Assign Class Teacher
-              </h2>
-
-              <button
-                className="popup-close-btn"
-                onClick={closePopup}
-              >
+              <h2>Assign Class Teacher</h2>
+              <button className="popup-close-btn" onClick={closePopup}>
                 ×
               </button>
             </div>
 
             <div className="readonly-info-box">
               <p>
-                <strong>Class:</strong>{" "}
-                Class {selectedRow.className}
+                <strong>Class:</strong> Class {selectedRow.className}
               </p>
-
               <p>
-                <strong>Section:</strong>{" "}
-                {selectedRow.sectionName}
+                <strong>Section:</strong> {selectedRow.sectionName}
               </p>
             </div>
 
             <div className="form-group">
-              <label>
-                Class Teacher I
-              </label>
-
+              <label>Class Teacher I</label>
               <select
-                value={
-                  teacherForm.classTeacher1Id
-                }
+                value={teacherForm.classTeacher1Id}
                 onChange={(e) =>
                   setTeacherForm({
                     ...teacherForm,
-                    classTeacher1Id:
-                      e.target.value,
+                    classTeacher1Id: e.target.value,
                   })
                 }
               >
-                <option value="">
-                  Select Class Teacher
-                </option>
-
-                {teachingStaff.map(
-                  (staff) => (
-                    <option
-                      key={staff.id}
-                      value={staff.id}
-                    >
-                      {staff.employeeName}
+                <option value="">Select Class Teacher</option>
+                {teachingStaff.map((staff) => {
+                  const sId = staff._id || staff.id;
+                  return (
+                    <option key={sId} value={sId}>
+                      {staff.employeeName} ({staff.employeeCode || "STAFF"})
                     </option>
-                  )
-                )}
+                  );
+                })}
               </select>
             </div>
 
             <div className="form-group">
-              <label>
-                Class Teacher II
-              </label>
-
+              <label>Class Teacher II</label>
               <select
-                value={
-                  teacherForm.classTeacher2Id
-                }
+                value={teacherForm.classTeacher2Id}
                 onChange={(e) =>
                   setTeacherForm({
                     ...teacherForm,
-                    classTeacher2Id:
-                      e.target.value,
+                    classTeacher2Id: e.target.value,
                   })
                 }
               >
-                <option value="">
-                  Select Class Teacher
-                </option>
-
-                {teachingStaff.map(
-                  (staff) => (
-                    <option
-                      key={staff.id}
-                      value={staff.id}
-                    >
-                      {staff.employeeName}
+                <option value="">Select Class Teacher</option>
+                {teachingStaff.map((staff) => {
+                  const sId = staff._id || staff.id;
+                  return (
+                    <option key={sId} value={sId}>
+                      {staff.employeeName} ({staff.employeeCode || "STAFF"})
                     </option>
-                  )
-                )}
+                  );
+                })}
               </select>
             </div>
 
             <div className="popup-actions">
-              <AppButton
-                type="primary"
-                onClick={handleAssign}
-              >
-                Assign
+              <AppButton type="primary" onClick={handleAssign}>
+                Save Assignment
               </AppButton>
-
-              <AppButton
-                type="secondary"
-                onClick={closePopup}
-              >
+              <AppButton type="secondary" onClick={closePopup}>
                 Cancel
               </AppButton>
             </div>

@@ -1,57 +1,41 @@
 import React, { useEffect, useState } from "react";
 import "./feePlanManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { adminPanelService } from "../services/api";
 
 function FeePlanManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-
   const currentUser = {
     name: localStorage.getItem("userName") || "School Admin",
   };
 
-  const classOptions = [
-    "Class 1",
-    "Class 2",
-    "Class 3",
-    "Class 4",
-    "Class 5",
-    "Class 6",
-    "Class 7",
-    "Class 8",
-  ];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const feePlanNames = ["6HM", "6EM", "7HM", "7EM"];
+  const [classOptions, setClassOptions] = useState([]);
+  const [feePlanNames, setFeePlanNames] = useState([]);
+  const [allowedFeeScheme, setAllowedFeeScheme] = useState("Monthly");
+  const [feeHeads, setFeeHeads] = useState([]);
+  const [installmentCount, setInstallmentCount] = useState(3);
+  const [isLocked, setIsLocked] = useState(false);
 
-  const allowedFeeSchemeConfig = {
-    schoolId: "SCH001",
-    feeScheme: "Monthly",
-    feeHeads: [
-      "Tuition Fee",
-      "Computer Fee",
-      "Exam Fee",
-      "Annual Fee",
-      "Transport Fee",
-    ],
-    installmentCount: 3,
-  };
+  const [selectedClass, setSelectedClass] = useState("");
+  const [selectedPlanName, setSelectedPlanName] = useState("");
+  const [savedPlans, setSavedPlans] = useState([]);
+
+  const [showCopyPopup, setShowCopyPopup] = useState(false);
+  const [copyTargetClass, setCopyTargetClass] = useState("");
+  const [copyTargetPlanName, setCopyTargetPlanName] = useState("");
+
+  const [editingId, setEditingId] = useState(null);
 
   const feeSchemeColumns = {
     Monthly: [
-      "APR",
-      "MAY",
-      "JUN",
-      "JUL",
-      "AUG",
-      "SEP",
-      "OCT",
-      "NOV",
-      "DEC",
-      "JAN",
-      "FEB",
-      "MAR",
+      "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
+      "OCT", "NOV", "DEC", "JAN", "FEB", "MAR",
     ],
     Installment: Array.from(
-      { length: allowedFeeSchemeConfig.installmentCount || 1 },
+      { length: installmentCount || 1 },
       (_, index) => `Installment ${index + 1}`
     ),
     Quarterly: ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4"],
@@ -60,42 +44,64 @@ function FeePlanManagement() {
     Annual: ["Annual"],
   };
 
-  const allowedFeeScheme = allowedFeeSchemeConfig.feeScheme || "Monthly";
-  const feeHeads = allowedFeeSchemeConfig.feeHeads || [];
-  const columns = feeSchemeColumns[allowedFeeScheme] || [];
-
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedPlanName, setSelectedPlanName] = useState("");
-  // eslint-disable-next-line no-unused-vars
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [savedPlans, setSavedPlans] = useState([]);
-
-  const [showCopyPopup, setShowCopyPopup] = useState(false);
-  const [copyTargetClass, setCopyTargetClass] = useState("");
-  const [copyTargetPlanName, setCopyTargetPlanName] = useState("");
-
-  const [editingId, setEditingId] = useState(null);
-  const [isLocked] = useState(false);
+  const columns = feeSchemeColumns[allowedFeeScheme] || feeSchemeColumns.Monthly;
 
   const createEmptyAmounts = () => {
     const data = {};
-
     feeHeads.forEach((head) => {
       data[head] = {};
       columns.forEach((col) => {
         data[head][col] = "";
       });
     });
-
     return data;
   };
 
-  const [newStudentAmounts, setNewStudentAmounts] =
-    useState(createEmptyAmounts());
+  const [newStudentAmounts, setNewStudentAmounts] = useState({});
+  const [oldStudentAmounts, setOldStudentAmounts] = useState({});
 
-  const [oldStudentAmounts, setOldStudentAmounts] =
-    useState(createEmptyAmounts());
+  // 1. Initial Meta & Saved Plans load
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
+  const loadInitialData = async () => {
+    try {
+      setLoading(true);
+      const [metaRes, plansRes] = await Promise.all([
+        adminPanelService.getMeta(),
+        adminPanelService.getFeePlans(),
+      ]);
+
+      if (metaRes.data?.data) {
+        const { feeScheme, feePlanNames: names, classes } = metaRes.data.data;
+        if (classes) {
+          setClassOptions(classes.map((c) => c.className));
+        }
+        if (names) {
+          setFeePlanNames(names.map((n) => n.feePlanName));
+        }
+        if (feeScheme) {
+          setAllowedFeeScheme(feeScheme.schemeType || "Monthly");
+          setInstallmentCount(feeScheme.installmentCount || 3);
+          setIsLocked(Boolean(feeScheme.isLocked));
+          if (Array.isArray(feeScheme.feeHeads)) {
+            setFeeHeads(feeScheme.feeHeads.map((h) => h.feeHeadName));
+          }
+        }
+      }
+
+      if (plansRes.data?.data) {
+        setSavedPlans(plansRes.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load initial fee plan management data", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Adjust amounts when selected class, plan, or heads change
   useEffect(() => {
     if (!selectedClass || !selectedPlanName) {
       setEditingId(null);
@@ -106,32 +112,28 @@ function FeePlanManagement() {
 
     const existingPlan = savedPlans.find(
       (item) =>
-        item.schoolId === schoolId &&
         item.className === selectedClass &&
         item.feePlanName === selectedPlanName
     );
 
     if (existingPlan) {
-      setEditingId(existingPlan.id);
-      setNewStudentAmounts(existingPlan.newStudentAmounts);
-      setOldStudentAmounts(existingPlan.oldStudentAmounts);
+      setEditingId(existingPlan._id || existingPlan.id);
+      setNewStudentAmounts(existingPlan.newStudentAmounts || createEmptyAmounts());
+      setOldStudentAmounts(existingPlan.oldStudentAmounts || createEmptyAmounts());
     } else {
       setEditingId(null);
       setNewStudentAmounts(createEmptyAmounts());
       setOldStudentAmounts(createEmptyAmounts());
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, selectedPlanName, savedPlans, schoolId]);
+  }, [selectedClass, selectedPlanName, savedPlans, feeHeads, allowedFeeScheme]);
 
   const getSectionTotal = (amounts) => {
     let total = 0;
-
     feeHeads.forEach((head) => {
       columns.forEach((col) => {
         total += Number(amounts?.[head]?.[col] || 0);
       });
     });
-
     return total;
   };
 
@@ -141,13 +143,11 @@ function FeePlanManagement() {
       return;
     }
 
-    const setter =
-      type === "new" ? setNewStudentAmounts : setOldStudentAmounts;
-
+    const setter = type === "new" ? setNewStudentAmounts : setOldStudentAmounts;
     setter((prev) => ({
       ...prev,
       [head]: {
-        ...prev[head],
+        ...(prev[head] || {}),
         [col]: value,
       },
     }));
@@ -155,7 +155,6 @@ function FeePlanManagement() {
 
   const validateAmounts = () => {
     let isValid = true;
-
     feeHeads.forEach((head) => {
       columns.forEach((col) => {
         if (
@@ -170,11 +169,10 @@ function FeePlanManagement() {
     if (!isValid) {
       alert("Amount cannot be negative");
     }
-
     return isValid;
   };
 
-  const handleSaveFeePlan = () => {
+  const handleSaveFeePlan = async () => {
     if (isLocked) {
       alert("Fee plan locked by super admin");
       return;
@@ -194,57 +192,36 @@ function FeePlanManagement() {
       return;
     }
 
-    const now = new Date();
+    try {
+      setSaving(true);
+      const payload = {
+        className: selectedClass,
+        feeScheme: allowedFeeScheme,
+        feePlanName: selectedPlanName,
+        feeHeads: [...feeHeads],
+        columns: [...columns],
+        newStudentAmounts,
+        oldStudentAmounts,
+        newTotal: getSectionTotal(newStudentAmounts),
+        oldTotal: getSectionTotal(oldStudentAmounts),
+      };
 
-    const planData = {
-      id: editingId || Date.now(),
-      schoolId,
-      className: selectedClass,
-      feeScheme: allowedFeeScheme,
-      feePlanName: selectedPlanName,
-      feeHeads: [...feeHeads],
-      columns: [...columns],
-      newStudentAmounts,
-      oldStudentAmounts,
-      newTotal: getSectionTotal(newStudentAmounts),
-      oldTotal: getSectionTotal(oldStudentAmounts),
-      isUsed: false,
-      updatedBy: currentUser.name,
-      updatedDate: now.toLocaleDateString("en-IN"),
-      updatedTime: now.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    };
-
-    if (editingId) {
-      setSavedPlans((prev) =>
-        prev.map((item) =>
-          item.id === editingId ? planData : item
-        )
-      );
-    } else {
-      const exists = savedPlans.some(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.className === selectedClass &&
-          item.feePlanName === selectedPlanName
-      );
-
-      if (exists) {
-        alert("Fee plan already exists");
-        return;
+      const res = await adminPanelService.saveFeePlan(payload);
+      if (res.data?.data) {
+        alert("Fee plan saved successfully");
+        const plansRes = await adminPanelService.getFeePlans();
+        if (plansRes.data?.data) {
+          setSavedPlans(plansRes.data.data);
+        }
       }
-
-      setSavedPlans([...savedPlans, planData]);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save fee plan");
+    } finally {
+      setSaving(false);
     }
-
-    alert("Fee plan saved successfully");
-    setSelectedIds([]);
   };
 
-  const handleCopyPlan = () => {
+  const handleCopyPlan = async () => {
     if (!selectedClass || !selectedPlanName) {
       alert("Open source class and fee plan first");
       return;
@@ -268,58 +245,35 @@ function FeePlanManagement() {
       return;
     }
 
-    const alreadyExists = savedPlans.some(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.className === copyTargetClass &&
-        item.feePlanName === copyTargetPlanName
-    );
+    try {
+      setSaving(true);
+      const res = await adminPanelService.copyFeePlan({
+        sourceClass: selectedClass,
+        sourcePlanName: selectedPlanName,
+        targetClass: copyTargetClass,
+        targetPlanName: copyTargetPlanName,
+      });
 
-    if (alreadyExists) {
-      alert("Target fee plan already exists");
-      return;
+      if (res.data?.data) {
+        alert("Fee plan copied successfully");
+        setCopyTargetClass("");
+        setCopyTargetPlanName("");
+        setShowCopyPopup(false);
+        const plansRes = await adminPanelService.getFeePlans();
+        if (plansRes.data?.data) {
+          setSavedPlans(plansRes.data.data);
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to copy fee plan");
+    } finally {
+      setSaving(false);
     }
-
-    const now = new Date();
-
-    const copiedPlan = {
-      id: Date.now(),
-      schoolId,
-      className: copyTargetClass,
-      feeScheme: allowedFeeScheme,
-      feePlanName: copyTargetPlanName,
-      feeHeads: [...feeHeads],
-      columns: [...columns],
-      newStudentAmounts,
-      oldStudentAmounts,
-      newTotal: getSectionTotal(newStudentAmounts),
-      oldTotal: getSectionTotal(oldStudentAmounts),
-      isUsed: false,
-      updatedBy: currentUser.name,
-      updatedDate: now.toLocaleDateString("en-IN"),
-      updatedTime: now.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true,
-      }),
-    };
-
-    setSavedPlans([...savedPlans, copiedPlan]);
-
-    setCopyTargetClass("");
-    setCopyTargetPlanName("");
-    setShowCopyPopup(false);
-
-    alert("Fee plan copied successfully");
   };
 
   const lastEditedPlan = editingId
-    ? savedPlans.find((item) => item.id === editingId)
+    ? savedPlans.find((item) => (item._id || item.id) === editingId)
     : null;
-
-  const visibleSavedPlans = savedPlans.filter(
-    (item) => item.schoolId === schoolId
-  );
 
   return (
     <div className="fee-plan-page">
@@ -390,14 +344,18 @@ function FeePlanManagement() {
 
         <div className="fee-section-title">New Student Setup</div>
 
-        <FeeAmountTable
-          feeHeads={feeHeads}
-          columns={columns}
-          amounts={newStudentAmounts}
-          onChange={(head, col, value) =>
-            handleAmountChange("new", head, col, value)
-          }
-        />
+        {loading ? (
+          <SkeletonTable rows={4} columns={columns.length + 1} />
+        ) : (
+          <FeeAmountTable
+            feeHeads={feeHeads}
+            columns={columns}
+            amounts={newStudentAmounts}
+            onChange={(head, col, value) =>
+              handleAmountChange("new", head, col, value)
+            }
+          />
+        )}
 
         <div className="fee-total-row">
           New Student Total: ₹{getSectionTotal(newStudentAmounts)}
@@ -405,27 +363,36 @@ function FeePlanManagement() {
 
         <div className="fee-section-title">Old Student Setup</div>
 
-        <FeeAmountTable
-          feeHeads={feeHeads}
-          columns={columns}
-          amounts={oldStudentAmounts}
-          onChange={(head, col, value) =>
-            handleAmountChange("old", head, col, value)
-          }
-        />
+        {loading ? (
+          <SkeletonTable rows={4} columns={columns.length + 1} />
+        ) : (
+          <FeeAmountTable
+            feeHeads={feeHeads}
+            columns={columns}
+            amounts={oldStudentAmounts}
+            onChange={(head, col, value) =>
+              handleAmountChange("old", head, col, value)
+            }
+          />
+        )}
 
         <div className="fee-total-row">
           Old Student Total: ₹{getSectionTotal(oldStudentAmounts)}
         </div>
 
         <div className="bottom-action-row">
-          <AppButton type="primary" onClick={handleSaveFeePlan}>
-            Save Fee Plan
+          <AppButton
+            type="primary"
+            onClick={handleSaveFeePlan}
+            disabled={saving || loading}
+          >
+            {saving ? "Saving..." : "Save Fee Plan"}
           </AppButton>
 
           <AppButton
             type="primary"
             onClick={() => setShowCopyPopup(true)}
+            disabled={saving || loading}
           >
             Copy Fee Plan
           </AppButton>
@@ -433,18 +400,15 @@ function FeePlanManagement() {
 
         <div className="last-edit-footer">
           <div>
-            <strong>Updated By:</strong>{" "}
-            {lastEditedPlan?.updatedBy || "-"}
+            <strong>Updated By:</strong> {lastEditedPlan?.updatedBy || "-"}
           </div>
 
           <div>
-            <strong>Updated Date:</strong>{" "}
-            {lastEditedPlan?.updatedDate || "-"}
+            <strong>Updated Date:</strong> {lastEditedPlan?.updatedDate || "-"}
           </div>
 
           <div>
-            <strong>Updated Time:</strong>{" "}
-            {lastEditedPlan?.updatedTime || "-"}
+            <strong>Updated Time:</strong> {lastEditedPlan?.updatedTime || "-"}
           </div>
         </div>
       </div>
@@ -454,43 +418,47 @@ function FeePlanManagement() {
           <h2>Saved Fee Plan List</h2>
         </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>S.No</th>
-                <th>Class</th>
-                <th>Fee Scheme</th>
-                <th>Fee Plan Name</th>
-                <th>New Student Total</th>
-                <th>Old Student Total</th>
-                <th>Total Amount</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {visibleSavedPlans.length === 0 ? (
+        {loading ? (
+          <SkeletonTable rows={4} columns={7} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="7" className="empty-row">
-                    No fee plan found
-                  </td>
+                  <th>S.No</th>
+                  <th>Class</th>
+                  <th>Fee Scheme</th>
+                  <th>Fee Plan Name</th>
+                  <th>New Student Total</th>
+                  <th>Old Student Total</th>
+                  <th>Total Amount</th>
                 </tr>
-              ) : (
-                visibleSavedPlans.map((item, index) => (
-                  <tr key={item.id}>
-                    <td>{index + 1}</td>
-                    <td>{item.className}</td>
-                    <td>{item.feeScheme}</td>
-                    <td>{item.feePlanName}</td>
-                    <td>₹{item.newTotal}</td>
-                    <td>₹{item.oldTotal}</td>
-                    <td>₹{item.newTotal + item.oldTotal}</td>
+              </thead>
+
+              <tbody>
+                {savedPlans.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="empty-row">
+                      No fee plan found
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  savedPlans.map((item, index) => (
+                    <tr key={item._id || item.id}>
+                      <td>{index + 1}</td>
+                      <td>{item.className}</td>
+                      <td>{item.feeScheme}</td>
+                      <td>{item.feePlanName}</td>
+                      <td>₹{item.newTotal}</td>
+                      <td>₹{item.oldTotal}</td>
+                      <td>₹{Number(item.newTotal || 0) + Number(item.oldTotal || 0)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {showCopyPopup && (
@@ -538,8 +506,8 @@ function FeePlanManagement() {
             </div>
 
             <div className="form-actions">
-              <AppButton type="primary" onClick={handleCopyPlan}>
-                Copy
+              <AppButton type="primary" onClick={handleCopyPlan} disabled={saving}>
+                {saving ? "Copying..." : "Copy"}
               </AppButton>
             </div>
           </div>
@@ -550,6 +518,16 @@ function FeePlanManagement() {
 }
 
 function FeeAmountTable({ feeHeads, columns, amounts, onChange }) {
+  if (!feeHeads || feeHeads.length === 0) {
+    return (
+      <div className="table-wrap">
+        <p style={{ padding: "16px", textAlign: "center", color: "#64748b" }}>
+          No fee heads configured. Please configure fee heads in Fee Scheme first.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="table-wrap">
       <table>

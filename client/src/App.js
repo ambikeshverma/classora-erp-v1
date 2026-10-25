@@ -40,8 +40,10 @@ import AdminReports from "./pages/adminpanel/AdminReports";
 import NewAdmission from "./pages/NewAdmission";
 import AdmissionEnquiries from "./pages/AdmissionEnquiries";
 
+import AdmissionBulkImport from "./pages/AdmissionBulkImport";
 import EnquirySources from "./pages/EnquirySources";
 import FollowUpManagement from "./pages/FollowUpManagement";
+import GatePassManagement from "./pages/GatePassManagement";
 import StudentIDManagement from "./pages/StudentIDManagement";
 import ParentIDManagement from "./pages/ParentIDManagement";
 import AppointmentScheduling from "./pages/AppointmentScheduling";
@@ -265,12 +267,7 @@ function App() {
           path="/admission-bulk-import"
           element={
             <ProtectedRoute moduleKey="admissions" subModuleKey="admission_bulk_import">
-              <SubModulePlaceholder
-                title="Bulk Import"
-                moduleName="Admissions"
-                icon="⬇️"
-                backRoute="/admissions"
-              />
+              <AdmissionBulkImport />
             </ProtectedRoute>
           }
         />
@@ -319,12 +316,7 @@ function App() {
           path="/gate-pass-management"
           element={
             <ProtectedRoute moduleKey="reception" subModuleKey="gate_pass_management">
-              <SubModulePlaceholder
-                title="Gate Pass Management"
-                moduleName="Reception Desk"
-                icon="🚪"
-                backRoute="/reception-desk"
-              />
+              <GatePassManagement />
             </ProtectedRoute>
           }
         />

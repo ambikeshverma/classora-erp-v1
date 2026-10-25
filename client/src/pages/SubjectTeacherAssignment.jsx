@@ -1,78 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./subjectTeacherAssignment.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { userControlService } from "../services/api";
 
 function SubjectTeacherAssignment() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-
-  const classes = [
-    { id: 1, schoolId: "SCH001", className: "9" },
-    { id: 2, schoolId: "SCH001", className: "10" },
-  ];
-
-  const sections = [
-    { id: 1, schoolId: "SCH001", classId: 1, sectionName: "A" },
-    { id: 2, schoolId: "SCH001", classId: 1, sectionName: "B" },
-    { id: 3, schoolId: "SCH001", classId: 2, sectionName: "A" },
-  ];
-
-  const subjects = [
-    { id: 1, schoolId: "SCH001", subjectName: "Hindi" },
-    { id: 2, schoolId: "SCH001", subjectName: "English" },
-    { id: 3, schoolId: "SCH001", subjectName: "Math" },
-    { id: 4, schoolId: "SCH001", subjectName: "Science" },
-    { id: 5, schoolId: "SCH001", subjectName: "SST" },
-  ];
-
-  const classSubjectMapping = [
-    { id: 1, schoolId: "SCH001", classId: 1, subjectId: 1 },
-    { id: 2, schoolId: "SCH001", classId: 1, subjectId: 2 },
-    { id: 3, schoolId: "SCH001", classId: 1, subjectId: 3 },
-    { id: 4, schoolId: "SCH001", classId: 1, subjectId: 4 },
-    { id: 5, schoolId: "SCH001", classId: 1, subjectId: 5 },
-    { id: 6, schoolId: "SCH001", classId: 2, subjectId: 1 },
-    { id: 7, schoolId: "SCH001", classId: 2, subjectId: 2 },
-    { id: 8, schoolId: "SCH001", classId: 2, subjectId: 3 },
-  ];
-
-  const staffList = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeName: "Amit Kumar",
-      departmentId: 1,
-      positionId: 1,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      employeeName: "Pooja Singh",
-      departmentId: 1,
-      positionId: 1,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      employeeName: "Ravi Verma",
-      departmentId: 1,
-      positionId: 2,
-      teachingStaff: "Yes",
-      isActive: true,
-    },
-    {
-      id: 4,
-      schoolId: "SCH001",
-      employeeName: "Accountant Staff",
-      departmentId: 2,
-      positionId: 3,
-      teachingStaff: "No",
-      isActive: true,
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [teachingStaff, setTeachingStaff] = useState([]);
+  const [assignments, setAssignments] = useState([]);
 
   const [filterClassId, setFilterClassId] = useState("");
   const [showPopup, setShowPopup] = useState(false);
@@ -83,93 +20,96 @@ function SubjectTeacherAssignment() {
     teacherStaffId: "",
   });
 
-  const [assignments, setAssignments] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      classId: 1,
-      sectionId: 1,
-      subjectId: 1,
-      teacherStaffId: 1,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      classId: 1,
-      sectionId: 1,
-      subjectId: 2,
-      teacherStaffId: 2,
-    },
-  ]);
+  /* ===============================
+     Fetch Data (Optimized: single initial load)
+  =============================== */
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [metaRes, assignRes] = await Promise.all([
+        userControlService.getMeta(),
+        userControlService.getSubjectTeachers(),
+      ]);
 
-  const schoolClasses = classes.filter((item) => item.schoolId === schoolId);
+      if (metaRes.data?.success) {
+        setClasses(metaRes.data.data.classes || []);
+        setSubjects(metaRes.data.data.subjects || []);
+        setTeachingStaff(metaRes.data.data.teachingStaff || []);
+      }
 
-  const schoolSections = sections.filter((item) => item.schoolId === schoolId);
+      if (assignRes.data?.success) {
+        setAssignments(assignRes.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load subject teacher assignment data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const teachingStaff = staffList.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.teachingStaff === "Yes" &&
-      item.isActive
-  );
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const classSectionRows = schoolSections
-    .map((section) => {
-      const classInfo = schoolClasses.find((cls) => cls.id === section.classId);
-
-      return {
-        classId: section.classId,
-        sectionId: section.id,
-        className: classInfo?.className || "",
-        sectionName: section.sectionName,
-      };
+  /* ===============================
+     Construct Rows
+  =============================== */
+  const classSectionRows = classes
+    .flatMap((cls) => {
+      const clsId = cls._id || cls.id;
+      const sections = cls.sections || [];
+      return sections.map((sec) => ({
+        classId: clsId,
+        sectionId: sec._id || sec.id || sec.sectionName,
+        className: cls.className,
+        sectionName: sec.sectionName,
+      }));
     })
-    .filter(
-      (item) => !filterClassId || item.classId === Number(filterClassId)
-    );
+    .filter((item) => !filterClassId || String(item.classId) === String(filterClassId));
 
-  const getSubjectName = (subjectId) => {
-    const subject = subjects.find((item) => item.id === Number(subjectId));
+  const getSubjectName = (subjectObjOrId) => {
+    if (!subjectObjOrId) return "-";
+    if (typeof subjectObjOrId === "object" && subjectObjOrId.subjectName) {
+      return subjectObjOrId.subjectName;
+    }
+    const subject = subjects.find(
+      (item) => String(item._id || item.id) === String(subjectObjOrId)
+    );
     return subject?.subjectName || "-";
   };
 
-  const getStaffName = (staffId) => {
-    const staff = staffList.find((item) => item.id === Number(staffId));
+  const getStaffName = (staffObjOrId) => {
+    if (!staffObjOrId) return "-";
+    if (typeof staffObjOrId === "object" && staffObjOrId.employeeName) {
+      return staffObjOrId.employeeName;
+    }
+    const staff = teachingStaff.find(
+      (item) => String(item._id || item.id) === String(staffObjOrId)
+    );
     return staff?.employeeName || "-";
   };
 
-  const getMappedSubjects = (classId) => {
-    const mappedSubjectIds = classSubjectMapping
-      .filter((item) => item.schoolId === schoolId && item.classId === classId)
-      .map((item) => item.subjectId);
-
-    return subjects.filter(
-      (subject) =>
-        subject.schoolId === schoolId && mappedSubjectIds.includes(subject.id)
-    );
-  };
-
   const getAssignmentsForRow = (classId, sectionId) => {
-    return assignments.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.classId === classId &&
-        item.sectionId === sectionId
-    );
+    return assignments.filter((item) => {
+      const itemCls = item.classId?._id || item.classId;
+      return (
+        String(itemCls) === String(classId) &&
+        String(item.sectionId) === String(sectionId)
+      );
+    });
   };
 
   const getAvailableSubjects = () => {
     if (!selectedRow) return [];
 
-    const mappedSubjects = getMappedSubjects(selectedRow.classId);
-
     const assignedSubjectIds = getAssignmentsForRow(
       selectedRow.classId,
       selectedRow.sectionId
-    ).map((item) => item.subjectId);
+    ).map((item) => String(item.subjectId?._id || item.subjectId));
 
-    return mappedSubjects.filter(
-      (subject) => !assignedSubjectIds.includes(subject.id)
+    return subjects.filter(
+      (subject) =>
+        !assignedSubjectIds.includes(String(subject._id || subject.id))
     );
   };
 
@@ -191,7 +131,7 @@ function SubjectTeacherAssignment() {
     });
   };
 
-  const handleSaveAssignment = () => {
+  const handleSaveAssignment = async () => {
     if (!formData.subjectId) {
       alert("Please select subject");
       return;
@@ -202,51 +142,54 @@ function SubjectTeacherAssignment() {
       return;
     }
 
-    const existing = assignments.find(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.classId === selectedRow.classId &&
-        item.sectionId === selectedRow.sectionId &&
-        item.subjectId === Number(formData.subjectId)
-    );
-
-    if (existing) {
-      setAssignments(
-        assignments.map((item) =>
-          item.id === existing.id
-            ? {
-                ...item,
-                teacherStaffId: Number(formData.teacherStaffId),
-              }
-            : item
-        )
-      );
-    } else {
-      const newAssignment = {
-        id: Date.now(),
-        schoolId,
+    try {
+      const res = await userControlService.assignSubjectTeacher({
         classId: selectedRow.classId,
         sectionId: selectedRow.sectionId,
-        subjectId: Number(formData.subjectId),
-        teacherStaffId: Number(formData.teacherStaffId),
-      };
+        sectionName: selectedRow.sectionName,
+        subjectId: formData.subjectId,
+        teacherStaffId: formData.teacherStaffId,
+      });
 
-      setAssignments([...assignments, newAssignment]);
+      if (res.data?.success) {
+        alert("Subject teacher assigned successfully");
+        const updatedAssignment = res.data.data;
+        setAssignments((prev) => {
+          const filtered = prev.filter((item) => {
+            const itemCls = item.classId?._id || item.classId;
+            const itemSub = item.subjectId?._id || item.subjectId;
+            return !(
+              String(itemCls) === String(selectedRow.classId) &&
+              String(item.sectionId) === String(selectedRow.sectionId) &&
+              String(itemSub) === String(formData.subjectId)
+            );
+          });
+          return [...filtered, updatedAssignment];
+        });
+
+        setFormData({
+          subjectId: "",
+          teacherStaffId: "",
+        });
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to assign subject teacher");
     }
-
-    setFormData({
-      subjectId: "",
-      teacherStaffId: "",
-    });
-
-    alert("Subject teacher assigned successfully");
   };
 
-  const handleDeleteAssignment = (assignmentId) => {
-    const ok = window.confirm("Delete selected subject teacher assignment?");
+  const handleDeleteAssignment = async (assignmentId) => {
+    const ok = window.confirm("Delete this subject teacher assignment?");
     if (!ok) return;
 
-    setAssignments(assignments.filter((item) => item.id !== assignmentId));
+    try {
+      await userControlService.deleteSubjectTeacher(assignmentId);
+      setAssignments((prev) =>
+        prev.filter((item) => (item._id || item.id) !== assignmentId)
+      );
+      alert("Assignment deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete assignment");
+    }
   };
 
   return (
@@ -261,7 +204,7 @@ function SubjectTeacherAssignment() {
 
         <div>
           <h1>Subject Teacher Assignment</h1>
-          <p>Assign subject teachers class and section wise</p>
+          <p>Assign subject teachers section wise</p>
         </div>
       </div>
 
@@ -271,18 +214,19 @@ function SubjectTeacherAssignment() {
         <div className="assignment-filter-grid">
           <div className="form-group">
             <label>Class</label>
-
             <select
               value={filterClassId}
               onChange={(e) => setFilterClassId(e.target.value)}
             >
               <option value="">All Classes</option>
-
-              {schoolClasses.map((item) => (
-                <option key={item.id} value={item.id}>
-                  Class {item.className}
-                </option>
-              ))}
+              {classes.map((item) => {
+                const cId = item._id || item.id;
+                return (
+                  <option key={cId} value={cId}>
+                    Class {item.className}
+                  </option>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -290,7 +234,7 @@ function SubjectTeacherAssignment() {
 
       <div className="common-card">
         <div className="list-header">
-          <h2>Subject Teacher Assignment List</h2>
+          <h2>Assignment List</h2>
         </div>
 
         <div className="table-wrap">
@@ -307,7 +251,13 @@ function SubjectTeacherAssignment() {
             </thead>
 
             <tbody>
-              {classSectionRows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: "4px 0", border: "none" }}>
+                    <SkeletonTable rows={5} columns={6} />
+                  </td>
+                </tr>
+              ) : classSectionRows.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="empty-row">
                     No class section found
@@ -315,8 +265,6 @@ function SubjectTeacherAssignment() {
                 </tr>
               ) : (
                 classSectionRows.map((row, index) => {
-                  const totalSubjects = getMappedSubjects(row.classId).length;
-
                   const assignedCount = getAssignmentsForRow(
                     row.classId,
                     row.sectionId
@@ -327,7 +275,7 @@ function SubjectTeacherAssignment() {
                       <td>{index + 1}</td>
                       <td>Class {row.className}</td>
                       <td>{row.sectionName}</td>
-                      <td>{totalSubjects}</td>
+                      <td>{subjects.length}</td>
                       <td>{assignedCount}</td>
                       <td>
                         <button
@@ -352,7 +300,6 @@ function SubjectTeacherAssignment() {
           <div className="assignment-popup">
             <div className="popup-head">
               <h2>Assign Subject Teacher</h2>
-
               <button className="popup-close-btn" onClick={closePopup}>
                 ×
               </button>
@@ -362,7 +309,6 @@ function SubjectTeacherAssignment() {
               <p>
                 <strong>Class:</strong> Class {selectedRow.className}
               </p>
-
               <p>
                 <strong>Section:</strong> {selectedRow.sectionName}
               </p>
@@ -371,7 +317,6 @@ function SubjectTeacherAssignment() {
             <div className="popup-form-grid">
               <div className="form-group">
                 <label>Subject *</label>
-
                 <select
                   value={formData.subjectId}
                   onChange={(e) =>
@@ -382,18 +327,20 @@ function SubjectTeacherAssignment() {
                   }
                 >
                   <option value="">Select Subject</option>
-
-                  {getAvailableSubjects().map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.subjectName}
-                    </option>
-                  ))}
+                  {getAvailableSubjects().map((subject) => {
+                    const subId = subject._id || subject.id;
+                    return (
+                      <option key={subId} value={subId}>
+                        {subject.subjectName}{" "}
+                        {subject.subjectCode ? `(${subject.subjectCode})` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
               <div className="form-group">
                 <label>Subject Teacher *</label>
-
                 <select
                   value={formData.teacherStaffId}
                   onChange={(e) =>
@@ -404,12 +351,14 @@ function SubjectTeacherAssignment() {
                   }
                 >
                   <option value="">Select Subject Teacher</option>
-
-                  {teachingStaff.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.employeeName}
-                    </option>
-                  ))}
+                  {teachingStaff.map((staff) => {
+                    const sId = staff._id || staff.id;
+                    return (
+                      <option key={sId} value={sId}>
+                        {staff.employeeName} ({staff.employeeCode || "STAFF"})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -447,35 +396,32 @@ function SubjectTeacherAssignment() {
                       getAssignmentsForRow(
                         selectedRow.classId,
                         selectedRow.sectionId
-                      ).map((assignment) => (
-                        <tr key={assignment.id}>
-                          <td>
-                            <button
-                              className="delete-icon-btn"
-                              onClick={() =>
-                                handleDeleteAssignment(assignment.id)
-                              }
-                              title="Delete Assignment"
-                            >
-                              🗑
-                            </button>
-                          </td>
-
-                          <td>{getSubjectName(assignment.subjectId)}</td>
-
-                          <td>{getStaffName(assignment.teacherStaffId)}</td>
-                        </tr>
-                      ))
+                      ).map((assignment) => {
+                        const aId = assignment._id || assignment.id;
+                        return (
+                          <tr key={aId}>
+                            <td>
+                              <button
+                                className="del-btn"
+                                onClick={() =>
+                                  handleDeleteAssignment(aId)
+                                }
+                                title="Delete Assignment"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                            <td>{getSubjectName(assignment.subjectId)}</td>
+                            <td>
+                              {getStaffName(assignment.teacherStaffId)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>
               </div>
-            </div>
-
-            <div className="popup-actions">
-              <AppButton type="secondary" onClick={closePopup}>
-                Close
-              </AppButton>
             </div>
           </div>
         </div>

@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./staffManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { hrService } from "../services/api";
 
 function StaffManagement() {
   const schoolId = localStorage.getItem("schoolId") || "SCH001";
-  const uploadedBy = localStorage.getItem("userName") || "Ankit Verma";
+  const uploadedBy = localStorage.getItem("userName") || "School Admin";
+
+  const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [staffList, setStaffList] = useState([]);
 
   const indianStates = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -16,42 +23,6 @@ function StaffManagement() {
     "Puducherry", "Chandigarh", "Andaman and Nicobar Islands",
     "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep"
   ];
-
-  const departments = [
-    { id: 1, schoolId: "SCH001", departmentName: "Teaching" },
-    { id: 2, schoolId: "SCH001", departmentName: "Accounts" },
-    { id: 3, schoolId: "SCH001", departmentName: "Transport" },
-  ];
-
-  const positions = [
-  {
-    id: 1,
-    schoolId: "SCH001",
-    departmentId: 1,
-    positionName: "Teacher",
-  },
-
-  {
-    id: 2,
-    schoolId: "SCH001",
-    departmentId: 1,
-    positionName: "Coordinator",
-  },
-
-  {
-    id: 3,
-    schoolId: "SCH001",
-    departmentId: 2,
-    positionName: "Accountant",
-  },
-
-  {
-    id: 4,
-    schoolId: "SCH001",
-    departmentId: 3,
-    positionName: "Driver",
-  },
-];
 
   const documentTypes = [
     "Employee Photo", "Signature", "Aadhaar Card", "PAN Card", "Voter ID",
@@ -120,25 +91,30 @@ function StaffManagement() {
 
   const [formData, setFormData] = useState(emptyForm);
 
-  const [staffList, setStaffList] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      departmentId: 1,
-      positionId: 1,
-      mobile: "9876543210",
-      email: "amit@gmail.com",
-      gender: "Male",
-      teachingStaff: "Yes",
-      joiningDate: "2026-04-01",
-      localAddress: "Barabanki",
-      state: "Uttar Pradesh",
-      isActive: true,
-      documents: [],
-    },
-  ]);
+  /* ===============================
+     Fetch Initial Data (Optimized: single call on mount)
+  =============================== */
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [depRes, posRes, staffRes] = await Promise.all([
+        hrService.getDepartments(),
+        hrService.getPositions(),
+        hrService.getStaff(),
+      ]);
+      if (depRes.data?.success) setDepartments(depRes.data.data || []);
+      if (posRes.data?.success) setPositions(posRes.data.data || []);
+      if (staffRes.data?.success) setStaffList(staffRes.data.data || []);
+    } catch (err) {
+      console.error("Failed to load staff data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const [showUploadPopup, setShowUploadPopup] = useState(false);
   const [missingOnly, setMissingOnly] = useState(false);
@@ -149,33 +125,28 @@ function StaffManagement() {
     file: null,
   });
 
-  const schoolDepartments = departments.filter(
-    (item) => item.schoolId === schoolId
-  );
+  const schoolDepartments = departments;
 
   const filteredPositions = positions.filter(
-  (item) =>
-    item.schoolId === schoolId &&
-    (!formData.departmentId ||
-      item.departmentId === Number(formData.departmentId))
-);
+    (item) =>
+      !formData.departmentId ||
+      (item.departmentId?._id || item.departmentId) === formData.departmentId
+  );
 
   const filterPositions = positions.filter(
-  (item) =>
-    item.schoolId === schoolId &&
-    (!filterData.departmentId ||
-      item.departmentId === Number(filterData.departmentId))
-);
+    (item) =>
+      !filterData.departmentId ||
+      (item.departmentId?._id || item.departmentId) === filterData.departmentId
+  );
 
   const activeStaff = staffList.filter(
-  (item) =>
-    item.schoolId === schoolId &&
-    item.isActive &&
-    (!appliedFilters.departmentId ||
-      item.departmentId === Number(appliedFilters.departmentId)) &&
-    (!appliedFilters.positionId ||
-      item.positionId === Number(appliedFilters.positionId))
-);
+    (item) =>
+      item.isActive !== false &&
+      (!appliedFilters.departmentId ||
+        (item.departmentId?._id || item.departmentId) === appliedFilters.departmentId) &&
+      (!appliedFilters.positionId ||
+        (item.positionId?._id || item.positionId) === appliedFilters.positionId)
+  );
 
 
   const generateEmployeeCode = () => {
@@ -285,41 +256,31 @@ if (duplicateEmail) {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
-    const isActive = !formData.lastWorkingDate;
+    try {
+      if (editId) {
+        const res = await hrService.updateStaff(editId, formData);
+        if (res.data?.success) {
+          alert("Staff updated successfully");
+          setStaffList((prev) =>
+            prev.map((item) => ((item._id || item.id) === editId ? res.data.data : item))
+          );
+        }
+      } else {
+        const res = await hrService.createStaff(formData);
+        if (res.data?.success) {
+          alert("Staff added successfully");
+          setStaffList((prev) => [...prev, res.data.data]);
+        }
+      }
 
-    if (editId) {
-      setStaffList(
-        staffList.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-                isActive,
-              }
-            : item
-        )
-      );
-
-      alert("Staff updated successfully");
-    } else {
-      const newStaff = {
-        id: Date.now(),
-        schoolId,
-        employeeCode: generateEmployeeCode(),
-        ...formData,
-        isActive,
-        documents: [],
-      };
-
-      setStaffList([...staffList, newStaff]);
-      alert("Staff added successfully");
+      resetForm();
+      setShowForm(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save staff");
     }
-
-    resetForm();
-    setShowForm(false);
   };
 
   const handleSearch = () => {
@@ -333,16 +294,39 @@ if (duplicateEmail) {
       return;
     }
 
-    const selected = staffList.find((item) => item.id === selectedIds[0]);
+    const selected = staffList.find((item) => (item._id || item.id) === selectedIds[0]);
     if (!selected) return;
 
-    setEditId(selected.id);
+    setEditId(selected._id || selected.id);
     setFormData({
       ...emptyForm,
       ...selected,
+      departmentId: selected.departmentId?._id || selected.departmentId || "",
+      positionId: selected.positionId?._id || selected.positionId || "",
     });
 
     setShowForm(true);
+  };
+
+  const handleDelete = async () => {
+    if (selectedIds.length === 0) {
+      alert("Select staff to delete");
+      return;
+    }
+
+    const ok = window.confirm(`Delete ${selectedIds.length} selected staff member(s)?`);
+    if (!ok) return;
+
+    try {
+      for (const id of selectedIds) {
+        await hrService.deleteStaff(id);
+      }
+      setStaffList((prev) => prev.filter((item) => !selectedIds.includes(item._id || item.id)));
+      setSelectedIds([]);
+      alert("Staff deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete staff");
+    }
   };
 
   const handleProfileOpen = () => {
@@ -351,7 +335,8 @@ if (duplicateEmail) {
       return;
     }
 
-    const selected = staffList.find((item) => item.id === selectedIds[0]);
+    const selected = staffList.find((item) => (item._id || item.id) === selectedIds[0]);
+    if (!selected) return;
 
     setProfileData(selected);
     setActiveProfileTab("Profile");
@@ -657,14 +642,10 @@ if (duplicateEmail) {
               <h2>
                 Staff List
               </h2>
-
               <div className="list-action-buttons">
-
                 <AppButton
                   type="primary"
-                  onClick={
-                    handleProfileOpen
-                  }
+                  onClick={handleProfileOpen}
                 >
                   Profile
                 </AppButton>
@@ -676,188 +657,104 @@ if (duplicateEmail) {
                   Edit
                 </AppButton>
 
+                <AppButton
+                  type="delete"
+                  onClick={handleDelete}
+                >
+                  Delete
+                </AppButton>
               </div>
 
             </div>
 
             <div className="table-wrap">
-
               <table>
-
                 <thead>
-
                   <tr>
-
                     <th>
-
                       <input
                         type="checkbox"
                         checked={
-                          activeStaff.length >
-                            0 &&
-                          selectedIds.length ===
-                            activeStaff.length
+                          activeStaff.length > 0 &&
+                          selectedIds.length === activeStaff.length
                         }
                         onChange={(e) => {
-
-                          if (
-                            e.target.checked
-                          ) {
-
+                          if (e.target.checked) {
                             setSelectedIds(
-                              activeStaff.map(
-                                (item) =>
-                                  item.id
-                              )
+                              activeStaff.map((item) => item._id || item.id)
                             );
-
                           } else {
-
                             setSelectedIds([]);
                           }
                         }}
                       />
-
                     </th>
 
                     <th>S.No</th>
-
-                    <th>
-                      Department
-                    </th>
-
-                    <th>
-                      Position
-                    </th>
-
-                    <th>
-                      Employee Code
-                    </th>
-
-                    <th>
-                      Employee Name
-                    </th>
-
-                    <th>
-                      Mobile
-                    </th>
-
+                    <th>Department</th>
+                    <th>Position</th>
+                    <th>Employee Code</th>
+                    <th>Employee Name</th>
+                    <th>Mobile</th>
                   </tr>
-
                 </thead>
 
                 <tbody>
-
-                  {activeStaff.length ===
-                  0 ? (
-
+                  {loading ? (
                     <tr>
-
-                      <td
-                        colSpan="7"
-                        className="empty-row"
-                      >
+                      <td colSpan="7" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={7} />
+                      </td>
+                    </tr>
+                  ) : activeStaff.length === 0 ? (
+                    <tr>
+                      <td colSpan="7" className="empty-row">
                         No staff found
                       </td>
-
                     </tr>
-
                   ) : (
+                    activeStaff.map((item, index) => {
+                      const itemId = item._id || item.id;
+                      const deptName =
+                        item.departmentId?.departmentName ||
+                        schoolDepartments.find(
+                          (dept) => (dept._id || dept.id) === item.departmentId
+                        )?.departmentName ||
+                        "-";
+                      const posName =
+                        item.positionId?.positionName ||
+                        positions.find(
+                          (pos) => (pos._id || pos.id) === item.positionId
+                        )?.positionName ||
+                        "-";
 
-                    activeStaff.map(
-                      (
-                        item,
-                        index
-                      ) => (
-
-                        <tr key={item.id}>
-
+                      return (
+                        <tr key={itemId}>
                           <td>
-
                             <input
                               type="checkbox"
-                              checked={selectedIds.includes(
-                                item.id
-                              )}
+                              checked={selectedIds.includes(itemId)}
                               onChange={() => {
-
-                                setSelectedIds(
-                                  (
-                                    prev
-                                  ) =>
-
-                                    prev.includes(
-                                      item.id
-                                    )
-
-                                      ? prev.filter(
-                                          (
-                                            id
-                                          ) =>
-                                            id !==
-                                            item.id
-                                        )
-
-                                      : [
-                                          ...prev,
-                                          item.id,
-                                        ]
+                                setSelectedIds((prev) =>
+                                  prev.includes(itemId)
+                                    ? prev.filter((id) => id !== itemId)
+                                    : [...prev, itemId]
                                 );
                               }}
                             />
-
                           </td>
-
-                          <td>
-                            {index + 1}
-                          </td>
-
-                          
-                            <td>
-  {
-    schoolDepartments.find(
-      (dept) =>
-        dept.id === item.departmentId
-    )?.departmentName || "-"
-  }
-</td>
-
-                          <td>
-  {
-    positions.find(
-      (pos) =>
-        pos.id === item.positionId
-    )?.positionName || "-"
-  }
-</td>
-
-                          <td>
-                            {
-                              item.employeeCode
-                            }
-                          </td>
-
-                          <td>
-                            {
-                              item.employeeName
-                            }
-                          </td>
-
-                          <td>
-                            {item.mobile}
-                          </td>
-
+                          <td>{index + 1}</td>
+                          <td>{deptName}</td>
+                          <td>{posName}</td>
+                          <td>{item.employeeCode}</td>
+                          <td>{item.employeeName}</td>
+                          <td>{item.mobile}</td>
                         </tr>
-
-                      )
-                    )
-
+                      );
+                    })
                   )}
-
                 </tbody>
-
               </table>
-
             </div>
 
           </div>

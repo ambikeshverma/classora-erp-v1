@@ -1,95 +1,39 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MasterReport from "../../components/reports/MasterReport";
+import { SkeletonTable } from "../../components/Skeleton";
+import { adminPanelService } from "../../services/api";
 
 function AdminReports() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const [loading, setLoading] = useState(true);
+  const [feePlans, setFeePlans] = useState([]);
+  const [feeScheme, setFeeScheme] = useState({});
 
-  const feePlanData = [
-    {
-      id: 1,
-      schoolId,
-      className: "Class 2",
-      feePlanName: "6EM",
-      feeScheme: "Monthly",
-      studentType: "Old Student",
-      amounts: {
-        APR: 2150,
-        MAY: 650,
-        JUN: 650,
-        JUL: 650,
-        AUG: 650,
-        SEP: 650,
-        OCT: 950,
-        NOV: 650,
-        DEC: 650,
-        JAN: 650,
-        FEB: 950,
-        MAR: 650,
-      },
-      feeHeads: [
-        {
-          feeHeadName: "Tuition Fee",
-          APR: 650,
-          MAY: 650,
-          JUN: 650,
-          JUL: 650,
-          AUG: 650,
-          SEP: 650,
-          OCT: 650,
-          NOV: 650,
-          DEC: 650,
-          JAN: 650,
-          FEB: 650,
-          MAR: 650,
-        },
-        {
-          feeHeadName: "Exam Fee",
-          APR: 0,
-          MAY: 0,
-          JUN: 0,
-          JUL: 0,
-          AUG: 0,
-          SEP: 0,
-          OCT: 300,
-          NOV: 0,
-          DEC: 0,
-          JAN: 0,
-          FEB: 300,
-          MAR: 0,
-        },
-        {
-          feeHeadName: "Maintenance Fee",
-          APR: 1500,
-          MAY: 0,
-          JUN: 0,
-          JUL: 0,
-          AUG: 0,
-          SEP: 0,
-          OCT: 0,
-          NOV: 0,
-          DEC: 0,
-          JAN: 0,
-          FEB: 0,
-          MAR: 0,
-        },
-      ],
-    },
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      const res = await adminPanelService.getReports();
+      if (res.data?.data) {
+        setFeePlans(res.data.data.feePlans || []);
+        setFeeScheme(res.data.data.feeScheme || {});
+      }
+    } catch (err) {
+      console.error("Failed to load admin reports", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const defaultMonths = [
+    "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
+    "OCT", "NOV", "DEC", "JAN", "FEB", "MAR",
   ];
 
-  const months = [
-    "APR",
-    "MAY",
-    "JUN",
-    "JUL",
-    "AUG",
-    "SEP",
-    "OCT",
-    "NOV",
-    "DEC",
-    "JAN",
-    "FEB",
-    "MAR",
-  ];
+  // Dynamic columns based on scheme or first plan
+  const months = (feePlans[0]?.columns?.length) ? feePlans[0].columns : defaultMonths;
 
   const getTotal = (amounts) => {
     return months.reduce((sum, month) => {
@@ -97,43 +41,78 @@ function AdminReports() {
     }, 0);
   };
 
-  const feePlanSummaryRows = feePlanData.map((item) => ({
-    className: item.className,
-    feePlanName: item.feePlanName,
-    studentType: item.studentType,
-    ...item.amounts,
-    total: getTotal(item.amounts),
-  }));
-
+  // Convert feePlans into New Student & Old Student summary rows
+  const feePlanSummaryRows = [];
   const feePlanDetailRows = [];
 
-  feePlanData.forEach((plan) => {
-    let groupTotal = 0;
+  const availableClasses = new Set();
+  const availablePlanNames = new Set();
 
-    plan.feeHeads.forEach((head, index) => {
-      const rowTotal = getTotal(head);
-      groupTotal += rowTotal;
+  feePlans.forEach((plan) => {
+    availableClasses.add(plan.className);
+    availablePlanNames.add(plan.feePlanName);
 
-      feePlanDetailRows.push({
-        className: index === 0 ? plan.className : "",
-        feePlanName: index === 0 ? plan.feePlanName : "",
-        studentType: index === 0 ? plan.studentType : "",
-        feeHeadName: head.feeHeadName,
-        ...head,
-        total: rowTotal,
-        isGroupTotal: false,
+    const heads = plan.feeHeads || [];
+
+    // Helper for student type
+    const processType = (studentType, amountsObj) => {
+      // Calculate month totals across all heads
+      const monthTotals = {};
+      months.forEach((m) => {
+        monthTotals[m] = heads.reduce(
+          (sum, h) => sum + Number(amountsObj?.[h]?.[m] || 0),
+          0
+        );
       });
-    });
 
-    feePlanDetailRows.push({
-      className: "Total",
-      feePlanName: "",
-      studentType: "",
-      feeHeadName: "",
-      total: groupTotal,
-      isGroupTotal: true,
-    });
+      feePlanSummaryRows.push({
+        className: plan.className,
+        feePlanName: plan.feePlanName,
+        studentType,
+        ...monthTotals,
+        total: getTotal(monthTotals),
+      });
+
+      // Detail rows
+      let groupTotal = 0;
+      heads.forEach((head, index) => {
+        const headAmounts = amountsObj?.[head] || {};
+        const rowTotal = getTotal(headAmounts);
+        groupTotal += rowTotal;
+
+        feePlanDetailRows.push({
+          className: index === 0 ? plan.className : "",
+          feePlanName: index === 0 ? plan.feePlanName : "",
+          studentType: index === 0 ? studentType : "",
+          feeHeadName: head,
+          ...headAmounts,
+          total: rowTotal,
+          isGroupTotal: false,
+        });
+      });
+
+      if (heads.length > 0) {
+        feePlanDetailRows.push({
+          className: "Total",
+          feePlanName: "",
+          studentType: "",
+          feeHeadName: "",
+          total: groupTotal,
+          isGroupTotal: true,
+        });
+      }
+    };
+
+    if (plan.newStudentAmounts) {
+      processType("New Student", plan.newStudentAmounts);
+    }
+    if (plan.oldStudentAmounts) {
+      processType("Old Student", plan.oldStudentAmounts);
+    }
   });
+
+  const classOptions = Array.from(availableClasses).sort();
+  const planNameOptions = Array.from(availablePlanNames).sort();
 
   const reportConfigs = [
     {
@@ -147,14 +126,14 @@ function AdminReports() {
           label: "Class",
           type: "select",
           placeholder: "All Classes",
-          options: ["Class 1", "Class 2", "Class 3", "Class 4"],
+          options: classOptions,
         },
         {
           key: "feePlanName",
           label: "Fee Plan Name",
           type: "select",
           placeholder: "All Fee Plans",
-          options: ["6HM", "6EM", "7HM", "7EM"],
+          options: planNameOptions,
         },
         {
           key: "studentType",
@@ -187,14 +166,14 @@ function AdminReports() {
           label: "Class",
           type: "select",
           placeholder: "All Classes",
-          options: ["Class 1", "Class 2", "Class 3", "Class 4"],
+          options: classOptions,
         },
         {
           key: "feePlanName",
           label: "Fee Plan Name",
           type: "select",
           placeholder: "All Fee Plans",
-          options: ["6HM", "6EM", "7HM", "7EM"],
+          options: planNameOptions,
         },
         {
           key: "studentType",
@@ -218,6 +197,14 @@ function AdminReports() {
       data: feePlanDetailRows,
     },
   ];
+
+  if (loading) {
+    return (
+      <div style={{ padding: "24px" }}>
+        <SkeletonTable rows={6} columns={6} />
+      </div>
+    );
+  }
 
   return (
     <MasterReport

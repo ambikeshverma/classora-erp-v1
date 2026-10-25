@@ -1,93 +1,34 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MasterReport from "../../components/reports/MasterReport";
+import { receptionService } from "../../services/api";
 
 function ReceptionReports() {
-  // schoolId is available from JWT token via api interceptor (req.schoolId in backend)
-
-  const schoolProfiles = [
-    {
-      schoolId: "SCH001",
-      schoolName: "Chandra Shekhar Azad Inter College",
-      address: "Azad Nagar, Barabanki",
-      email: "school@gmail.com",
-      website: "www.school.com",
-      phone: "9876543210",
-      logo: "",
-    },
-  ];
-
   const currentUser = {
     name: localStorage.getItem("userName") || "School Admin",
   };
 
-  const followUps = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      studentName: "Aman",
-      mobileNumber: "9876543210",
-      classInterested: "Class 6",
-      followUpDate: "2026-06-01",
-      followUpType: "Call",
-      followUpStatus: "Interested",
-      nextFollowUpDate: "2026-06-05",
-      discussionNotes: "Parent asked for fee details",
-    },
-  ];
+  const [summaryStats, setSummaryStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  const appointments = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      appointmentId: "APT001",
-      visitorName: "Ramesh Kumar",
-      mobile: "9876543210",
-      purpose: "Admission enquiry",
-      department: "Administration",
-      personToMeet: "Principal",
-      appointmentDate: "2026-06-01",
-      appointmentTime: "10:00 AM",
-      status: "Approved",
-    },
-  ];
+  useEffect(() => {
+    receptionService.getReports()
+      .then((res) => setSummaryStats(res.data?.data || null))
+      .catch(() => {})
+      .finally(() => setLoadingStats(false));
+  }, []);
 
-  const visitors = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      visitorName: "Ramesh Kumar",
-      visitorType: "Appointment Visitor",
-      mobile: "9876543210",
-      purpose: "Admission enquiry",
-      whomToMeet: "Principal",
-      visitDate: "2026-06-01",
-      inTime: "10:10 AM",
-      outTime: "11:00 AM",
-      status: "Exited",
-    },
-  ];
-
-  const complaints = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      complaintId: "CMP001",
-      guardianName: "Suresh Kumar",
-      studentName: "Aman",
-      mobile: "9876543210",
-      category: "Fee Issue",
-      priority: "Medium",
-      assignedRole: "Accountant",
-      complaintDate: "2026-06-01",
-      resolutionDate: "",
-      status: "Open",
-    },
-  ];
-
-  const isDateInRange = (date, fromDate, toDate) => {
-    if (fromDate && date < fromDate) return false;
-    if (toDate && date > toDate) return false;
-    return true;
+  // For MasterReport: fetch live data via API for each report's getData
+  const makeGetData = (fetchFn) => async ({ filters }) => {
+    try {
+      const params = {};
+      if (filters.fromDate) params.visitDate = filters.fromDate; // fallback
+      if (filters.status) params.status = filters.status;
+      if (filters.search) params.search = filters.search;
+      const res = await fetchFn(params);
+      return res.data?.data || [];
+    } catch {
+      return [];
+    }
   };
 
   const reports = [
@@ -97,28 +38,8 @@ function ReceptionReports() {
       description: "View enquiry follow-up records",
       icon: "🔄",
       filters: [
-        { name: "fromDate", label: "From Date", type: "date" },
-        { name: "toDate", label: "To Date", type: "date" },
-        {
-          name: "followUpStatus",
-          label: "Follow-Up Status",
-          type: "select",
-          placeholder: "All Status",
-          options: [
-            "Interested",
-            "Call Back Later",
-            "No Response",
-            "Not Interested",
-            "Admission Confirmed",
-          ],
-        },
-        {
-          name: "followUpType",
-          label: "Follow-Up Type",
-          type: "select",
-          placeholder: "All Type",
-          options: ["Call", "WhatsApp", "Visit", "SMS", "Meeting"],
-        },
+        { name: "followUpStatus", label: "Follow-Up Status", type: "select", placeholder: "All Status", options: ["Interested", "Call Back Later", "No Response", "Not Interested", "Admission Confirmed"] },
+        { name: "followUpType", label: "Follow-Up Type", type: "select", placeholder: "All Type", options: ["Call", "WhatsApp", "Visit", "SMS", "Meeting"] },
       ],
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
@@ -131,46 +52,24 @@ function ReceptionReports() {
         { key: "nextFollowUpDate", label: "Next Follow-Up Date" },
         { key: "discussionNotes", label: "Discussion Notes" },
       ],
-      getData: ({ schoolId, filters }) =>
-        followUps
-          .filter((item) => item.schoolId === schoolId)
-          .filter((item) =>
-            isDateInRange(item.followUpDate, filters.fromDate, filters.toDate)
-          )
-          .filter((item) =>
-            filters.followUpStatus
-              ? item.followUpStatus === filters.followUpStatus
-              : true
-          )
-          .filter((item) =>
-            filters.followUpType
-              ? item.followUpType === filters.followUpType
-              : true
-          ),
+      getData: async ({ filters }) => {
+        try {
+          const res = await receptionService.getFollowUps();
+          let data = res.data?.data || [];
+          if (filters.followUpStatus) data = data.filter((f) => f.followUpStatus === filters.followUpStatus);
+          if (filters.followUpType) data = data.filter((f) => f.followUpType === filters.followUpType);
+          return data;
+        } catch { return []; }
+      },
     },
-
     {
       id: "appointment-report",
       title: "Appointment Report",
       description: "View visitor appointment records",
       icon: "📅",
       filters: [
-        { name: "fromDate", label: "From Date", type: "date" },
-        { name: "toDate", label: "To Date", type: "date" },
-        {
-          name: "appointmentStatus",
-          label: "Appointment Status",
-          type: "select",
-          placeholder: "All Status",
-          options: ["Pending", "Approved", "Rejected", "Completed", "Cancelled"],
-        },
-        {
-          name: "department",
-          label: "Department",
-          type: "select",
-          placeholder: "All Department",
-          options: ["Administration", "Teaching", "Accounts", "Transport"],
-        },
+        { name: "appointmentDate", label: "Appointment Date", type: "date" },
+        { name: "appointmentStatus", label: "Status", type: "select", placeholder: "All Status", options: ["Pending", "Approved", "Rejected", "Completed", "Cancelled"] },
       ],
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
@@ -178,54 +77,31 @@ function ReceptionReports() {
         { key: "visitorName", label: "Visitor Name" },
         { key: "mobile", label: "Mobile Number" },
         { key: "purpose", label: "Purpose" },
-        { key: "department", label: "Department" },
+        { key: "departmentName", label: "Department" },
         { key: "personToMeet", label: "Person To Meet" },
         { key: "appointmentDate", label: "Appointment Date" },
-        { key: "appointmentTime", label: "Appointment Time" },
+        { key: "timeSlot", label: "Time Slot" },
         { key: "status", label: "Status" },
       ],
-      getData: ({ schoolId, filters }) =>
-        appointments
-          .filter((item) => item.schoolId === schoolId)
-          .filter((item) =>
-            isDateInRange(
-              item.appointmentDate,
-              filters.fromDate,
-              filters.toDate
-            )
-          )
-          .filter((item) =>
-            filters.appointmentStatus
-              ? item.status === filters.appointmentStatus
-              : true
-          )
-          .filter((item) =>
-            filters.department ? item.department === filters.department : true
-          ),
+      getData: async ({ filters }) => {
+        try {
+          const params = {};
+          if (filters.appointmentDate) params.appointmentDate = filters.appointmentDate;
+          if (filters.appointmentStatus) params.status = filters.appointmentStatus;
+          const res = await receptionService.getAppointments(params);
+          return res.data?.data || [];
+        } catch { return []; }
+      },
     },
-
     {
       id: "visitor-report",
       title: "Visitor Report",
       description: "View visitor entry and exit records",
       icon: "🛂",
       filters: [
-        { name: "fromDate", label: "From Date", type: "date" },
-        { name: "toDate", label: "To Date", type: "date" },
-        {
-          name: "visitorType",
-          label: "Visitor Type",
-          type: "select",
-          placeholder: "All Type",
-          options: ["Walk-In Visitor", "Appointment Visitor"],
-        },
-        {
-          name: "visitorStatus",
-          label: "Visitor Status",
-          type: "select",
-          placeholder: "All Status",
-          options: ["Waiting", "Inside Campus", "Exited", "Cancelled"],
-        },
+        { name: "visitDate", label: "Visit Date", type: "date" },
+        { name: "visitorType", label: "Visitor Type", type: "select", placeholder: "All Type", options: ["Walk-In Visitor", "Appointment Visitor"] },
+        { name: "visitorStatus", label: "Visitor Status", type: "select", placeholder: "All Status", options: ["Waiting", "Inside Campus", "Exited", "Cancelled"] },
       ],
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
@@ -234,71 +110,63 @@ function ReceptionReports() {
         { key: "mobile", label: "Mobile Number" },
         { key: "purpose", label: "Purpose" },
         { key: "whomToMeet", label: "Whom To Meet" },
+        { key: "visitDate", label: "Visit Date" },
         { key: "inTime", label: "In Time" },
         { key: "outTime", label: "Out Time" },
         { key: "status", label: "Status" },
       ],
-      getData: ({ schoolId, filters }) =>
-        visitors
-          .filter((item) => item.schoolId === schoolId)
-          .filter((item) =>
-            isDateInRange(item.visitDate, filters.fromDate, filters.toDate)
-          )
-          .filter((item) =>
-            filters.visitorType ? item.visitorType === filters.visitorType : true
-          )
-          .filter((item) =>
-            filters.visitorStatus ? item.status === filters.visitorStatus : true
-          ),
+      getData: async ({ filters }) => {
+        try {
+          const params = {};
+          if (filters.visitDate) params.visitDate = filters.visitDate;
+          if (filters.visitorType) params.visitorType = filters.visitorType;
+          if (filters.visitorStatus) params.status = filters.visitorStatus;
+          const res = await receptionService.getVisitors(params);
+          return res.data?.data || [];
+        } catch { return []; }
+      },
     },
-
+    {
+      id: "gate-pass-report",
+      title: "Gate Pass Report",
+      description: "View student gate pass records",
+      icon: "🚪",
+      filters: [
+        { name: "passDate", label: "Pass Date", type: "date" },
+        { name: "passStatus", label: "Status", type: "select", placeholder: "All Status", options: ["Issued", "Returned", "Cancelled"] },
+      ],
+      columns: [
+        { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+        { key: "passNumber", label: "Pass No" },
+        { key: "studentName", label: "Student Name" },
+        { key: "className", label: "Class" },
+        { key: "guardianName", label: "Guardian" },
+        { key: "reason", label: "Reason" },
+        { key: "passDate", label: "Pass Date" },
+        { key: "outTime", label: "Out Time" },
+        { key: "inTime", label: "In Time" },
+        { key: "status", label: "Status" },
+      ],
+      getData: async ({ filters }) => {
+        try {
+          const params = {};
+          if (filters.passDate) params.passDate = filters.passDate;
+          if (filters.passStatus) params.status = filters.passStatus;
+          const res = await receptionService.getGatePasses(params);
+          return res.data?.data || [];
+        } catch { return []; }
+      },
+    },
     {
       id: "support-complaint-report",
       title: "Support & Complaint Report",
       description: "View guardian complaints and support tickets",
       icon: "🛠️",
       filters: [
-        { name: "fromDate", label: "From Date", type: "date" },
-        { name: "toDate", label: "To Date", type: "date" },
-        {
-          name: "complaintStatus",
-          label: "Complaint Status",
-          type: "select",
-          placeholder: "All Status",
-          options: ["Open", "In Progress", "Resolved", "Closed", "Rejected"],
-        },
-        {
-          name: "complaintCategory",
-          label: "Complaint Category",
-          type: "select",
-          placeholder: "All Category",
-          options: [
-            "Fee Issue",
-            "Transport",
-            "Teacher Behaviour",
-            "Academic",
-            "App/ERP Issue",
-            "Examination",
-            "Result",
-            "Admission",
-            "Discipline",
-            "Other",
-          ],
-        },
-        {
-          name: "department",
-          label: "Department",
-          type: "select",
-          placeholder: "All Department",
-          options: ["Administration", "Teaching", "Accounts", "Transport"],
-        },
-        {
-          name: "priority",
-          label: "Priority",
-          type: "select",
-          placeholder: "All Priority",
-          options: ["Low", "Medium", "High", "Urgent"],
-        },
+        { name: "complaintDate", label: "Complaint Date", type: "date" },
+        { name: "complaintStatus", label: "Status", type: "select", placeholder: "All Status", options: ["Open", "In Progress", "Resolved", "Closed", "Rejected"] },
+        { name: "priority", label: "Priority", type: "select", placeholder: "All Priority", options: ["Low", "Medium", "High", "Urgent"] },
+        { name: "complaintCategory", label: "Category", type: "select", placeholder: "All Category", options: ["Fee Issue", "Transport", "Teacher Behaviour", "Academic", "App/ERP Issue", "Examination", "Result", "Admission", "Discipline", "Other"] },
       ],
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
@@ -306,45 +174,55 @@ function ReceptionReports() {
         { key: "guardianName", label: "Guardian Name" },
         { key: "studentName", label: "Student Name" },
         { key: "mobile", label: "Mobile Number" },
-        { key: "category", label: "Complaint Category" },
+        { key: "category", label: "Category" },
         { key: "priority", label: "Priority" },
-        { key: "assignedRole", label: "Assigned To" },
+        { key: "assignedUser", label: "Assigned To" },
         { key: "complaintDate", label: "Complaint Date" },
         { key: "resolutionDate", label: "Resolution Date" },
         { key: "status", label: "Status" },
       ],
-      getData: ({ schoolId, filters }) =>
-        complaints
-          .filter((item) => item.schoolId === schoolId)
-          .filter((item) =>
-            isDateInRange(item.complaintDate, filters.fromDate, filters.toDate)
-          )
-          .filter((item) =>
-            filters.complaintStatus
-              ? item.status === filters.complaintStatus
-              : true
-          )
-          .filter((item) =>
-            filters.complaintCategory
-              ? item.category === filters.complaintCategory
-              : true
-          )
-          .filter((item) =>
-            filters.department ? item.department === filters.department : true
-          )
-          .filter((item) =>
-            filters.priority ? item.priority === filters.priority : true
-          ),
+      getData: async ({ filters }) => {
+        try {
+          const params = {};
+          if (filters.complaintDate) params.complaintDate = filters.complaintDate;
+          if (filters.complaintStatus) params.status = filters.complaintStatus;
+          if (filters.priority) params.priority = filters.priority;
+          const res = await receptionService.getComplaints(params);
+          let data = res.data?.data || [];
+          if (filters.complaintCategory) data = data.filter((c) => c.category === filters.complaintCategory);
+          return data;
+        } catch { return []; }
+      },
     },
   ];
 
   return (
-    <MasterReport
-      moduleTitle="Reception Analytics & Reports"
-      reports={reports}
-      schoolProfiles={schoolProfiles}
-      currentUser={currentUser}
-    />
+    <>
+      {/* Summary Stats Bar */}
+      {!loadingStats && summaryStats && (
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", padding: "12px 24px", background: "var(--bg-card, #fff)", borderBottom: "1px solid var(--border-color, #e5e7eb)" }}>
+          {[
+            { label: "Today's Visitors", value: summaryStats.visitors?.today || 0, icon: "👥" },
+            { label: "Active Visitors", value: summaryStats.visitors?.active || 0, icon: "🏫" },
+            { label: "Today's Appointments", value: summaryStats.appointments?.today || 0, icon: "📅" },
+            { label: "Pending Appointments", value: summaryStats.appointments?.pending || 0, icon: "⏳" },
+            { label: "Open Complaints", value: summaryStats.complaints?.open || 0, icon: "🛠️" },
+            { label: "Active Gate Passes", value: summaryStats.gatePasses?.active || 0, icon: "🚪" },
+          ].map((stat) => (
+            <div key={stat.label} style={{ flex: "1 1 120px", textAlign: "center", padding: "8px", border: "1px solid var(--border-color, #e5e7eb)", borderRadius: "8px" }}>
+              <div style={{ fontSize: "20px" }}>{stat.icon}</div>
+              <div style={{ fontSize: "18px", fontWeight: "700" }}>{stat.value}</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted, #6b7280)" }}>{stat.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <MasterReport
+        moduleTitle="Reception Analytics & Reports"
+        reports={reports}
+        currentUser={currentUser}
+      />
+    </>
   );
 }
 

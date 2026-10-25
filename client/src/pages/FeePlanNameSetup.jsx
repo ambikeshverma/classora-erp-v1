@@ -1,16 +1,42 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./feePlanNameSetup.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { adminPanelService } from "../services/api";
 
 function FeePlanNameSetup() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-
   const [setupList, setSetupList] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [feePlanName, setFeePlanName] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isLocked] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchFeePlanNames();
+  }, []);
+
+  const fetchFeePlanNames = async () => {
+    try {
+      setLoading(true);
+      const res = await adminPanelService.getFeePlanNames();
+      if (res.data?.data) {
+        setSetupList(
+          res.data.data.map((item) => ({
+            id: item._id,
+            feePlanName: item.feePlanName,
+            isUsed: Boolean(item.isUsed),
+          }))
+        );
+      }
+    } catch (err) {
+      console.error("Failed to fetch fee plan names", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resetForm = () => {
     setFeePlanName("");
@@ -18,11 +44,11 @@ function FeePlanNameSetup() {
     setIsEditMode(false);
   };
 
-  const visibleSetupList = setupList.filter(
-    (item) => item.schoolId === schoolId
+  const visibleSetupList = [...setupList].sort((a, b) =>
+    a.feePlanName.localeCompare(b.feePlanName)
   );
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (isLocked) {
       alert("Setup locked by super admin");
       return;
@@ -35,7 +61,6 @@ function FeePlanNameSetup() {
 
     const alreadyExists = setupList.some(
       (item) =>
-        item.schoolId === schoolId &&
         item.feePlanName.trim().toLowerCase() ===
           feePlanName.trim().toLowerCase() &&
         item.id !== editingId
@@ -46,35 +71,26 @@ function FeePlanNameSetup() {
       return;
     }
 
-    if (isEditMode) {
-      setSetupList(
-        setupList.map((item) => {
-          if (item.id !== editingId) {
-            return item;
-          }
-
-          return {
-            ...item,
-            feePlanName: feePlanName.trim(),
-          };
-        })
-      );
-
-      alert("Setup updated successfully");
-    } else {
-      const newItem = {
-        id: Date.now(),
-        schoolId,
-        feePlanName: feePlanName.trim(),
-        isUsed: false,
-      };
-
-      setSetupList([...setupList, newItem]);
-
-      alert("Setup added successfully");
+    try {
+      setSaving(true);
+      if (isEditMode) {
+        await adminPanelService.updateFeePlanName(editingId, {
+          feePlanName: feePlanName.trim(),
+        });
+        alert("Setup updated successfully");
+      } else {
+        await adminPanelService.createFeePlanName({
+          feePlanName: feePlanName.trim(),
+        });
+        alert("Setup added successfully");
+      }
+      resetForm();
+      fetchFeePlanNames();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save fee plan name");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
   };
 
   const handleEdit = () => {
@@ -104,7 +120,7 @@ function FeePlanNameSetup() {
     setIsEditMode(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (isLocked) {
       alert("Setup locked by super admin");
       return;
@@ -127,13 +143,19 @@ function FeePlanNameSetup() {
     const ok = window.confirm("Delete selected setups?");
     if (!ok) return;
 
-    setSetupList(
-      setupList.filter((item) => !selectedIds.includes(item.id))
-    );
-
-    setSelectedIds([]);
-
-    alert("Setup deleted successfully");
+    try {
+      setSaving(true);
+      for (const id of selectedIds) {
+        await adminPanelService.deleteFeePlanName(id);
+      }
+      setSelectedIds([]);
+      alert("Setup deleted successfully");
+      fetchFeePlanNames();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete setup");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -163,6 +185,7 @@ function FeePlanNameSetup() {
               type="text"
               placeholder="Enter fee plan name"
               value={feePlanName}
+              disabled={saving}
               onChange={(e) => {
                 setFeePlanName(e.target.value);
               }}
@@ -171,9 +194,14 @@ function FeePlanNameSetup() {
         </div>
 
         <div className="search-btn-row">
-          <AppButton type="primary" onClick={handleSave}>
-            {isEditMode ? "Update" : "Save"}
+          <AppButton type="primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : isEditMode ? "Update" : "Save"}
           </AppButton>
+          {isEditMode && (
+            <AppButton type="secondary" onClick={resetForm} disabled={saving}>
+              Cancel
+            </AppButton>
+          )}
         </div>
       </div>
 
@@ -188,76 +216,80 @@ function FeePlanNameSetup() {
           </div>
 
           <div className="list-action-buttons">
-            <AppButton type="primary" onClick={handleEdit}>
+            <AppButton type="primary" onClick={handleEdit} disabled={saving}>
               Edit
             </AppButton>
 
-            <AppButton type="secondary" onClick={handleDelete}>
+            <AppButton type="secondary" onClick={handleDelete} disabled={saving}>
               Delete
             </AppButton>
           </div>
         </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={
-                      visibleSetupList.length > 0 &&
-                      selectedIds.length === visibleSetupList.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(
-                          visibleSetupList.map((item) => item.id)
-                        );
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                  />
-                </th>
-
-                <th>S.No</th>
-                <th>Fee Plan Name</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {visibleSetupList.length === 0 ? (
+        {loading ? (
+          <SkeletonTable rows={4} columns={3} />
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan="3" className="empty-row">
-                    No fee plan name found
-                  </td>
-                </tr>
-              ) : (
-                visibleSetupList.map((item, index) => (
-                  <tr key={item.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(item.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) =>
-                            prev.includes(item.id)
-                              ? prev.filter((id) => id !== item.id)
-                              : [...prev, item.id]
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={
+                        visibleSetupList.length > 0 &&
+                        selectedIds.length === visibleSetupList.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(
+                            visibleSetupList.map((item) => item.id)
                           );
-                        }}
-                      />
-                    </td>
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                    />
+                  </th>
 
-                    <td>{index + 1}</td>
-                    <td>{item.feePlanName}</td>
+                  <th>S.No</th>
+                  <th>Fee Plan Name</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {visibleSetupList.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="empty-row">
+                      No fee plan name found
+                    </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                ) : (
+                  visibleSetupList.map((item, index) => (
+                    <tr key={item.id}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={() => {
+                            setSelectedIds((prev) =>
+                              prev.includes(item.id)
+                                ? prev.filter((id) => id !== item.id)
+                                : [...prev, item.id]
+                            );
+                          }}
+                        />
+                      </td>
+
+                      <td>{index + 1}</td>
+                      <td>{item.feePlanName}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
