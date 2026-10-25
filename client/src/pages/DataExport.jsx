@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
@@ -16,23 +16,7 @@ function DataExport() {
   const [sectionFilter, setSectionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  useEffect(() => {
-    const fetchMeta = async () => {
-      try {
-        const res = await studentHubService.getMeta();
-        if (res.data?.success) {
-          setClasses(res.data.data.classes || []);
-          setSections(res.data.data.sections || []);
-        }
-      } catch (err) {
-        console.error("Failed to load meta:", err);
-      }
-    };
-    fetchMeta();
-    handleFetchExportData();
-  }, []);
-
-  const handleFetchExportData = async () => {
+  const handleFetchExportData = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
@@ -49,7 +33,23 @@ function DataExport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [classFilter, sectionFilter, statusFilter]);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const res = await studentHubService.getMeta();
+        if (res.data?.success) {
+          setClasses(res.data.data.classes || []);
+          setSections(res.data.data.sections || []);
+        }
+      } catch (err) {
+        console.error("Failed to load meta:", err);
+      }
+    };
+    fetchMeta();
+    handleFetchExportData();
+  }, [handleFetchExportData]);
 
   const handleExportCSV = () => {
     if (students.length === 0) {

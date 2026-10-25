@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./inactiveStudents.css";
 import AppButton from "../components/AppButton";
@@ -36,7 +36,7 @@ function InactiveStudents() {
     "Other",
   ];
 
-  const loadMetaAndStudents = async () => {
+  const loadMetaAndStudents = useCallback(async () => {
     try {
       setLoading(true);
       const [metaRes, studRes] = await Promise.all([
@@ -59,11 +59,11 @@ function InactiveStudents() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [viewStatus, classFilter, sectionFilter, searchText]);
 
   useEffect(() => {
     loadMetaAndStudents();
-  }, [viewStatus]);
+  }, [loadMetaAndStudents]);
 
   const handleSearch = async () => {
     try {

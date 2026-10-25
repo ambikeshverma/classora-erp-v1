@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./alumniManagement.css";
 import AppButton from "../components/AppButton";
@@ -16,7 +16,7 @@ function AlumniManagement() {
   const [passYearFilter, setPassYearFilter] = useState("");
   const [searchText, setSearchText] = useState("");
 
-  const loadAlumni = async () => {
+  const loadAlumni = useCallback(async () => {
     try {
       setLoading(true);
       const params = {};
@@ -33,11 +33,11 @@ function AlumniManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [passYearFilter, searchText]);
 
   useEffect(() => {
     loadAlumni();
-  }, [passYearFilter]);
+  }, [loadAlumni]);
 
   const selectedAlumni = alumniList.filter((item) =>
     selectedIds.includes(item._id || item.id)

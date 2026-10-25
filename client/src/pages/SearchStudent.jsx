@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./searchStudent.css";
 import AppButton from "../components/AppButton";
@@ -21,24 +21,7 @@ function SearchStudent() {
   const [isSearched, setIsSearched] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchMeta = async () => {
-      try {
-        const res = await studentHubService.getMeta();
-        if (res.data?.success) {
-          setClasses(res.data.data.classes || []);
-          setSections(res.data.data.sections || []);
-        }
-      } catch (err) {
-        console.error("Failed to load meta:", err);
-      }
-    };
-    fetchMeta();
-    // Initial fetch of active students
-    handleSearch();
-  }, []);
-
-  const handleSearch = async () => {
+  const handleSearch = useCallback(async () => {
     try {
       setLoading(true);
       setIsSearched(true);
@@ -57,7 +40,24 @@ function SearchStudent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [classFilter, sectionFilter, searchText]);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const res = await studentHubService.getMeta();
+        if (res.data?.success) {
+          setClasses(res.data.data.classes || []);
+          setSections(res.data.data.sections || []);
+        }
+      } catch (err) {
+        console.error("Failed to load meta:", err);
+      }
+    };
+    fetchMeta();
+    // Initial fetch of active students
+    handleSearch();
+  }, [handleSearch]);
 
   const selectedStudents = students.filter((item) =>
     selectedIds.includes(item._id || item.id)
