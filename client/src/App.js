@@ -64,6 +64,8 @@ import RollNumberUpdate from "./pages/RollNumberUpdate";
 import SectionTransfer from "./pages/SectionTransfer";
 import PromotionManagement from "./pages/PromotionManagement";
 import AlumniManagement from "./pages/AlumniManagement";
+import BulkStudentUpdate from "./pages/BulkStudentUpdate";
+import DataExport from "./pages/DataExport";
 import StudentReports from "./pages/student/StudentReports";
 
 import SubjectSetup from "./pages/SubjectSetup";
@@ -488,12 +490,7 @@ function App() {
           path="/bulk-student-update"
           element={
             <ProtectedRoute moduleKey="student_hub" subModuleKey="bulk_student_update">
-              <SubModulePlaceholder
-                title="Bulk Student Update"
-                moduleName="Student Hub"
-                icon="🛠️"
-                backRoute="/student-hub"
-              />
+              <BulkStudentUpdate />
             </ProtectedRoute>
           }
         />
@@ -501,12 +498,7 @@ function App() {
           path="/data-export"
           element={
             <ProtectedRoute moduleKey="student_hub" subModuleKey="data_export">
-              <SubModulePlaceholder
-                title="Data Export"
-                moduleName="Student Hub"
-                icon="📤"
-                backRoute="/student-hub"
-              />
+              <DataExport />
             </ProtectedRoute>
           }
         />

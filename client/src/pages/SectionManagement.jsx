@@ -1,238 +1,164 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./sectionManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function SectionManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  // Demo master classes
-  // Later backend/Class Management se aayengi
-  const classOptions = [
-    "Nursery",
-    "LKG",
-    "UKG",
-    "Class 1",
-    "Class 2",
-    "Class 3",
-    "Class 4",
-    "Class 5",
-    "Class 6",
-    "Class 7",
-    "Class 8",
-    "Class 9",
-    "Class 10",
-    "Class 11",
-    "Class 12",
-  ];
-
-  const usedSections = [
-    {
-      className: "Class 8",
-      sectionName: "A",
-    },
-  ];
-
-  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
   const [sections, setSections] = useState([]);
+  const [showForm, setShowForm] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewData, setViewData] = useState(null);
   const [editId, setEditId] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const [searchText, setSearchText] = useState("");
   const [classFilter, setClassFilter] = useState("");
 
-  const [isSearched, setIsSearched] = useState(false);
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    searchText: "",
-    classFilter: "",
-  });
-
   const [formData, setFormData] = useState({
     className: "",
     sectionName: "",
+    capacity: 40,
     status: "Active",
   });
 
-  const visibleSections = sections.filter((item) => item.schoolId === schoolId);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [clsRes, secRes] = await Promise.all([
+        studentHubService.getClasses(),
+        studentHubService.getSections(),
+      ]);
+
+      if (clsRes.data?.success) {
+        setClasses(clsRes.data.data || []);
+      }
+      if (secRes.data?.success) {
+        setSections(secRes.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load sections data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const resetForm = () => {
     setFormData({
       className: "",
       sectionName: "",
+      capacity: 40,
       status: "Active",
     });
-
     setEditId(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData({
       ...formData,
       [name]: value,
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.className || !formData.sectionName) {
-      alert("Please fill required fields");
+      alert("Please select Class and enter Section Name");
       return;
     }
 
-    const alreadyExists = visibleSections.some(
-      (item) =>
-        item.className === formData.className &&
-        item.sectionName.toLowerCase().trim() ===
-          formData.sectionName.toLowerCase().trim() &&
-        item.id !== editId
-    );
-
-    if (alreadyExists) {
-      alert("Section already exists in this class");
-      return;
-    }
-
-    if (editId) {
-      const updatedSections = sections
-        .map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-              }
-            : item
-        )
-        .sort((a, b) => a.className.localeCompare(b.className));
-
-      setSections(updatedSections);
-
-      alert("Section updated successfully");
-    } else {
-      const newSection = {
-        id: Date.now(),
-        schoolId,
+    try {
+      setSaving(true);
+      const selectedClassObj = classes.find((c) => c.className === formData.className);
+      const payload = {
         ...formData,
+        classId: selectedClassObj?._id || null,
       };
 
-      const updatedSections = [...sections, newSection].sort((a, b) =>
-        a.className.localeCompare(b.className)
-      );
-
-      setSections(updatedSections);
-
-      alert("Section added successfully");
+      if (editId) {
+        const res = await studentHubService.updateSection(editId, payload);
+        if (res.data?.success) {
+          alert("Section updated successfully");
+          resetForm();
+          setShowForm(false);
+          loadData();
+          setSelectedIds([]);
+        }
+      } else {
+        const res = await studentHubService.createSection(payload);
+        if (res.data?.success) {
+          alert("Section added successfully");
+          resetForm();
+          setShowForm(false);
+          loadData();
+          setSelectedIds([]);
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save section");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const handleSearch = () => {
-    const filters = {
-      searchText,
-      classFilter,
-    };
-
-    setAppliedFilters(filters);
-
-    const result = visibleSections.filter((item) => {
-      const classMatch = filters.classFilter
-        ? item.className === filters.classFilter
-        : true;
-
-      const searchMatch = filters.searchText
-        ? item.sectionName
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase()) ||
-          item.className
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase())
-        : true;
-
-      return classMatch && searchMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No section found");
-    }
-
-    setIsSearched(true);
-    setSelectedIds([]);
-  };
-
-  const filteredSections = visibleSections.filter((item) => {
-    const classMatch = appliedFilters.classFilter
-      ? item.className === appliedFilters.classFilter
+  const filteredSections = sections.filter((item) => {
+    const classMatch = classFilter ? item.className === classFilter : true;
+    const searchMatch = searchText.trim()
+      ? item.sectionName?.toLowerCase().includes(searchText.toLowerCase()) ||
+        item.className?.toLowerCase().includes(searchText.toLowerCase())
       : true;
-
-    const searchMatch = appliedFilters.searchText
-      ? item.sectionName
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase()) ||
-        item.className
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase())
-      : true;
-
     return classMatch && searchMatch;
   });
 
-  const selectedSections = visibleSections.filter((item) =>
-    selectedIds.includes(item.id)
+  const selectedSections = sections.filter((item) =>
+    selectedIds.includes(item._id || item.id)
   );
-
-  const selectedSingle =
-    selectedSections.length === 1 ? selectedSections[0] : null;
+  const selectedSingle = selectedSections.length === 1 ? selectedSections[0] : null;
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one section");
+      alert("Please select exactly one section to edit");
       return;
     }
 
-    setEditId(selectedSingle.id);
-
+    setEditId(selectedSingle._id || selectedSingle.id);
     setFormData({
       className: selectedSingle.className,
       sectionName: selectedSingle.sectionName,
-      status: selectedSingle.status,
+      capacity: selectedSingle.capacity || 40,
+      status: selectedSingle.status || (selectedSingle.isActive ? "Active" : "Inactive"),
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select section");
+      alert("Please select at least one section to delete");
       return;
     }
 
-    const blockedSection = visibleSections.find(
-      (item) =>
-        selectedIds.includes(item.id) &&
-        usedSections.some(
-          (section) =>
-            section.className === item.className &&
-            section.sectionName === item.sectionName
-        )
-    );
-
-    if (blockedSection) {
-      alert("Section is already in use. Cannot delete.");
-      return;
-    }
-
-    const ok = window.confirm("Delete selected section?");
-
+    const ok = window.confirm(`Delete ${selectedIds.length} selected section(s)?`);
     if (!ok) return;
 
-    setSections(sections.filter((item) => !selectedIds.includes(item.id)));
-
-    setSelectedIds([]);
+    try {
+      for (const id of selectedIds) {
+        await studentHubService.deleteSection(id);
+      }
+      alert("Section(s) deleted successfully");
+      setSelectedIds([]);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete section");
+    }
   };
 
   return (
@@ -245,7 +171,7 @@ function SectionManagement() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/student-hub";
+              navigate("/student-hub");
             }
           }}
         >
@@ -254,8 +180,7 @@ function SectionManagement() {
 
         <div>
           <h1>Section Management</h1>
-
-          <p>Manage class sections</p>
+          <p>Manage and map class sections</p>
         </div>
       </div>
 
@@ -264,17 +189,15 @@ function SectionManagement() {
           <div className="common-card">
             <div className="filter-grid">
               <div className="form-group">
-                <label>Class</label>
-
+                <label>Filter by Class</label>
                 <select
                   value={classFilter}
                   onChange={(e) => setClassFilter(e.target.value)}
                 >
-                  <option value="">All</option>
-
-                  {classOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
+                  <option value="">All Classes</option>
+                  {classes.map((item) => (
+                    <option key={item._id || item.className} value={item.className}>
+                      {item.className}
                     </option>
                   ))}
                 </select>
@@ -282,26 +205,19 @@ function SectionManagement() {
 
               <div className="form-group">
                 <label>Search</label>
-
                 <input
                   type="text"
-                  placeholder="Section or class"
+                  placeholder="Filter by section or class name..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                 />
               </div>
             </div>
-
-            <div className="search-btn-row">
-              <AppButton type="primary" onClick={handleSearch}>
-                Search
-              </AppButton>
-            </div>
           </div>
 
           <div className="common-card">
             <div className="list-header">
-              <h2>Section List</h2>
+              <h2>Section List ({filteredSections.length})</h2>
 
               <div className="list-action-buttons">
                 <AppButton type="primary" onClick={() => setShowForm(true)}>
@@ -312,10 +228,9 @@ function SectionManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Select one section");
+                      alert("Please select one section to view");
                       return;
                     }
-
                     setViewData(selectedSingle);
                   }}
                 >
@@ -333,72 +248,75 @@ function SectionManagement() {
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredSections.length > 0 &&
-                          selectedIds.length === filteredSections.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredSections.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
+              {loading ? (
+                <SkeletonTable rows={5} columns={4} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "40px" }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredSections.length > 0 &&
+                            selectedIds.length === filteredSections.length
                           }
-                        }}
-                      />
-                    </th>
-
-                    <th>S.No</th>
-                    <th>Class</th>
-                    <th>Section</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!isSearched ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        Click Search to view sections
-                      </td>
-                    </tr>
-                  ) : filteredSections.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        No section found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredSections.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(
+                                filteredSections.map((item) => item._id || item.id)
                               );
-                            }}
-                          />
-                        </td>
+                            } else {
+                              setSelectedIds([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Class</th>
+                      <th>Section</th>
+                    </tr>
+                  </thead>
 
-                        <td>{index + 1}</td>
-                        <td>{item.className}</td>
-                        <td>{item.sectionName}</td>
+                  <tbody>
+                    {filteredSections.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="empty-row">
+                          {classes.length === 0
+                            ? "No classes found. Please add classes in Class Management first."
+                            : searchText || classFilter
+                            ? "No section found matching your search filter"
+                            : "No sections available. Click '+ Add Section' to create one."}
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredSections.map((item, index) => {
+                        const itemId = item._id || item.id;
+                        return (
+                          <tr key={itemId}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(itemId)}
+                                onChange={() => {
+                                  setSelectedIds((prev) =>
+                                    prev.includes(itemId)
+                                      ? prev.filter((id) => id !== itemId)
+                                      : [...prev, itemId]
+                                  );
+                                }}
+                              />
+                            </td>
+                            <td>{index + 1}</td>
+                            <td><strong>{item.className}</strong></td>
+                            <td><span className="badge-code">Section {item.sectionName}</span></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -408,30 +326,28 @@ function SectionManagement() {
         <div className="common-card">
           <div className="enquiry-form-grid">
             <div className="form-group">
-              <label>Class</label>
-
+              <label>Class *</label>
               <select
                 name="className"
                 value={formData.className}
                 onChange={handleChange}
+                autoFocus
               >
                 <option value="">Select Class</option>
-
-                {classOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                {classes.map((item) => (
+                  <option key={item._id || item.className} value={item.className}>
+                    {item.className}
                   </option>
                 ))}
               </select>
             </div>
 
             <div className="form-group">
-              <label>Section Name</label>
-
+              <label>Section Name *</label>
               <input
                 type="text"
                 name="sectionName"
-                placeholder="Example: A"
+                placeholder="Example: A, B, Rose, Lotus"
                 value={formData.sectionName}
                 onChange={handleChange}
               />
@@ -439,8 +355,8 @@ function SectionManagement() {
           </div>
 
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -461,7 +377,6 @@ function SectionManagement() {
           <div className="view-popup">
             <div className="popup-head">
               <h2>Section Details</h2>
-
               <button
                 className="popup-close-btn"
                 onClick={() => setViewData(null)}
@@ -474,13 +389,11 @@ function SectionManagement() {
               <p>
                 <strong>Class:</strong> {viewData.className}
               </p>
-
               <p>
                 <strong>Section:</strong> {viewData.sectionName}
               </p>
-
               <p>
-                <strong>Status:</strong> {viewData.status}
+                <strong>Capacity:</strong> {viewData.capacity || "Not specified"}
               </p>
             </div>
           </div>

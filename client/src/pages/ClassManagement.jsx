@@ -1,24 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./classManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function ClassManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const usedClasses = ["Class 8"];
-
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [classes, setClasses] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewData, setViewData] = useState(null);
   const [editId, setEditId] = useState(null);
-
   const [searchText, setSearchText] = useState("");
-  const [isSearched, setIsSearched] = useState(false);
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    searchText: "",
-  });
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     className: "",
@@ -26,178 +23,123 @@ function ClassManagement() {
     status: "Active",
   });
 
+  const loadClasses = async () => {
+    try {
+      setLoading(true);
+      const res = await studentHubService.getClasses();
+      if (res.data?.success) {
+        setClasses(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load classes:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadClasses();
+  }, []);
+
   const resetForm = () => {
     setFormData({
       className: "",
       classCode: "",
       status: "Active",
     });
-
     setEditId(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData({
       ...formData,
       [name]: value,
     });
   };
 
-  const visibleClasses = classes.filter((item) => item.schoolId === schoolId);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.className || !formData.classCode) {
-      alert("Please fill required fields");
+      alert("Please fill required fields (Class Name & Class Code)");
       return;
     }
 
-    const classNameExists = visibleClasses.some(
-      (item) =>
-        item.className.toLowerCase().trim() ===
-          formData.className.toLowerCase().trim() && item.id !== editId
-    );
-
-    if (classNameExists) {
-      alert("Class already exists");
-      return;
+    try {
+      setSaving(true);
+      if (editId) {
+        const res = await studentHubService.updateClass(editId, formData);
+        if (res.data?.success) {
+          alert("Class updated successfully");
+          resetForm();
+          setShowForm(false);
+          loadClasses();
+          setSelectedIds([]);
+        }
+      } else {
+        const res = await studentHubService.createClass(formData);
+        if (res.data?.success) {
+          alert("Class added successfully");
+          resetForm();
+          setShowForm(false);
+          loadClasses();
+          setSelectedIds([]);
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save class");
+    } finally {
+      setSaving(false);
     }
-
-    const classCodeExists = visibleClasses.some(
-      (item) =>
-        item.classCode.toLowerCase().trim() ===
-          formData.classCode.toLowerCase().trim() && item.id !== editId
-    );
-
-    if (classCodeExists) {
-      alert("Class code already exists");
-      return;
-    }
-
-    if (editId) {
-      const updatedClasses = classes
-        .map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-              }
-            : item
-        )
-        .sort((a, b) => a.className.localeCompare(b.className));
-
-      setClasses(updatedClasses);
-
-      alert("Class updated successfully");
-    } else {
-      const newClass = {
-        id: Date.now(),
-        schoolId,
-        ...formData,
-      };
-
-      const updatedClasses = [...classes, newClass].sort((a, b) =>
-        a.className.localeCompare(b.className)
-      );
-
-      setClasses(updatedClasses);
-
-      alert("Class added successfully");
-    }
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const handleSearch = () => {
-    const filters = {
-      searchText,
-    };
-
-    setAppliedFilters(filters);
-
-    const result = visibleClasses.filter((item) => {
-      const searchMatch = filters.searchText
-        ? item.className
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase()) ||
-          item.classCode.toLowerCase().includes(filters.searchText.toLowerCase())
-        : true;
-
-      return searchMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No class found");
-    }
-
-    setIsSearched(true);
-    setSelectedIds([]);
-  };
-
-  const filteredClasses = visibleClasses.filter((item) => {
-    const searchMatch = appliedFilters.searchText
-      ? item.className
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase()) ||
-        item.classCode
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase())
-      : true;
-
-    return searchMatch;
+  const filteredClasses = classes.filter((item) => {
+    if (!searchText.trim()) return true;
+    const q = searchText.toLowerCase();
+    return (
+      item.className?.toLowerCase().includes(q) ||
+      item.classCode?.toLowerCase().includes(q)
+    );
   });
 
-  const selectedClasses = visibleClasses.filter((item) =>
-    selectedIds.includes(item.id)
+  const selectedClasses = classes.filter((item) =>
+    selectedIds.includes(item._id || item.id)
   );
-
-  const selectedSingle =
-    selectedClasses.length === 1 ? selectedClasses[0] : null;
+  const selectedSingle = selectedClasses.length === 1 ? selectedClasses[0] : null;
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one class");
+      alert("Please select exactly one class to edit");
       return;
     }
 
-    setEditId(selectedSingle.id);
-
+    setEditId(selectedSingle._id || selectedSingle.id);
     setFormData({
       className: selectedSingle.className,
       classCode: selectedSingle.classCode,
-      status: selectedSingle.status,
+      status: selectedSingle.status || "Active",
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select class");
+      alert("Please select at least one class to delete");
       return;
     }
 
-    const blockedClass = visibleClasses.find(
-      (item) =>
-        selectedIds.includes(item.id) && usedClasses.includes(item.className)
-    );
-
-    if (blockedClass) {
-      alert("Class is already in use. Cannot delete.");
-      return;
-    }
-
-    const ok = window.confirm("Delete selected class?");
-
+    const ok = window.confirm(`Delete ${selectedIds.length} selected class(es)?`);
     if (!ok) return;
 
-    setClasses(classes.filter((item) => !selectedIds.includes(item.id)));
-
-    setSelectedIds([]);
+    try {
+      for (const id of selectedIds) {
+        await studentHubService.deleteClass(id);
+      }
+      alert("Class(es) deleted successfully");
+      setSelectedIds([]);
+      loadClasses();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete class");
+    }
   };
 
   return (
@@ -210,7 +152,7 @@ function ClassManagement() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/student-hub";
+              navigate("/student-hub");
             }
           }}
         >
@@ -219,8 +161,7 @@ function ClassManagement() {
 
         <div>
           <h1>Class Management</h1>
-
-          <p>Manage school classes</p>
+          <p>Manage school classes and academic levels</p>
         </div>
       </div>
 
@@ -229,27 +170,20 @@ function ClassManagement() {
           <div className="common-card">
             <div className="filter-grid">
               <div className="form-group">
-                <label>Search</label>
-
+                <label>Search Class</label>
                 <input
                   type="text"
-                  placeholder="Class name or code"
+                  placeholder="Filter by class name or code..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                 />
               </div>
             </div>
-
-            <div className="search-btn-row">
-              <AppButton type="primary" onClick={handleSearch}>
-                Search
-              </AppButton>
-            </div>
           </div>
 
           <div className="common-card">
             <div className="list-header">
-              <h2>Class List</h2>
+              <h2>Class List ({filteredClasses.length})</h2>
 
               <div className="list-action-buttons">
                 <AppButton type="primary" onClick={() => setShowForm(true)}>
@@ -260,10 +194,9 @@ function ClassManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Select one class");
+                      alert("Please select one class to view");
                       return;
                     }
-
                     setViewData(selectedSingle);
                   }}
                 >
@@ -281,72 +214,71 @@ function ClassManagement() {
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredClasses.length > 0 &&
-                          selectedIds.length === filteredClasses.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredClasses.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
+              {loading ? (
+                <SkeletonTable rows={5} columns={4} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "40px" }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredClasses.length > 0 &&
+                            selectedIds.length === filteredClasses.length
                           }
-                        }}
-                      />
-                    </th>
-
-                    <th>S.No</th>
-                    <th>Class Name</th>
-                    <th>Class Code</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!isSearched ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        Click Search to view classes
-                      </td>
-                    </tr>
-                  ) : filteredClasses.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        No class found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredClasses.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(
+                                filteredClasses.map((item) => item._id || item.id)
                               );
-                            }}
-                          />
-                        </td>
+                            } else {
+                              setSelectedIds([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Class Name</th>
+                      <th>Class Code</th>
+                    </tr>
+                  </thead>
 
-                        <td>{index + 1}</td>
-                        <td>{item.className}</td>
-                        <td>{item.classCode}</td>
+                  <tbody>
+                    {filteredClasses.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="empty-row">
+                          {searchText ? "No class found matching your search" : "No classes available. Click '+ Add Class' to create one."}
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredClasses.map((item, index) => {
+                        const itemId = item._id || item.id;
+                        return (
+                          <tr key={itemId}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(itemId)}
+                                onChange={() => {
+                                  setSelectedIds((prev) =>
+                                    prev.includes(itemId)
+                                      ? prev.filter((id) => id !== itemId)
+                                      : [...prev, itemId]
+                                  );
+                                }}
+                              />
+                            </td>
+                            <td>{index + 1}</td>
+                            <td><strong>{item.className}</strong></td>
+                            <td><span className="badge-code">{item.classCode}</span></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -356,20 +288,19 @@ function ClassManagement() {
         <div className="common-card">
           <div className="enquiry-form-grid">
             <div className="form-group">
-              <label>Class Name</label>
-
+              <label>Class Name *</label>
               <input
                 type="text"
                 name="className"
                 placeholder="Example: Class 8"
                 value={formData.className}
                 onChange={handleChange}
+                autoFocus
               />
             </div>
 
             <div className="form-group">
-              <label>Class Code</label>
-
+              <label>Class Code *</label>
               <input
                 type="text"
                 name="classCode"
@@ -381,8 +312,8 @@ function ClassManagement() {
           </div>
 
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -403,7 +334,6 @@ function ClassManagement() {
           <div className="view-popup">
             <div className="popup-head">
               <h2>Class Details</h2>
-
               <button
                 className="popup-close-btn"
                 onClick={() => setViewData(null)}
@@ -416,13 +346,14 @@ function ClassManagement() {
               <p>
                 <strong>Class Name:</strong> {viewData.className}
               </p>
-
               <p>
                 <strong>Class Code:</strong> {viewData.classCode}
               </p>
-
               <p>
-                <strong>Status:</strong> {viewData.status}
+                <strong>Sections:</strong>{" "}
+                {viewData.sections && viewData.sections.length > 0
+                  ? viewData.sections.map((s) => s.sectionName || s).join(", ")
+                  : "None configured"}
               </p>
             </div>
           </div>

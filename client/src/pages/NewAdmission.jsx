@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./newAdmission.css";
 import AppButton from "../components/AppButton";
 import { admissionService } from "../services/api";
@@ -84,6 +85,8 @@ const classSubjectMappings = {
 };
 
 function NewAdmission() {
+  const navigate = useNavigate();
+  const hasFetched = useRef(false);
   const currentSession =
     localStorage.getItem("currentSession") || "2026-2027";
 
@@ -93,21 +96,29 @@ function NewAdmission() {
   const [concessionPlans, setConcessionPlans] = useState(defaultConcessionPlans);
   const [siblingGroups, setSiblingGroups] = useState(defaultSiblingGroups);
   const [mediumOptions, setMediumOptions] = useState(defaultMediumOptions);
+  const [houseList, setHouseList] = useState(houseOptions);
   const [allSubjects, setAllSubjects] = useState([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Guard against React StrictMode double-invoke in dev
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
     admissionService
       .getMeta()
       .then((res) => {
         if (res.data?.data) {
-          const { classes, feePlans: fps, concessions, siblingGroups: sgs, mediums: meds, subjects: subs } = res.data.data;
+          const { classes, feePlans: fps, concessions, siblingGroups: sgs, mediums: meds, subjects: subs, houses: hs } = res.data.data;
           if (classes && classes.length > 0) {
             setClassOptions(classes.map((c) => c.className));
             const secMap = {};
             classes.forEach((c) => {
               if (c.sections && c.sections.length > 0) {
-                secMap[c.className] = c.sections;
+                // Extract sectionName strings — sections are objects {sectionName, sectionCode, _id}
+                secMap[c.className] = c.sections.map((s) =>
+                  typeof s === "string" ? s : (s.sectionName || s.name || String(s))
+                );
               }
             });
             setClassSections(secMap);
@@ -128,6 +139,9 @@ function NewAdmission() {
           }
           if (meds && meds.length > 0) {
             setMediumOptions(meds.map((m) => m.mediumName));
+          }
+          if (hs && hs.length > 0) {
+            setHouseList(["Not Assigned", ...hs.map((h) => h.houseName)]);
           }
           if (subs && subs.length > 0) {
             setAllSubjects(subs.map((s) => s.subjectName));
@@ -209,17 +223,19 @@ function NewAdmission() {
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-
     if (name === "className") {
+      // When class changes, reset section, feePlan, and subjects
       setSelectedSubjects([]);
       setForm((prev) => ({
         ...prev,
         className: value,
+        section: "",
         feePlan: "",
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: value,
       }));
     }
   };
@@ -293,7 +309,7 @@ function NewAdmission() {
 
       if (!token) {
         alert("Login expired. Please login again.");
-        window.location.href = "/";
+        navigate("/");
         return;
       }
 
@@ -301,16 +317,20 @@ function NewAdmission() {
         ...form,
         session: currentSession,
         subjects: selectedSubjects,
-        totalFee: selectedFeePlan?.totalFee || 0
+        totalFee: selectedFeePlan?.totalFee || 0,
       };
 
       setSubmitting(true);
       const res = await admissionService.createAdmission(finalData);
 
       alert(res.data.msg || "Admission saved successfully ✅");
-      window.location.href = "/admissions";
+      navigate("/admissions");
     } catch (err) {
-      alert(err.response?.data?.msg || err.response?.data?.message || "Admission save failed ❌");
+      alert(
+        err.response?.data?.msg ||
+          err.response?.data?.message ||
+          "Admission save failed ❌"
+      );
     } finally {
       setSubmitting(false);
     }
@@ -338,42 +358,47 @@ function NewAdmission() {
   );
 
   const select = (
-  label,
-  name,
-  options,
-  required = false
-) => (
-  <div className="form-group" key={name}>
-    <label>
-      {label} {required && <span>*</span>}
-    </label>
+    label,
+    name,
+    options,
+    required = false
+  ) => {
+    // Normalize options — each item must be a plain string
+    const safeOptions = (options || []).map((opt) => {
+      if (typeof opt === "string" || typeof opt === "number") return String(opt);
+      // object fallback — should not normally happen after normalization
+      return opt?.sectionName || opt?.name || opt?.label || JSON.stringify(opt);
+    });
 
-    <select
-      name={name}
-      value={form[name]}
-      onChange={handleChange}
-    >
-      <option value="">
-        {"< Select >"}
-      </option>
+    return (
+      <div className="form-group" key={name}>
+        <label>
+          {label} {required && <span>*</span>}
+        </label>
 
-      {options.map((option) => (
-        <option key={option} value={option}>
-          {option}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+        <select
+          name={name}
+          value={form[name]}
+          onChange={handleChange}
+        >
+          <option value="">&lt; Select &gt;</option>
+
+          {safeOptions.map((option, idx) => (
+            <option key={`${name}-${idx}-${option}`} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </div>
+    );
+  };
 
   return (
     <div className="admission-form-page">
       <div className="form-header">
         <button
           className="back-btn"
-          onClick={() =>
-            (window.location.href = "/admissions")
-          }
+          onClick={() => navigate("/admissions")}
         >
           ←
         </button>
@@ -474,7 +499,7 @@ function NewAdmission() {
 
           {field("Hostel/Room No", "hostelRoomNo")}
 
-          {select("House", "house", houseOptions)}
+          {select("House", "house", houseList)}
         </div>
       </section>
 
@@ -650,7 +675,7 @@ function NewAdmission() {
 
         <AppButton
           type="secondary"
-          onClick={() => (window.location.href = "/admissions")}
+          onClick={() => navigate("/admissions")}
         >
           Go Back
         </AppButton>

@@ -1,21 +1,31 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./rollNumberUpdate.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function RollNumberUpdate() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
   const currentSession = "2026-2027";
 
-  const classOptions = [
-    "Class 1",
-    "Class 2",
-    "Class 3",
-    "Class 4",
-    "Class 5",
-    "Class 6",
-  ];
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  const sectionOptions = ["A", "B", "C"];
+  const [classFilter, setClassFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
+  const [searchText, setSearchText] = useState("");
+
+  const [isSearched, setIsSearched] = useState(false);
+  const [showGeneratePopup, setShowGeneratePopup] = useState(false);
+  const [showManualPopup, setShowManualPopup] = useState(false);
+
+  const [rollFormat, setRollFormat] = useState("Class + Section Wise");
+  const [manualRolls, setManualRolls] = useState({});
 
   const formatOptions = [
     "Numeric Only",
@@ -24,59 +34,50 @@ function RollNumberUpdate() {
     "Session + Class + Section Wise",
   ];
 
-  const demoStudents = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      admissionNo: "ADM001",
-      studentName: "Rahul Kumar",
-      className: "Class 6",
-      sectionName: "A",
-      rollNo: "",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      admissionNo: "ADM002",
-      studentName: "Priya Singh",
-      className: "Class 6",
-      sectionName: "A",
-      rollNo: "",
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      admissionNo: "ADM003",
-      studentName: "Aman Verma",
-      className: "Class 6",
-      sectionName: "B",
-      rollNo: "",
-    },
-  ];
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const res = await studentHubService.getMeta();
+        if (res.data?.success) {
+          setClasses(res.data.data.classes || []);
+          setSections(res.data.data.sections || []);
+          if (res.data.data.classes?.length > 0) {
+            setClassFilter(res.data.data.classes[0].className);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load meta:", err);
+      }
+    };
+    fetchMeta();
+  }, []);
 
-  const [students, setStudents] = useState(demoStudents);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const handleSearch = async () => {
+    if (!classFilter) {
+      alert("Please select a Class first");
+      return;
+    }
 
-  const [classFilter, setClassFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
-  const [searchText, setSearchText] = useState("");
+    try {
+      setLoading(true);
+      setIsSearched(true);
+      const params = { className: classFilter };
+      if (sectionFilter) params.section = sectionFilter;
 
-  const [isSearched, setIsSearched] = useState(false);
+      const res = await studentHubService.getStudentsForRollNumber(params);
+      if (res.data?.success) {
+        setStudents(res.data.data || []);
+      }
+      setSelectedIds([]);
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const [showGeneratePopup, setShowGeneratePopup] = useState(false);
-  const [showManualPopup, setShowManualPopup] = useState(false);
-
-  const [rollFormat, setRollFormat] = useState("Class + Section Wise");
-  const [manualRolls, setManualRolls] = useState({});
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    classFilter: "",
-    sectionFilter: "",
-    searchText: "",
-  });
-
-  const getClassCode = (className) => {
-    return className.replace("Class ", "");
+  const getClassCode = (clsName) => {
+    return (clsName || "").replace("Class ", "");
   };
 
   const getSessionCode = () => {
@@ -86,218 +87,122 @@ function RollNumberUpdate() {
   const generateRollNo = (student, index, format) => {
     const number = String(index + 1).padStart(3, "0");
     const classCode = getClassCode(student.className);
-    const sectionCode = student.sectionName;
+    const sectionCode = student.section || student.sectionName || "A";
     const sessionCode = getSessionCode();
 
     if (format === "Numeric Only") return number;
-
     if (format === "Class Wise") return `${classCode}-${number}`;
-
-    if (format === "Class + Section Wise") {
-      return `${classCode}${sectionCode}-${number}`;
-    }
-
-    if (format === "Session + Class + Section Wise") {
-      return `${sessionCode}-${classCode}${sectionCode}-${number}`;
-    }
-
+    if (format === "Class + Section Wise") return `${classCode}${sectionCode}-${number}`;
+    if (format === "Session + Class + Section Wise") return `${sessionCode}-${classCode}${sectionCode}-${number}`;
     return number;
   };
 
-  const getFilteredStudents = (filters) => {
-    return students
-      .filter((item) => {
-        const schoolMatch = item.schoolId === schoolId;
+  const handleAutoGenerateApply = async () => {
+    const targetStudents =
+      selectedIds.length > 0
+        ? students.filter((s) => selectedIds.includes(s._id || s.id))
+        : students;
 
-        const classMatch = filters.classFilter
-          ? item.className === filters.classFilter
-          : true;
-
-        const sectionMatch = filters.sectionFilter
-          ? item.sectionName === filters.sectionFilter
-          : true;
-
-        const searchMatch = filters.searchText
-          ? item.studentName
-              .toLowerCase()
-              .includes(filters.searchText.toLowerCase()) ||
-            item.admissionNo
-              .toLowerCase()
-              .includes(filters.searchText.toLowerCase()) ||
-            item.rollNo.toLowerCase().includes(filters.searchText.toLowerCase())
-          : true;
-
-        return schoolMatch && classMatch && sectionMatch && searchMatch;
-      })
-      .sort((a, b) => a.studentName.localeCompare(b.studentName));
-  };
-
-  const filteredStudents = getFilteredStudents(appliedFilters);
-
-  const selectedStudents = filteredStudents.filter((item) =>
-    selectedIds.includes(item.id)
-  );
-
-  const getPreview = () => {
-    const sampleStudent = selectedStudents[0] || filteredStudents[0];
-
-    if (!sampleStudent) return "-";
-
-    return generateRollNo(sampleStudent, 0, rollFormat);
-  };
-
-  const handleSearch = () => {
-    if (!classFilter) {
-      alert("Please select class");
+    if (targetStudents.length === 0) {
+      alert("No students to assign roll numbers to");
       return;
     }
 
-    const filters = {
-      classFilter,
-      sectionFilter,
-      searchText,
-    };
+    const updates = targetStudents.map((student, idx) => ({
+      studentId: student._id || student.id,
+      rollNumber: generateRollNo(student, idx, rollFormat),
+      rollNo: generateRollNo(student, idx, rollFormat),
+    }));
 
-    setAppliedFilters(filters);
-
-    const result = getFilteredStudents(filters);
-
-    if (result.length === 0) {
-      alert("No student found");
+    try {
+      setSaving(true);
+      const res = await studentHubService.bulkUpdateRollNumbers(updates);
+      if (res.data?.success) {
+        alert(res.data.message || "Roll numbers generated and saved successfully");
+        setShowGeneratePopup(false);
+        handleSearch();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update roll numbers");
+    } finally {
+      setSaving(false);
     }
-
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const handleOpenGeneratePopup = () => {
-    if (selectedIds.length === 0) {
-      alert("Select at least one student");
-      return;
-    }
-
-    setRollFormat("Class + Section Wise");
-    setShowGeneratePopup(true);
-  };
-
-  const handleGenerateRollNumbers = () => {
-    const studentsToGenerate = selectedStudents.sort((a, b) =>
-      a.studentName.localeCompare(b.studentName)
-    );
-
-    setStudents((prev) =>
-      prev.map((student) => {
-        const index = studentsToGenerate.findIndex(
-          (item) => item.id === student.id
-        );
-
-        if (index === -1) return student;
-
-        return {
-          ...student,
-          rollNo: generateRollNo(student, index, rollFormat),
-        };
-      })
-    );
-
-    setSelectedIds([]);
-    setShowGeneratePopup(false);
-    alert("Roll numbers generated successfully");
-  };
-
-  const handleOpenManualPopup = () => {
-    if (selectedIds.length === 0) {
-      alert("Select at least one student");
-      return;
-    }
-
-    const rollData = {};
-
-    selectedStudents.forEach((student) => {
-      rollData[student.id] = student.rollNo || "";
+  const handleOpenManual = () => {
+    const initialRolls = {};
+    students.forEach((s) => {
+      initialRolls[s._id || s.id] = s.rollNo || s.rollNumber || "";
     });
-
-    setManualRolls(rollData);
+    setManualRolls(initialRolls);
     setShowManualPopup(true);
   };
 
-  const handleManualRollChange = (studentId, value) => {
-    setManualRolls({
-      ...manualRolls,
-      [studentId]: value,
-    });
+  const handleSaveManual = async () => {
+    const updates = Object.entries(manualRolls).map(([studentId, rollNo]) => ({
+      studentId,
+      rollNumber: rollNo,
+      rollNo: rollNo,
+    }));
+
+    try {
+      setSaving(true);
+      const res = await studentHubService.bulkUpdateRollNumbers(updates);
+      if (res.data?.success) {
+        alert(res.data.message || "Roll numbers updated successfully");
+        setShowManualPopup(false);
+        handleSearch();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update roll numbers");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSaveManualRolls = () => {
-    const rollNumbers = selectedStudents.map((student) =>
-      (manualRolls[student.id] || "").trim()
+  const availableSections = classFilter
+    ? sections.filter((s) => s.className === classFilter)
+    : sections;
+
+  const filteredStudents = students.filter((s) => {
+    if (!searchText.trim()) return true;
+    const q = searchText.toLowerCase();
+    return (
+      s.studentName?.toLowerCase().includes(q) ||
+      s.admissionNo?.toLowerCase().includes(q) ||
+      s.rollNo?.toLowerCase().includes(q) ||
+      s.rollNumber?.toLowerCase().includes(q)
     );
-
-    const hasBlank = rollNumbers.some((roll) => roll === "");
-
-    if (hasBlank) {
-      alert("Blank roll number is not allowed");
-      return;
-    }
-
-    const duplicateRoll = rollNumbers.find(
-      (roll, index) => rollNumbers.indexOf(roll) !== index
-    );
-
-    if (duplicateRoll) {
-      alert("Duplicate roll number found: " + duplicateRoll);
-      return;
-    }
-
-    setStudents((prev) =>
-      prev.map((student) =>
-        selectedIds.includes(student.id)
-          ? {
-              ...student,
-              rollNo: manualRolls[student.id].trim(),
-            }
-          : student
-      )
-    );
-
-    setSelectedIds([]);
-    setManualRolls({});
-    setShowManualPopup(false);
-    alert("Roll numbers saved successfully");
-  };
+  });
 
   return (
-    <div className="roll-page">
+    <div className="roll-number-page">
       <div className="common-page-header">
-        <AppButton
-          type="back"
-          onClick={() => {
-            window.location.href = "/student-hub";
-          }}
-        >
+        <AppButton type="back" onClick={() => navigate("/student-hub")}>
           ←
         </AppButton>
 
         <div>
           <h1>Roll Number Update</h1>
-          <p>Generate and update student roll numbers</p>
+          <p>Generate standardized roll numbers or manually configure student seating sequences</p>
         </div>
       </div>
 
       <div className="common-card">
         <div className="filter-grid">
           <div className="form-group">
-            <label>Class</label>
-
+            <label>Class *</label>
             <select
               value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
+              onChange={(e) => {
+                setClassFilter(e.target.value);
+                setSectionFilter("");
+              }}
             >
               <option value="">Select Class</option>
-
-              {classOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              {classes.map((item) => (
+                <option key={item._id || item.className} value={item.className}>
+                  {item.className}
                 </option>
               ))}
             </select>
@@ -305,136 +210,149 @@ function RollNumberUpdate() {
 
           <div className="form-group">
             <label>Section</label>
-
             <select
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
             >
-              <option value="">All</option>
-
-              {sectionOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              <option value="">All Sections</option>
+              {availableSections.map((item) => (
+                <option key={item._id || item.sectionName} value={item.sectionName}>
+                  Section {item.sectionName}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Search Student</label>
-
+            <label>Search in Class</label>
             <input
               type="text"
-              placeholder="Name, admission no or roll no"
+              placeholder="Filter by student name or admission no..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="search-btn-row roll-actions">
+        <div className="search-btn-row">
           <AppButton type="primary" onClick={handleSearch}>
-            Search
+            Load Students
           </AppButton>
         </div>
       </div>
 
-      <div className="common-card">
-        <div className="list-header">
-          <h2>Student Roll Number List</h2>
+      {isSearched && (
+        <div className="common-card">
+          <div className="list-header">
+            <h2>
+              Class Students ({filteredStudents.length})
+            </h2>
 
-          <div className="list-action-buttons">
-            <AppButton type="primary" onClick={handleOpenManualPopup}>
-              Enable Manual Editing
-            </AppButton>
+            <div className="list-action-buttons">
+              <AppButton
+                type="primary"
+                onClick={() => setShowGeneratePopup(true)}
+                disabled={students.length === 0}
+              >
+                Auto Generate Roll Numbers
+              </AppButton>
 
-            <AppButton type="primary" onClick={handleOpenGeneratePopup}>
-              Auto Generate
-            </AppButton>
+              <AppButton
+                type="view"
+                onClick={handleOpenManual}
+                disabled={students.length === 0}
+              >
+                Manual Quick Edit
+              </AppButton>
+            </div>
           </div>
-        </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={
-                      isSearched &&
-                      filteredStudents.length > 0 &&
-                      selectedIds.length === filteredStudents.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(filteredStudents.map((item) => item.id));
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                  />
-                </th>
-
-                <th>S.No</th>
-                <th>Student Name</th>
-                <th>Admission No</th>
-                <th>Class</th>
-                <th>Section</th>
-                <th>Roll No</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {!isSearched ? (
-                <tr>
-                  <td colSpan="7" className="empty-row">
-                    Click Search to view students
-                  </td>
-                </tr>
-              ) : filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="empty-row">
-                    No student found
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((student, index) => (
-                  <tr key={student.id}>
-                    <td>
+          <div className="table-wrap">
+            {loading ? (
+              <SkeletonTable rows={5} columns={5} />
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: "40px" }}>
                       <input
                         type="checkbox"
-                        checked={selectedIds.includes(student.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) =>
-                            prev.includes(student.id)
-                              ? prev.filter((id) => id !== student.id)
-                              : [...prev, student.id]
-                          );
+                        checked={
+                          filteredStudents.length > 0 &&
+                          selectedIds.length === filteredStudents.length
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(filteredStudents.map((item) => item._id || item.id));
+                          } else {
+                            setSelectedIds([]);
+                          }
                         }}
                       />
-                    </td>
-
-                    <td>{index + 1}</td>
-                    <td>{student.studentName}</td>
-                    <td>{student.admissionNo}</td>
-                    <td>{student.className}</td>
-                    <td>{student.sectionName}</td>
-                    <td>{student.rollNo || "-"}</td>
+                    </th>
+                    <th>S.No</th>
+                    <th>Admission No</th>
+                    <th>Student Name</th>
+                    <th>Section</th>
+                    <th>Current Roll No</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+
+                <tbody>
+                  {filteredStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-row">
+                        No active students found in this class/section.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStudents.map((item, index) => {
+                      const itemId = item._id || item.id;
+                      return (
+                        <tr key={itemId}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(itemId)}
+                              onChange={() => {
+                                setSelectedIds((prev) =>
+                                  prev.includes(itemId)
+                                    ? prev.filter((id) => id !== itemId)
+                                    : [...prev, itemId]
+                                );
+                              }}
+                            />
+                          </td>
+                          <td>{index + 1}</td>
+                          <td><span className="badge-code">{item.admissionNo || item.srNo || "—"}</span></td>
+                          <td><strong>{item.studentName}</strong></td>
+                          <td>{item.section || item.sectionName || "—"}</td>
+                          <td>
+                            <span
+                              style={{
+                                fontWeight: "600",
+                                color: item.rollNo || item.rollNumber ? "#1e40af" : "#9ca3af",
+                              }}
+                            >
+                              {item.rollNo || item.rollNumber || "Not Set"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {showGeneratePopup && (
         <div className="popup-overlay">
-          <div className="roll-popup">
+          <div className="view-popup">
             <div className="popup-head">
-              <h2>Auto Generate Roll Number</h2>
-
+              <h2>Auto Generate Roll Numbers</h2>
               <button
                 className="popup-close-btn"
                 onClick={() => setShowGeneratePopup(false)}
@@ -443,29 +361,50 @@ function RollNumberUpdate() {
               </button>
             </div>
 
-            <div className="form-group">
-              <label>Roll Number Format</label>
+            <div style={{ padding: "10px 0" }}>
+              <div className="form-group" style={{ marginBottom: "15px" }}>
+                <label>Format Pattern</label>
+                <select
+                  value={rollFormat}
+                  onChange={(e) => setRollFormat(e.target.value)}
+                >
+                  {formatOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <select
-                value={rollFormat}
-                onChange={(e) => setRollFormat(e.target.value)}
+              <div
+                style={{
+                  padding: "12px",
+                  borderRadius: "8px",
+                  backgroundColor: "#eff6ff",
+                  fontSize: "13px",
+                  color: "#1e40af",
+                  marginBottom: "15px",
+                }}
               >
-                {formatOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <strong>Sample Preview:</strong>{" "}
+                {students[0] ? generateRollNo(students[0], 0, rollFormat) : "001"}
+              </div>
 
-            <div className="preview-box">
-              <strong>Preview:</strong> {getPreview()}
-            </div>
-
-            <div className="popup-actions">
-              <AppButton type="primary" onClick={handleGenerateRollNumbers}>
-                Generate
-              </AppButton>
+              <div className="form-actions">
+                <AppButton
+                  type="primary"
+                  onClick={handleAutoGenerateApply}
+                  disabled={saving}
+                >
+                  {saving ? "Applying..." : "Generate & Save to Database"}
+                </AppButton>
+                <AppButton
+                  type="secondary"
+                  onClick={() => setShowGeneratePopup(false)}
+                >
+                  Cancel
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>
@@ -473,10 +412,9 @@ function RollNumberUpdate() {
 
       {showManualPopup && (
         <div className="popup-overlay">
-          <div className="roll-popup large-popup">
+          <div className="view-popup" style={{ maxWidth: "600px" }}>
             <div className="popup-head">
-              <h2>Manual Roll Number Editing</h2>
-
+              <h2>Manual Roll Number Entry</h2>
               <button
                 className="popup-close-btn"
                 onClick={() => setShowManualPopup(false)}
@@ -485,44 +423,60 @@ function RollNumberUpdate() {
               </button>
             </div>
 
-            <div className="table-wrap">
-              <table>
+            <div style={{ maxHeight: "400px", overflowY: "auto", margin: "15px 0" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr>
-                    <th>S.No</th>
-                    <th>Student Name</th>
-                    <th>Class</th>
-                    <th>Section</th>
-                    <th>Roll No</th>
+                  <tr style={{ background: "#f9fafb" }}>
+                    <th style={{ padding: "8px", textAlign: "left" }}>Student Name</th>
+                    <th style={{ padding: "8px", textAlign: "left" }}>Section</th>
+                    <th style={{ padding: "8px", width: "140px" }}>Roll Number</th>
                   </tr>
                 </thead>
-
                 <tbody>
-                  {selectedStudents.map((student, index) => (
-                    <tr key={student.id}>
-                      <td>{index + 1}</td>
-                      <td>{student.studentName}</td>
-                      <td>{student.className}</td>
-                      <td>{student.sectionName}</td>
-                      <td>
-                        <input
-                          className="roll-input"
-                          type="text"
-                          value={manualRolls[student.id] || ""}
-                          onChange={(e) =>
-                            handleManualRollChange(student.id, e.target.value)
-                          }
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                  {students.map((student) => {
+                    const sid = student._id || student.id;
+                    return (
+                      <tr key={sid} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                        <td style={{ padding: "8px" }}>{student.studentName}</td>
+                        <td style={{ padding: "8px" }}>{student.section || "—"}</td>
+                        <td style={{ padding: "8px" }}>
+                          <input
+                            type="text"
+                            value={manualRolls[sid] || ""}
+                            onChange={(e) =>
+                              setManualRolls({
+                                ...manualRolls,
+                                [sid]: e.target.value,
+                              })
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "6px 8px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "4px",
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
 
-            <div className="popup-actions">
-              <AppButton type="primary" onClick={handleSaveManualRolls}>
-                Save
+            <div className="form-actions">
+              <AppButton
+                type="primary"
+                onClick={handleSaveManual}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save All Roll Numbers"}
+              </AppButton>
+              <AppButton
+                type="secondary"
+                onClick={() => setShowManualPopup(false)}
+              >
+                Cancel
               </AppButton>
             </div>
           </div>

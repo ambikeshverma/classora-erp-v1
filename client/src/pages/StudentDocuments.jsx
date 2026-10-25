@@ -1,17 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./studentDocuments.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function StudentDocuments() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const classOptions = [
-    "Class 1", "Class 2", "Class 3", "Class 4",
-    "Class 5", "Class 6", "Class 7", "Class 8",
-    "Class 9", "Class 10", "Class 11", "Class 12",
-  ];
+  const [loading, setLoading] = useState(true);
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  const sectionOptions = ["A", "B", "C", "D"];
+  const [showUploadPopup, setShowUploadPopup] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const [classFilter, setClassFilter] = useState("");
+  const [sectionFilter, setSectionFilter] = useState("");
+  const [documentTypeFilter, setDocumentTypeFilter] = useState("");
+  const [searchText, setSearchText] = useState("");
+
+  const [uploadForm, setUploadForm] = useState({
+    documentType: "Student Aadhaar Card",
+    remarks: "",
+  });
 
   const documentTypes = [
     "Admission Form",
@@ -39,20 +54,6 @@ function StudentDocuments() {
     "Ration Card",
     "Bank Passbook",
     "Cheque Copy",
-    "Father Photo",
-    "Mother Photo",
-    "Guardian Photo",
-    "Father Signature",
-    "Mother Signature",
-    "Student Signature",
-    "Scholarship Form",
-    "Scholarship Proof",
-    "Transport Form",
-    "Bus Route Approval",
-    "Court Affidavit",
-    "Notary Document",
-    "Adoption Certificate",
-    "Disability Certificate",
     "Marksheet",
     "Board Certificate",
     "Leave Certificate",
@@ -60,218 +61,111 @@ function StudentDocuments() {
     "Other",
   ];
 
-  const demoStudents = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      studentName: "Rahul Kumar",
-      className: "Class 6",
-      sectionName: "A",
-      uploadedDocuments: ["Student Image"],
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      studentName: "Priya Singh",
-      className: "Class 7",
-      sectionName: "B",
-      uploadedDocuments: ["Student Image", "Student Aadhaar Card"],
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      studentName: "Aman Verma",
-      className: "Class 8",
-      sectionName: "C",
-      uploadedDocuments: [],
-    },
-  ];
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [metaRes, studRes, docRes] = await Promise.all([
+        studentHubService.getMeta(),
+        studentHubService.searchStudents({ status: "Active" }),
+        studentHubService.getDocuments({}),
+      ]);
 
-  const [students, setStudents] = useState(demoStudents);
-  const [selectedIds, setSelectedIds] = useState([]);
+      if (metaRes.data?.success) {
+        setClasses(metaRes.data.data.classes || []);
+        setSections(metaRes.data.data.sections || []);
+      }
+      if (studRes.data?.success) {
+        setStudents(studRes.data.data || []);
+      }
+      if (docRes.data?.success) {
+        setDocuments(docRes.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load documents data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const [showUploadPopup, setShowUploadPopup] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const [classFilter, setClassFilter] = useState("");
-  const [sectionFilter, setSectionFilter] = useState("");
-  const [documentType, setDocumentType] = useState("");
-  const [searchText, setSearchText] = useState("");
-  const [showMissingOnly, setShowMissingOnly] = useState(true);
+  const handleUploadSubmit = async () => {
+    if (selectedIds.length === 0) {
+      alert("Please select at least one student");
+      return;
+    }
 
-  const [isSearched, setIsSearched] = useState(false);
+    if (!uploadForm.documentType) {
+      alert("Please select a document type");
+      return;
+    }
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    classFilter: "",
-    sectionFilter: "",
-    documentType: "",
-    searchText: "",
-    showMissingOnly: true,
+    try {
+      setUploading(true);
+      for (const id of selectedIds) {
+        const student = students.find((s) => (s._id || s.id) === id);
+        if (student) {
+          await studentHubService.uploadDocument({
+            studentId: id,
+            studentName: student.studentName,
+            className: student.className,
+            section: student.section,
+            rollNumber: student.rollNo || student.rollNumber || "",
+            documentType: uploadForm.documentType,
+            remarks: uploadForm.remarks || "",
+          });
+        }
+      }
+
+      alert(`Document recorded successfully for ${selectedIds.length} student(s)`);
+      setShowUploadPopup(false);
+      setSelectedIds([]);
+      setUploadForm({ documentType: "Student Aadhaar Card", remarks: "" });
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to record document");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const getStudentDocs = (studentId) => {
+    return documents.filter((d) => String(d.studentId) === String(studentId));
+  };
+
+  const availableSections = classFilter
+    ? sections.filter((s) => s.className === classFilter)
+    : sections;
+
+  const filteredStudents = students.filter((s) => {
+    const classMatch = classFilter ? s.className === classFilter : true;
+    const sectionMatch = sectionFilter ? s.section === sectionFilter : true;
+    const searchMatch = searchText.trim()
+      ? s.studentName?.toLowerCase().includes(searchText.toLowerCase()) ||
+        s.admissionNo?.toLowerCase().includes(searchText.toLowerCase()) ||
+        s.srNo?.toLowerCase().includes(searchText.toLowerCase())
+      : true;
+
+    const studentDocs = getStudentDocs(s._id || s.id);
+    const docMatch = documentTypeFilter
+      ? studentDocs.some((d) => d.documentType === documentTypeFilter)
+      : true;
+
+    return classMatch && sectionMatch && searchMatch && docMatch;
   });
 
-  const getFilteredStudents = (filters) => {
-    return students.filter((student) => {
-      const schoolMatch = student.schoolId === schoolId;
-
-      const classMatch = filters.classFilter
-        ? student.className === filters.classFilter
-        : true;
-
-      const sectionMatch = filters.sectionFilter
-        ? student.sectionName === filters.sectionFilter
-        : true;
-
-      const searchMatch = filters.searchText
-        ? student.studentName
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase())
-        : true;
-
-      const missingMatch = filters.showMissingOnly
-        ? !student.uploadedDocuments.includes(filters.documentType)
-        : true;
-
-      return schoolMatch && classMatch && sectionMatch && searchMatch && missingMatch;
-    });
-  };
-
-  const getMissingCount = (student) => {
-    return documentTypes.length - student.uploadedDocuments.length;
-  };
-
-  const getUploadedCount = (student) => {
-    return student.uploadedDocuments.length;
-  };
-
-  const handleSearch = () => {
-    if (!documentType) {
-      alert("Select document type");
-      return;
-    }
-
-    const filters = {
-      classFilter,
-      sectionFilter,
-      documentType,
-      searchText,
-      showMissingOnly,
-    };
-
-    setAppliedFilters(filters);
-
-    const result = getFilteredStudents(filters);
-
-    if (result.length === 0) {
-      alert("No student found");
-    }
-
-    setIsSearched(true);
-    setSelectedIds([]);
-  };
-
-  const filteredStudents = getFilteredStudents(appliedFilters);
-
-  const handleOpenUpload = () => {
-    if (!documentType) {
-      alert("Select document type");
-      return;
-    }
-
-    if (selectedIds.length === 0) {
-      alert("Select student");
-      return;
-    }
-
-    setSelectedFile(null);
-    setShowUploadPopup(true);
-  };
-
-  const handleUpload = () => {
-    if (!selectedFile) {
-      alert("Select file");
-      return;
-    }
-
-    const selectedStudents = students.filter((student) =>
-      selectedIds.includes(student.id)
-    );
-
-    const alreadyUploaded = selectedStudents.some((student) =>
-      student.uploadedDocuments.includes(appliedFilters.documentType)
-    );
-
-    if (alreadyUploaded) {
-      const ok = window.confirm(
-        "Document already uploaded. Do you want to replace it?"
-      );
-
-      if (!ok) return;
-    }
-
-    setStudents((prev) =>
-      prev.map((student) =>
-        selectedIds.includes(student.id)
-          ? {
-              ...student,
-              uploadedDocuments: student.uploadedDocuments.includes(
-                appliedFilters.documentType
-              )
-                ? student.uploadedDocuments
-                : [...student.uploadedDocuments, appliedFilters.documentType],
-            }
-          : student
-      )
-    );
-
-    alert("Document uploaded successfully");
-
-    setSelectedIds([]);
-    setSelectedFile(null);
-    setShowUploadPopup(false);
-  };
-
-  const handleDownload = () => {
-    if (!documentType) {
-      alert("Select document type");
-      return;
-    }
-
-    if (selectedIds.length === 0) {
-      alert("Select student");
-      return;
-    }
-
-    const selectedStudents = students.filter((student) =>
-      selectedIds.includes(student.id)
-    );
-
-    const hasDocument = selectedStudents.some((student) =>
-      student.uploadedDocuments.includes(appliedFilters.documentType)
-    );
-
-    if (!hasDocument) {
-      alert("No document uploaded");
-      return;
-    }
-
-    alert("Document download started");
-  };
-
   return (
-    <div className="student-document-page">
+    <div className="student-documents-page">
       <div className="common-page-header">
-        <AppButton
-          type="back"
-          onClick={() => {
-            window.location.href = "/student-hub";
-          }}
-        >
+        <AppButton type="back" onClick={() => navigate("/student-hub")}>
           ←
         </AppButton>
 
         <div>
           <h1>Student Documents</h1>
-          <p>Upload and manage student documents</p>
+          <p>Track certificates, identity cards, admissions records, and mandatory student documentation</p>
         </div>
       </div>
 
@@ -281,12 +175,15 @@ function StudentDocuments() {
             <label>Class</label>
             <select
               value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
+              onChange={(e) => {
+                setClassFilter(e.target.value);
+                setSectionFilter("");
+              }}
             >
-              <option value="">All</option>
-              {classOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              <option value="">All Classes</option>
+              {classes.map((item) => (
+                <option key={item._id || item.className} value={item.className}>
+                  {item.className}
                 </option>
               ))}
             </select>
@@ -298,10 +195,10 @@ function StudentDocuments() {
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
             >
-              <option value="">All</option>
-              {sectionOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              <option value="">All Sections</option>
+              {availableSections.map((item) => (
+                <option key={item._id || item.sectionName} value={item.sectionName}>
+                  Section {item.sectionName}
                 </option>
               ))}
             </select>
@@ -310,193 +207,206 @@ function StudentDocuments() {
           <div className="form-group">
             <label>Document Type</label>
             <select
-              value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
+              value={documentTypeFilter}
+              onChange={(e) => setDocumentTypeFilter(e.target.value)}
             >
-              <option value="">Select Document</option>
-              {documentTypes.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              <option value="">All Document Types</option>
+              {documentTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="form-group">
-            <label>Search Student</label>
+            <label>Search</label>
             <input
               type="text"
-              placeholder="Student name"
+              placeholder="Search by student name or admission no..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
           </div>
         </div>
-
-        <div className="document-bottom-row">
-          <label className="missing-checkbox">
-            <input
-              type="checkbox"
-              checked={showMissingOnly}
-              onChange={(e) => setShowMissingOnly(e.target.checked)}
-            />
-            Show Missing Only
-          </label>
-
-          <AppButton type="primary" onClick={handleSearch}>
-            Search
-          </AppButton>
-        </div>
       </div>
 
       <div className="common-card">
         <div className="list-header">
-          <h2>Student Document List</h2>
+          <h2>Student Documentation Status ({filteredStudents.length})</h2>
 
           <div className="list-action-buttons">
-            <AppButton type="primary" onClick={handleOpenUpload}>
-              Upload
-            </AppButton>
-
-            <AppButton type="primary" onClick={handleDownload}>
-              Download
+            <AppButton
+              type="primary"
+              onClick={() => {
+                if (selectedIds.length === 0) {
+                  alert("Please select at least one student to upload documents for");
+                  return;
+                }
+                setShowUploadPopup(true);
+              }}
+            >
+              + Record Document Submission
             </AppButton>
           </div>
         </div>
 
         <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={
-                      isSearched &&
-                      filteredStudents.length > 0 &&
-                      selectedIds.length === filteredStudents.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(filteredStudents.map((item) => item.id));
-                      } else {
-                        setSelectedIds([]);
+          {loading ? (
+            <SkeletonTable rows={5} columns={6} />
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: "40px" }}>
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredStudents.length > 0 &&
+                        selectedIds.length === filteredStudents.length
                       }
-                    }}
-                  />
-                </th>
-
-                <th>S.No</th>
-                <th>Student Name</th>
-                <th>Class</th>
-                <th>Section</th>
-                <th>Missing</th>
-                <th>Uploaded</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {!isSearched ? (
-                <tr>
-                  <td colSpan="7" className="empty-row">
-                    Click Search to view students
-                  </td>
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds(filteredStudents.map((item) => item._id || item.id));
+                        } else {
+                          setSelectedIds([]);
+                        }
+                      }}
+                    />
+                  </th>
+                  <th>S.No</th>
+                  <th>Student Name</th>
+                  <th>Class & Section</th>
+                  <th>Admission No</th>
+                  <th>Uploaded Documents</th>
                 </tr>
-              ) : filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="empty-row">
-                    No student found
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((student, index) => (
-                  <tr key={student.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(student.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) =>
-                            prev.includes(student.id)
-                              ? prev.filter((id) => id !== student.id)
-                              : [...prev, student.id]
-                          );
-                        }}
-                      />
+              </thead>
+
+              <tbody>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="empty-row">
+                      {classes.length === 0
+                        ? "No classes found. Please configure classes in Class Management."
+                        : "No student records found matching your filters."}
                     </td>
-
-                    <td>{index + 1}</td>
-                    <td>{student.studentName}</td>
-                    <td>{student.className}</td>
-                    <td>{student.sectionName}</td>
-                    <td>{getMissingCount(student)}</td>
-                    <td>{getUploadedCount(student)}</td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filteredStudents.map((item, index) => {
+                    const itemId = item._id || item.id;
+                    const studentDocs = getStudentDocs(itemId);
+                    return (
+                      <tr key={itemId}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(itemId)}
+                            onChange={() => {
+                              setSelectedIds((prev) =>
+                                prev.includes(itemId)
+                                  ? prev.filter((id) => id !== itemId)
+                                  : [...prev, itemId]
+                              );
+                            }}
+                          />
+                        </td>
+                        <td>{index + 1}</td>
+                        <td><strong>{item.studentName}</strong></td>
+                        <td>{item.className} {item.section ? `(${item.section})` : ""}</td>
+                        <td><span className="badge-code">{item.admissionNo || item.srNo || "—"}</span></td>
+                        <td>
+                          {studentDocs.length > 0 ? (
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                              {studentDocs.map((doc, dIdx) => (
+                                <span
+                                  key={dIdx}
+                                  style={{
+                                    padding: "2px 8px",
+                                    borderRadius: "12px",
+                                    backgroundColor: "#dcfce7",
+                                    color: "#166534",
+                                    fontSize: "12px",
+                                    fontWeight: "500",
+                                    border: "1px solid #bbf7d0",
+                                  }}
+                                >
+                                  ✓ {doc.documentType}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: "#9ca3af", fontStyle: "italic", fontSize: "12px" }}>
+                              No documents recorded yet
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {showUploadPopup && (
         <div className="popup-overlay">
-          <div className="upload-popup">
+          <div className="view-popup">
             <div className="popup-head">
-              <h2>Upload Document</h2>
-
+              <h2>Record Document ({selectedIds.length} student(s))</h2>
               <button
                 className="popup-close-btn"
-                onClick={() => {
-                  setShowUploadPopup(false);
-                  setSelectedFile(null);
-                }}
+                onClick={() => setShowUploadPopup(false)}
               >
                 ×
               </button>
             </div>
 
-            <div className="upload-content">
-              <div className="form-group">
-                <label>Choose File</label>
+            <div style={{ padding: "10px 0" }}>
+              <div className="form-group" style={{ marginBottom: "15px" }}>
+                <label>Document Type *</label>
+                <select
+                  value={uploadForm.documentType}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, documentType: e.target.value })
+                  }
+                >
+                  {documentTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: "15px" }}>
+                <label>Remarks / Document ID (Optional)</label>
                 <input
-                  type="file"
-                  accept="image/*,.pdf"
-                  onChange={(e) => setSelectedFile(e.target.files[0])}
+                  type="text"
+                  placeholder="e.g. Verified original, TC No 1024"
+                  value={uploadForm.remarks}
+                  onChange={(e) =>
+                    setUploadForm({ ...uploadForm, remarks: e.target.value })
+                  }
                 />
               </div>
 
-              <div className="form-group">
-                <label>Open Camera</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(e) => setSelectedFile(e.target.files[0])}
-                />
+              <div className="form-actions" style={{ marginTop: "20px" }}>
+                <AppButton
+                  type="primary"
+                  onClick={handleUploadSubmit}
+                  disabled={uploading}
+                >
+                  {uploading ? "Submitting..." : "Save Record"}
+                </AppButton>
+                <AppButton
+                  type="secondary"
+                  onClick={() => setShowUploadPopup(false)}
+                >
+                  Cancel
+                </AppButton>
               </div>
-
-              {selectedFile && (
-                <p className="selected-file-name">
-                  Selected: {selectedFile.name}
-                </p>
-              )}
-            </div>
-
-            <div className="form-actions">
-              <AppButton type="primary" onClick={handleUpload}>
-                Upload
-              </AppButton>
-
-              <AppButton
-                type="secondary"
-                onClick={() => {
-                  setShowUploadPopup(false);
-                  setSelectedFile(null);
-                }}
-              >
-                Go Back
-              </AppButton>
             </div>
           </div>
         </div>

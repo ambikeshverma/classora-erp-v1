@@ -1,24 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./mediumManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function MediumManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const usedMediums = ["English Medium"];
-
+  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [mediums, setMediums] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewData, setViewData] = useState(null);
   const [editId, setEditId] = useState(null);
-
   const [searchText, setSearchText] = useState("");
-  const [isSearched, setIsSearched] = useState(false);
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    searchText: "",
-  });
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     mediumName: "",
@@ -26,180 +23,123 @@ function MediumManagement() {
     status: "Active",
   });
 
+  const loadMediums = async () => {
+    try {
+      setLoading(true);
+      const res = await studentHubService.getMediums();
+      if (res.data?.success) {
+        setMediums(res.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load mediums:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMediums();
+  }, []);
+
   const resetForm = () => {
     setFormData({
       mediumName: "",
       mediumCode: "",
       status: "Active",
     });
-
     setEditId(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData({
       ...formData,
       [name]: value,
     });
   };
 
-  const visibleMediums = mediums.filter((item) => item.schoolId === schoolId);
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.mediumName || !formData.mediumCode) {
-      alert("Please fill required fields");
+      alert("Please fill required fields (Medium Name & Medium Code)");
       return;
     }
 
-    const mediumNameExists = visibleMediums.some(
-      (item) =>
-        item.mediumName.toLowerCase().trim() ===
-          formData.mediumName.toLowerCase().trim() && item.id !== editId
-    );
-
-    if (mediumNameExists) {
-      alert("Medium already exists");
-      return;
+    try {
+      setSaving(true);
+      if (editId) {
+        const res = await studentHubService.updateMedium(editId, formData);
+        if (res.data?.success) {
+          alert("Medium updated successfully");
+          resetForm();
+          setShowForm(false);
+          loadMediums();
+          setSelectedIds([]);
+        }
+      } else {
+        const res = await studentHubService.createMedium(formData);
+        if (res.data?.success) {
+          alert("Medium added successfully");
+          resetForm();
+          setShowForm(false);
+          loadMediums();
+          setSelectedIds([]);
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save medium");
+    } finally {
+      setSaving(false);
     }
-
-    const mediumCodeExists = visibleMediums.some(
-      (item) =>
-        item.mediumCode.toLowerCase().trim() ===
-          formData.mediumCode.toLowerCase().trim() && item.id !== editId
-    );
-
-    if (mediumCodeExists) {
-      alert("Medium code already exists");
-      return;
-    }
-
-    if (editId) {
-      const updatedMediums = mediums
-        .map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-              }
-            : item
-        )
-        .sort((a, b) => a.mediumName.localeCompare(b.mediumName));
-
-      setMediums(updatedMediums);
-
-      alert("Medium updated successfully");
-    } else {
-      const newMedium = {
-        id: Date.now(),
-        schoolId,
-        ...formData,
-      };
-
-      const updatedMediums = [...mediums, newMedium].sort((a, b) =>
-        a.mediumName.localeCompare(b.mediumName)
-      );
-
-      setMediums(updatedMediums);
-
-      alert("Medium added successfully");
-    }
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const handleSearch = () => {
-    const filters = {
-      searchText,
-    };
-
-    setAppliedFilters(filters);
-
-    const result = visibleMediums.filter((item) => {
-      const searchMatch = filters.searchText
-        ? item.mediumName
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase()) ||
-          item.mediumCode
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase())
-        : true;
-
-      return searchMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No medium found");
-    }
-
-    setIsSearched(true);
-    setSelectedIds([]);
-  };
-
-  const filteredMediums = visibleMediums.filter((item) => {
-    const searchMatch = appliedFilters.searchText
-      ? item.mediumName
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase()) ||
-        item.mediumCode
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase())
-      : true;
-
-    return searchMatch;
+  const filteredMediums = mediums.filter((item) => {
+    if (!searchText.trim()) return true;
+    const q = searchText.toLowerCase();
+    return (
+      item.mediumName?.toLowerCase().includes(q) ||
+      item.mediumCode?.toLowerCase().includes(q)
+    );
   });
 
-  const selectedMediums = visibleMediums.filter((item) =>
-    selectedIds.includes(item.id)
+  const selectedMediums = mediums.filter((item) =>
+    selectedIds.includes(item._id || item.id)
   );
-
-  const selectedSingle =
-    selectedMediums.length === 1 ? selectedMediums[0] : null;
+  const selectedSingle = selectedMediums.length === 1 ? selectedMediums[0] : null;
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one medium");
+      alert("Please select exactly one medium to edit");
       return;
     }
 
-    setEditId(selectedSingle.id);
-
+    setEditId(selectedSingle._id || selectedSingle.id);
     setFormData({
       mediumName: selectedSingle.mediumName,
       mediumCode: selectedSingle.mediumCode,
-      status: selectedSingle.status,
+      status: selectedSingle.status || "Active",
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select medium");
+      alert("Please select at least one medium to delete");
       return;
     }
 
-    const blockedMedium = visibleMediums.find(
-      (item) =>
-        selectedIds.includes(item.id) && usedMediums.includes(item.mediumName)
-    );
-
-    if (blockedMedium) {
-      alert("Medium is already in use. Cannot delete.");
-      return;
-    }
-
-    const ok = window.confirm("Delete selected medium?");
-
+    const ok = window.confirm(`Delete ${selectedIds.length} selected medium(s)?`);
     if (!ok) return;
 
-    setMediums(mediums.filter((item) => !selectedIds.includes(item.id)));
-
-    setSelectedIds([]);
+    try {
+      for (const id of selectedIds) {
+        await studentHubService.deleteMedium(id);
+      }
+      alert("Medium(s) deleted successfully");
+      setSelectedIds([]);
+      loadMediums();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete medium");
+    }
   };
 
   return (
@@ -212,7 +152,7 @@ function MediumManagement() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/student-hub";
+              navigate("/student-hub");
             }
           }}
         >
@@ -221,7 +161,7 @@ function MediumManagement() {
 
         <div>
           <h1>Medium Management</h1>
-          <p>Manage school mediums</p>
+          <p>Manage instruction mediums (e.g. English, Hindi, Bilingual)</p>
         </div>
       </div>
 
@@ -230,27 +170,20 @@ function MediumManagement() {
           <div className="common-card">
             <div className="filter-grid">
               <div className="form-group">
-                <label>Search</label>
-
+                <label>Search Medium</label>
                 <input
                   type="text"
-                  placeholder="Medium name or code"
+                  placeholder="Filter by medium name or code..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                 />
               </div>
             </div>
-
-            <div className="search-btn-row">
-              <AppButton type="primary" onClick={handleSearch}>
-                Search
-              </AppButton>
-            </div>
           </div>
 
           <div className="common-card">
             <div className="list-header">
-              <h2>Medium List</h2>
+              <h2>Medium List ({filteredMediums.length})</h2>
 
               <div className="list-action-buttons">
                 <AppButton type="primary" onClick={() => setShowForm(true)}>
@@ -261,10 +194,9 @@ function MediumManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Select one medium");
+                      alert("Please select one medium to view");
                       return;
                     }
-
                     setViewData(selectedSingle);
                   }}
                 >
@@ -282,72 +214,71 @@ function MediumManagement() {
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredMediums.length > 0 &&
-                          selectedIds.length === filteredMediums.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredMediums.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
+              {loading ? (
+                <SkeletonTable rows={5} columns={4} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "40px" }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredMediums.length > 0 &&
+                            selectedIds.length === filteredMediums.length
                           }
-                        }}
-                      />
-                    </th>
-
-                    <th>S.No</th>
-                    <th>Medium Name</th>
-                    <th>Medium Code</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!isSearched ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        Click Search to view mediums
-                      </td>
-                    </tr>
-                  ) : filteredMediums.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="empty-row">
-                        No medium found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredMediums.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(
+                                filteredMediums.map((item) => item._id || item.id)
                               );
-                            }}
-                          />
-                        </td>
+                            } else {
+                              setSelectedIds([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Medium Name</th>
+                      <th>Medium Code</th>
+                    </tr>
+                  </thead>
 
-                        <td>{index + 1}</td>
-                        <td>{item.mediumName}</td>
-                        <td>{item.mediumCode}</td>
+                  <tbody>
+                    {filteredMediums.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="empty-row">
+                          {searchText ? "No medium found matching your search" : "No mediums available. Click '+ Add Medium' to create one."}
+                        </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredMediums.map((item, index) => {
+                        const itemId = item._id || item.id;
+                        return (
+                          <tr key={itemId}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(itemId)}
+                                onChange={() => {
+                                  setSelectedIds((prev) =>
+                                    prev.includes(itemId)
+                                      ? prev.filter((id) => id !== itemId)
+                                      : [...prev, itemId]
+                                  );
+                                }}
+                              />
+                            </td>
+                            <td>{index + 1}</td>
+                            <td><strong>{item.mediumName}</strong></td>
+                            <td><span className="badge-code">{item.mediumCode}</span></td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -357,20 +288,19 @@ function MediumManagement() {
         <div className="common-card">
           <div className="enquiry-form-grid">
             <div className="form-group">
-              <label>Medium Name</label>
-
+              <label>Medium Name *</label>
               <input
                 type="text"
                 name="mediumName"
                 placeholder="Example: English Medium"
                 value={formData.mediumName}
                 onChange={handleChange}
+                autoFocus
               />
             </div>
 
             <div className="form-group">
-              <label>Medium Code</label>
-
+              <label>Medium Code *</label>
               <input
                 type="text"
                 name="mediumCode"
@@ -382,8 +312,8 @@ function MediumManagement() {
           </div>
 
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -404,7 +334,6 @@ function MediumManagement() {
           <div className="view-popup">
             <div className="popup-head">
               <h2>Medium Details</h2>
-
               <button
                 className="popup-close-btn"
                 onClick={() => setViewData(null)}
@@ -417,13 +346,11 @@ function MediumManagement() {
               <p>
                 <strong>Medium Name:</strong> {viewData.mediumName}
               </p>
-
               <p>
                 <strong>Medium Code:</strong> {viewData.mediumCode}
               </p>
-
               <p>
-                <strong>Status:</strong> {viewData.status}
+                <strong>Status:</strong> {viewData.status || "Active"}
               </p>
             </div>
           </div>

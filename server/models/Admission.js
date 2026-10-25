@@ -86,6 +86,28 @@ const admissionSchema = new mongoose.Schema(
     status: {
       type: String,
       default: "Active"
+    },
+
+    rollNumber: {
+      type: String,
+      default: ""
+    },
+    rollNo: {
+      type: String,
+      default: ""
+    },
+    houseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "House",
+      default: null
+    },
+    inactiveReason: {
+      type: String,
+      default: ""
+    },
+    passYear: {
+      type: String,
+      default: ""
     }
   },
   { timestamps: true }

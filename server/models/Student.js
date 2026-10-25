@@ -5,8 +5,55 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  fullName: {
+    type: String
+  },
+  admissionNo: {
+    type: String
+  },
+  srNo: {
+    type: String
+  },
   class: {
     type: String
+  },
+  className: {
+    type: String
+  },
+  section: {
+    type: String
+  },
+  rollNumber: {
+    type: String,
+    default: ""
+  },
+  rollNo: {
+    type: String,
+    default: ""
+  },
+  fatherName: {
+    type: String
+  },
+  mobile: {
+    type: String
+  },
+  medium: {
+    type: String
+  },
+  house: {
+    type: String
+  },
+  houseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "House"
+  },
+  inactiveReason: {
+    type: String,
+    default: ""
+  },
+  passYear: {
+    type: String,
+    default: ""
   },
 
   schoolId: {

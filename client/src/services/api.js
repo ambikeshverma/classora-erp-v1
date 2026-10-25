@@ -387,5 +387,85 @@ export const receptionService = {
   getReports: () => api.get("/api/reception/reports"),
 };
 
+// 🎓 Student Hub Endpoints
+export const studentHubService = {
+  // Batch Meta
+  getMeta: () => api.get("/api/student-hub/meta"),
+
+  // Classes
+  getClasses: () => api.get("/api/student-hub/classes"),
+  createClass: (data) => api.post("/api/student-hub/classes", data),
+  updateClass: (id, data) => api.put(`/api/student-hub/classes/${id}`, data),
+  deleteClass: (id) => api.delete(`/api/student-hub/classes/${id}`),
+
+  // Sections
+  getSections: (params) => api.get("/api/student-hub/sections", { params }),
+  createSection: (data) => api.post("/api/student-hub/sections", data),
+  updateSection: (id, data) => api.put(`/api/student-hub/sections/${id}`, data),
+  deleteSection: (id) => api.delete(`/api/student-hub/sections/${id}`),
+
+  // Mediums
+  getMediums: () => api.get("/api/student-hub/mediums"),
+  createMedium: (data) => api.post("/api/student-hub/mediums", data),
+  updateMedium: (id, data) => api.put(`/api/student-hub/mediums/${id}`, data),
+  deleteMedium: (id) => api.delete(`/api/student-hub/mediums/${id}`),
+
+  // Houses
+  getHouses: () => api.get("/api/student-hub/houses"),
+  createHouse: (data) => api.post("/api/student-hub/houses", data),
+  updateHouse: (id, data) => api.put(`/api/student-hub/houses/${id}`, data),
+  deleteHouse: (id) => api.delete(`/api/student-hub/houses/${id}`),
+
+  // House Allocations
+  getHouseAllocations: (params) => api.get("/api/student-hub/house-allocations", { params }),
+  allocateHouse: (studentId, data) => api.patch(`/api/student-hub/house-allocations/${studentId}`, data),
+  bulkAllocateHouse: (data) => api.patch("/api/student-hub/house-allocations/bulk", data),
+
+  // Sibling Groups
+  getSiblingGroups: () => api.get("/api/student-hub/sibling-groups"),
+  createSiblingGroup: (data) => api.post("/api/student-hub/sibling-groups", data),
+  updateSiblingGroup: (id, data) => api.put(`/api/student-hub/sibling-groups/${id}`, data),
+  deleteSiblingGroup: (id) => api.delete(`/api/student-hub/sibling-groups/${id}`),
+
+  // Student Search
+  searchStudents: (params) => api.get("/api/student-hub/students/search", { params }),
+
+  // Inactive Students
+  getInactiveStudents: (params) => api.get("/api/student-hub/students/inactive", { params }),
+  deactivateStudent: (id, reason) => api.patch(`/api/student-hub/students/${id}/deactivate`, { reason }),
+  restoreStudent: (id) => api.patch(`/api/student-hub/students/${id}/restore`),
+  bulkDeactivateStudents: (data) => api.patch("/api/student-hub/students/bulk-deactivate", data),
+
+  // Student Documents
+  getDocuments: (params) => api.get("/api/student-hub/student-documents", { params }),
+  uploadDocument: (data) => api.post("/api/student-hub/student-documents", data),
+  deleteDocument: (id) => api.delete(`/api/student-hub/student-documents/${id}`),
+
+  // Roll Number Update
+  getStudentsForRollNumber: (params) => api.get("/api/student-hub/roll-numbers", { params }),
+  bulkUpdateRollNumbers: (updates) => api.patch("/api/student-hub/roll-numbers/bulk-update", { updates }),
+
+  // Section Transfer
+  getStudentsForTransfer: (params) => api.get("/api/student-hub/section-transfer/students", { params }),
+  bulkTransferSection: (data) => api.patch("/api/student-hub/section-transfer/bulk", data),
+
+  // Promotion Management
+  getPromotions: () => api.get("/api/student-hub/promotions"),
+  getStudentsForPromotion: (params) => api.get("/api/student-hub/promotion/students", { params }),
+  promoteStudents: (data) => api.post("/api/student-hub/promotions", data),
+
+  // Alumni Management
+  getAlumni: (params) => api.get("/api/student-hub/alumni", { params }),
+  markAlumni: (id, data) => api.patch(`/api/student-hub/alumni/${id}/mark`, data),
+  bulkMarkAlumni: (data) => api.patch("/api/student-hub/alumni/bulk-mark", data),
+
+  // Bulk Student Update & Data Export
+  bulkUpdateStudents: (data) => api.patch("/api/student-hub/students/bulk-update", data),
+  getDataExport: (params) => api.get("/api/student-hub/data-export", { params }),
+
+  // Reports
+  getReports: () => api.get("/api/student-hub/reports"),
+};
+
 export default api;
 

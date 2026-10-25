@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const Admission = require("../models/Admission");
 const AdmissionEnquiry = require("../models/AdmissionEnquiry");
 const Student = require("../models/Student");
@@ -9,6 +10,7 @@ const Concession = require("../models/Concession");
 const SiblingGroup = require("../models/SiblingGroup");
 const Medium = require("../models/Medium");
 const Subject = require("../models/Subject");
+const House = require("../models/House");
 
 // Role guard: Only schoolAdmin can manage Admissions
 const schoolAdminOnly = (req, res, next) => {
@@ -27,7 +29,7 @@ router.use(schoolAdminOnly);
 /* ==========================================================
    OPTIMIZED META ENDPOINT
    Batches Classes, Fee Plans, Concessions, Sibling Groups,
-   Mediums, Subjects, and counts in one trip.
+   Mediums, Subjects, Houses, and counts in one trip.
 ========================================================== */
 router.get("/meta", async (req, res) => {
   try {
@@ -40,6 +42,7 @@ router.get("/meta", async (req, res) => {
       siblingGroups,
       mediums,
       subjects,
+      houses,
       totalAdmissions,
       totalEnquiries,
     ] = await Promise.all([
@@ -49,9 +52,12 @@ router.get("/meta", async (req, res) => {
       SiblingGroup.find({ campusId }).select("groupName students").sort({ groupName: 1 }).lean(),
       Medium.find({ campusId }).select("mediumName mediumCode").sort({ mediumName: 1 }).lean(),
       Subject.find({ campusId }).select("subjectName subjectCode").sort({ subjectName: 1 }).lean(),
+      House.find({ campusId, isActive: true }).select("houseName houseCode color").sort({ houseName: 1 }).lean().catch(() => []),
       Admission.countDocuments({ campusId }),
       AdmissionEnquiry.countDocuments({ campusId }),
     ]);
+
+    const housesList = Array.isArray(houses) ? houses : [];
 
     res.status(200).json({
       success: true,
@@ -62,6 +68,7 @@ router.get("/meta", async (req, res) => {
         siblingGroups: siblingGroups || [],
         mediums: mediums || [],
         subjects: subjects || [],
+        houses: housesList,
         enquirySources: ["Walk-in", "WhatsApp", "Facebook", "Instagram", "Reference", "Website", "Phone Call"],
         stats: {
           totalAdmissions: totalAdmissions || 0,

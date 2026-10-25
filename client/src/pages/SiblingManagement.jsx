@@ -1,55 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./siblingManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function SiblingManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const demoStudents = [
-    {
-      id: 1,
-      admissionNo: "ADM001",
-      studentName: "Rahul Kumar",
-      className: "Class 6",
-      sectionName: "A",
-    },
-    {
-      id: 2,
-      admissionNo: "ADM002",
-      studentName: "Priya Kumar",
-      className: "Class 4",
-      sectionName: "B",
-    },
-    {
-      id: 3,
-      admissionNo: "ADM003",
-      studentName: "Aman Singh",
-      className: "Class 7",
-      sectionName: "A",
-    },
-  ];
-
-  const usedSiblingGroups = [];
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [groups, setGroups] = useState([]);
+  const [studentsList, setStudentsList] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewData, setViewData] = useState(null);
   const [editId, setEditId] = useState(null);
 
   const [searchText, setSearchText] = useState("");
   const [guardianMobileFilter, setGuardianMobileFilter] = useState("");
-  const [isSearched, setIsSearched] = useState(false);
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    searchText: "",
-    guardianMobileFilter: "",
-  });
 
   const [formData, setFormData] = useState({
     guardianName: "",
     guardianMobile: "",
-    address: "",
     students: [],
   });
 
@@ -57,264 +30,200 @@ function SiblingManagement() {
     studentId: "",
   });
 
-  const visibleGroups = groups.filter((item) => item.schoolId === schoolId);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [grpRes, stuRes] = await Promise.all([
+        studentHubService.getSiblingGroups(),
+        studentHubService.searchStudents({}),
+      ]);
+
+      if (grpRes.data?.success) {
+        setGroups(grpRes.data.data || []);
+      }
+      if (stuRes.data?.success) {
+        setStudentsList(stuRes.data.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load sibling groups:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const resetForm = () => {
     setFormData({
       guardianName: "",
       guardianMobile: "",
-      address: "",
       students: [],
     });
-
-    setStudentForm({
-      studentId: "",
-    });
-
+    setStudentForm({ studentId: "" });
     setEditId(null);
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData({
       ...formData,
-      [name]: value,
-    });
-  };
-
-  const handleStudentFormChange = (e) => {
-    const { name, value } = e.target;
-
-    setStudentForm({
-      ...studentForm,
       [name]: value,
     });
   };
 
   const handleAddStudentToGroup = () => {
     if (!studentForm.studentId) {
-      alert("Select student");
+      alert("Please select a student");
       return;
     }
 
-    const selectedStudent = demoStudents.find(
-      (item) => item.id === Number(studentForm.studentId)
+    const selectedStudent = studentsList.find(
+      (item) => (item._id || item.id) === studentForm.studentId
     );
 
     if (!selectedStudent) return;
 
+    const selectedId = selectedStudent._id || selectedStudent.id;
+
     const alreadyAdded = formData.students.some(
-      (item) => item.id === selectedStudent.id
+      (item) => (item.studentId || item._id || item.id) === selectedId
     );
 
     if (alreadyAdded) {
-      alert("Student already added in this group");
-      return;
-    }
-
-    const alreadyInOtherGroup = visibleGroups.find(
-      (group) =>
-        group.id !== editId &&
-        group.students.some((student) => student.id === selectedStudent.id)
-    );
-
-    if (alreadyInOtherGroup) {
-      alert(
-        "This student is already linked in another sibling group. Remove the student from the existing sibling group first."
-      );
+      alert("This student is already added in this group");
       return;
     }
 
     setFormData({
       ...formData,
-      students: [...formData.students, selectedStudent],
+      students: [
+        ...formData.students,
+        {
+          studentId: selectedId,
+          studentName: selectedStudent.studentName,
+          admissionNo: selectedStudent.admissionNo || selectedStudent.srNo || "",
+          className: selectedStudent.className,
+          section: selectedStudent.section,
+        },
+      ],
     });
 
-    setStudentForm({
-      studentId: "",
-    });
+    setStudentForm({ studentId: "" });
   };
 
-  const handleRemoveStudentFromForm = (studentId) => {
+  const handleRemoveStudentFromForm = (idToRemove) => {
     setFormData({
       ...formData,
-      students: formData.students.filter((item) => item.id !== studentId),
+      students: formData.students.filter(
+        (s) => (s.studentId || s._id || s.id) !== idToRemove
+      ),
     });
   };
 
-  const handleSave = () => {
-    if (
-      !formData.guardianName ||
-      !formData.guardianMobile ||
-      formData.students.length < 2
-    ) {
-      alert("Guardian details and minimum 2 students are required");
+  const handleSave = async () => {
+    if (!formData.guardianName || !formData.guardianMobile) {
+      alert("Please enter Guardian Name and Guardian Mobile");
       return;
     }
 
-    if (!/^[0-9]{10}$/.test(formData.guardianMobile)) {
-      alert("Guardian mobile must be 10 digits");
-      return;
-    }
-
-    const alreadyExists = visibleGroups.some(
-      (item) =>
-        item.guardianMobile.trim() === formData.guardianMobile.trim() &&
-        item.id !== editId
-    );
-
-    if (alreadyExists) {
-      alert("Sibling group already exists");
-      return;
-    }
-
-    if (editId) {
-      setGroups(
-        groups.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-              }
-            : item
-        )
+    if (formData.students.length < 2) {
+      const proceed = window.confirm(
+        "A sibling group usually has at least 2 students. Do you want to save with current selection?"
       );
+      if (!proceed) return;
+    }
 
-      alert("Sibling group updated successfully");
-    } else {
-      const newGroup = {
-        id: Date.now(),
-        schoolId,
-        ...formData,
+    try {
+      setSaving(true);
+      const payload = {
+        guardianName: formData.guardianName,
+        guardianMobile: formData.guardianMobile,
+        guardianMobileNo: formData.guardianMobile,
+        students: formData.students,
       };
 
-      setGroups([...groups, newGroup]);
-
-      alert("Sibling group created successfully");
+      if (editId) {
+        const res = await studentHubService.updateSiblingGroup(editId, payload);
+        if (res.data?.success) {
+          alert("Sibling group updated successfully");
+          resetForm();
+          setShowForm(false);
+          loadData();
+          setSelectedIds([]);
+        }
+      } else {
+        const res = await studentHubService.createSiblingGroup(payload);
+        if (res.data?.success) {
+          alert("Sibling group created successfully");
+          resetForm();
+          setShowForm(false);
+          loadData();
+          setSelectedIds([]);
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save sibling group");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const handleSearch = () => {
-    const filters = {
-      searchText,
-      guardianMobileFilter,
-    };
-
-    setAppliedFilters(filters);
-
-    const result = visibleGroups.filter((item) => {
-      const mobileMatch = filters.guardianMobileFilter
-        ? item.guardianMobile.includes(filters.guardianMobileFilter)
-        : true;
-
-      const searchMatch = filters.searchText
-        ? item.guardianName
-            .toLowerCase()
-            .includes(filters.searchText.toLowerCase()) ||
-          item.guardianMobile.includes(filters.searchText) ||
-          item.students.some(
-            (student) =>
-              student.studentName
-                .toLowerCase()
-                .includes(filters.searchText.toLowerCase()) ||
-              student.admissionNo
-                .toLowerCase()
-                .includes(filters.searchText.toLowerCase())
-          )
-        : true;
-
-      return mobileMatch && searchMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No sibling group found");
-    }
-
-    setIsSearched(true);
-    setSelectedIds([]);
-  };
-
-  const filteredGroups = visibleGroups.filter((item) => {
-    const mobileMatch = appliedFilters.guardianMobileFilter
-      ? item.guardianMobile.includes(appliedFilters.guardianMobileFilter)
+  const filteredGroups = groups.filter((item) => {
+    const mob = item.guardianMobileNo || item.guardianMobile || "";
+    const searchMatch = searchText.trim()
+      ? item.guardianName?.toLowerCase().includes(searchText.toLowerCase()) ||
+        mob.includes(searchText) ||
+        item.students?.some((s) => s.studentName?.toLowerCase().includes(searchText.toLowerCase()))
       : true;
 
-    const searchMatch = appliedFilters.searchText
-      ? item.guardianName
-          .toLowerCase()
-          .includes(appliedFilters.searchText.toLowerCase()) ||
-        item.guardianMobile.includes(appliedFilters.searchText) ||
-        item.students.some(
-          (student) =>
-            student.studentName
-              .toLowerCase()
-              .includes(appliedFilters.searchText.toLowerCase()) ||
-            student.admissionNo
-              .toLowerCase()
-              .includes(appliedFilters.searchText.toLowerCase())
-        )
+    const mobMatch = guardianMobileFilter.trim()
+      ? mob.includes(guardianMobileFilter.trim())
       : true;
 
-    return mobileMatch && searchMatch;
+    return searchMatch && mobMatch;
   });
 
-  const selectedGroups = visibleGroups.filter((item) =>
-    selectedIds.includes(item.id)
+  const selectedGroups = groups.filter((item) =>
+    selectedIds.includes(item._id || item.id)
   );
-
-  const selectedSingle =
-    selectedGroups.length === 1 ? selectedGroups[0] : null;
+  const selectedSingle = selectedGroups.length === 1 ? selectedGroups[0] : null;
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one sibling group");
+      alert("Please select exactly one sibling group to edit");
       return;
     }
 
-    setEditId(selectedSingle.id);
-
+    setEditId(selectedSingle._id || selectedSingle.id);
     setFormData({
       guardianName: selectedSingle.guardianName,
-      guardianMobile: selectedSingle.guardianMobile,
-      address: selectedSingle.address,
-      students: selectedSingle.students,
+      guardianMobile: selectedSingle.guardianMobileNo || selectedSingle.guardianMobile || "",
+      students: selectedSingle.students || [],
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select sibling group");
+      alert("Please select at least one sibling group to delete");
       return;
     }
 
-    const blockedGroup = visibleGroups.find((item) =>
-      usedSiblingGroups.includes(item.id)
-    );
-
-    if (blockedGroup) {
-      alert("Sibling group is already linked with students. Cannot delete.");
-      return;
-    }
-
-    const ok = window.confirm("Delete selected sibling group?");
-
+    const ok = window.confirm(`Delete ${selectedIds.length} selected sibling group(s)?`);
     if (!ok) return;
 
-    setGroups(groups.filter((item) => !selectedIds.includes(item.id)));
-
-    setSelectedIds([]);
-  };
-
-  const handleOpenProfile = (student) => {
-    alert("Open profile: " + student.studentName);
+    try {
+      for (const id of selectedIds) {
+        await studentHubService.deleteSiblingGroup(id);
+      }
+      alert("Sibling group(s) deleted successfully");
+      setSelectedIds([]);
+      loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete sibling group");
+    }
   };
 
   return (
@@ -327,7 +236,7 @@ function SiblingManagement() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/student-hub";
+              navigate("/student-hub");
             }
           }}
         >
@@ -336,7 +245,7 @@ function SiblingManagement() {
 
         <div>
           <h1>Sibling Management</h1>
-          <p>Manage sibling groups and family student links</p>
+          <p>Group siblings under a common parent/guardian for discount schemes and communication</p>
         </div>
       </div>
 
@@ -345,143 +254,150 @@ function SiblingManagement() {
           <div className="common-card">
             <div className="filter-grid">
               <div className="form-group">
-                <label>Guardian Mobile</label>
-
-                <input
-                  type="text"
-                  placeholder="Guardian mobile"
-                  value={guardianMobileFilter}
-                  onChange={(e) => setGuardianMobileFilter(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
                 <label>Search</label>
-
                 <input
                   type="text"
-                  placeholder="Guardian, student or admission no"
+                  placeholder="Guardian name, mobile, or student name..."
                   value={searchText}
                   onChange={(e) => setSearchText(e.target.value)}
                 />
               </div>
-            </div>
 
-            <div className="search-btn-row">
-              <AppButton type="primary" onClick={handleSearch}>
-                Search
-              </AppButton>
+              <div className="form-group">
+                <label>Guardian Mobile</label>
+                <input
+                  type="text"
+                  placeholder="Filter by mobile number..."
+                  value={guardianMobileFilter}
+                  onChange={(e) => setGuardianMobileFilter(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
           <div className="common-card">
             <div className="list-header">
-              <h2>Sibling Group List</h2>
+              <h2>Sibling Groups ({filteredGroups.length})</h2>
 
               <div className="list-action-buttons">
                 <AppButton type="primary" onClick={() => setShowForm(true)}>
-                  + Create Sibling Group
+                  + Add Sibling Group
                 </AppButton>
 
                 <AppButton
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Select one sibling group");
+                      alert("Please select one group to view");
                       return;
                     }
-
                     setViewData(selectedSingle);
                   }}
                 >
-                  View Group
+                  View
                 </AppButton>
 
                 <AppButton type="primary" onClick={handleEdit}>
-                  Edit Group
+                  Edit
                 </AppButton>
 
                 <AppButton type="delete" onClick={handleDelete}>
-                  Delete Group
+                  Delete
                 </AppButton>
               </div>
             </div>
 
             <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>
-                      <input
-                        type="checkbox"
-                        checked={
-                          filteredGroups.length > 0 &&
-                          selectedIds.length === filteredGroups.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredGroups.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
+              {loading ? (
+                <SkeletonTable rows={5} columns={5} />
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: "40px" }}>
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredGroups.length > 0 &&
+                            selectedIds.length === filteredGroups.length
                           }
-                        }}
-                      />
-                    </th>
-
-                    <th>S.No</th>
-                    <th>Guardian Name</th>
-                    <th>Guardian Mobile</th>
-                    <th>Total Children</th>
-                    <th>Students</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {!isSearched ? (
-                    <tr>
-                      <td colSpan="6" className="empty-row">
-                        Click Search to view sibling groups
-                      </td>
-                    </tr>
-                  ) : filteredGroups.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="empty-row">
-                        No sibling group found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredGroups.map((item, index) => (
-                      <tr key={item.id}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
-                              setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedIds(
+                                filteredGroups.map((item) => item._id || item.id)
                               );
-                            }}
-                          />
-                        </td>
+                            } else {
+                              setSelectedIds([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th>S.No</th>
+                      <th>Guardian Name</th>
+                      <th>Guardian Mobile</th>
+                      <th>Linked Siblings</th>
+                    </tr>
+                  </thead>
 
-                        <td>{index + 1}</td>
-                        <td>{item.guardianName}</td>
-                        <td>{item.guardianMobile}</td>
-                        <td>{item.students.length}</td>
-                        <td>
-                          {item.students
-                            .map((student) => student.studentName)
-                            .join(", ")}
+                  <tbody>
+                    {filteredGroups.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="empty-row">
+                          {searchText || guardianMobileFilter
+                            ? "No sibling groups match your filter"
+                            : "No sibling groups available. Click '+ Add Sibling Group' to create one."}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      filteredGroups.map((item, index) => {
+                        const itemId = item._id || item.id;
+                        return (
+                          <tr key={itemId}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(itemId)}
+                                onChange={() => {
+                                  setSelectedIds((prev) =>
+                                    prev.includes(itemId)
+                                      ? prev.filter((id) => id !== itemId)
+                                      : [...prev, itemId]
+                                  );
+                                }}
+                              />
+                            </td>
+                            <td>{index + 1}</td>
+                            <td><strong>{item.guardianName}</strong></td>
+                            <td>{item.guardianMobileNo || item.guardianMobile}</td>
+                            <td>
+                              {item.students && item.students.length > 0 ? (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                  {item.students.map((s, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        padding: "2px 8px",
+                                        borderRadius: "6px",
+                                        backgroundColor: "#f3f4f6",
+                                        fontSize: "12px",
+                                        border: "1px solid #e5e7eb",
+                                      }}
+                                    >
+                                      {s.studentName} {s.className ? `(${s.className})` : ""}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: "#9ca3af" }}>0 students</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </>
@@ -489,117 +405,101 @@ function SiblingManagement() {
 
       {showForm && (
         <div className="common-card">
-         <div className="guardian-form-grid">
+          <div className="enquiry-form-grid">
             <div className="form-group">
-              <label>Guardian Name</label>
-
+              <label>Guardian Name *</label>
               <input
                 type="text"
                 name="guardianName"
+                placeholder="Father or Guardian Name"
                 value={formData.guardianName}
                 onChange={handleChange}
+                autoFocus
               />
             </div>
 
             <div className="form-group">
-              <label>Guardian Mobile</label>
-
+              <label>Guardian Mobile *</label>
               <input
                 type="text"
                 name="guardianMobile"
+                placeholder="10-digit mobile number"
                 value={formData.guardianMobile}
                 onChange={handleChange}
               />
             </div>
-
-            <div className="form-group full-width">
-              <label>Address</label>
-
-              <textarea
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-              ></textarea>
-            </div>
           </div>
 
-          <div className="common-card inner-card">
-            <h2>Add Students In Group</h2>
-
-            <div className="student-add-row">
-              <div className="form-group">
-
+          <div style={{ marginTop: "20px", borderTop: "1px solid #f3f4f6", paddingTop: "15px" }}>
+            <h3>Link Students to this Sibling Group</h3>
+            <div style={{ display: "flex", gap: "10px", marginTop: "10px", alignItems: "flex-end" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Select Student to Link</label>
                 <select
                   name="studentId"
                   value={studentForm.studentId}
-                  onChange={handleStudentFormChange}
+                  onChange={(e) => setStudentForm({ studentId: e.target.value })}
                 >
-                  <option value="">Select Student</option>
-
-                  {demoStudents.map((student) => (
-                    <option key={student.id} value={student.id}>
-                      {student.studentName} - {student.admissionNo}
+                  <option value="">— Choose Student —</option>
+                  {studentsList.map((s) => (
+                    <option key={s._id || s.id} value={s._id || s.id}>
+                      {s.studentName} — {s.className} {s.section ? `(${s.section})` : ""} [{s.admissionNo || s.srNo}]
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="student-add-btn">
-                <AppButton type="primary" onClick={handleAddStudentToGroup}>
-                  Add Student
-                </AppButton>
-              </div>
+              <AppButton type="primary" onClick={handleAddStudentToGroup}>
+                + Add to Group
+              </AppButton>
             </div>
 
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>S.No</th>
-                    <th>Admission No</th>
-                    <th>Student Name</th>
-                    <th>Class</th>
-                    <th>Section</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {formData.students.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="empty-row">
-                        No student added
-                      </td>
+            {formData.students.length > 0 && (
+              <div style={{ marginTop: "15px" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f9fafb", textAlign: "left" }}>
+                      <th style={{ padding: "8px" }}>Student Name</th>
+                      <th style={{ padding: "8px" }}>Class</th>
+                      <th style={{ padding: "8px" }}>Admission No</th>
+                      <th style={{ padding: "8px", width: "80px" }}>Action</th>
                     </tr>
-                  ) : (
-                    formData.students.map((student, index) => (
-                      <tr key={student.id}>
-                        <td>{index + 1}</td>
-                        <td>{student.admissionNo}</td>
-                        <td>{student.studentName}</td>
-                        <td>{student.className}</td>
-                        <td>{student.sectionName}</td>
-                        <td>
-                          <AppButton
-                            type="delete"
-                            onClick={() =>
-                              handleRemoveStudentFromForm(student.id)
-                            }
-                          >
-                            Remove
-                          </AppButton>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {formData.students.map((st) => {
+                      const sid = st.studentId || st._id || st.id;
+                      return (
+                        <tr key={sid} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                          <td style={{ padding: "8px" }}><strong>{st.studentName}</strong></td>
+                          <td style={{ padding: "8px" }}>{st.className} {st.section ? `(${st.section})` : ""}</td>
+                          <td style={{ padding: "8px" }}>{st.admissionNo || "—"}</td>
+                          <td style={{ padding: "8px" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveStudentFromForm(sid)}
+                              style={{
+                                color: "#ef4444",
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                fontWeight: "600",
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update Group" : "Save Group"}
+          <div className="form-actions" style={{ marginTop: "25px" }}>
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update Group" : "Save Group"}
             </AppButton>
 
             <AppButton
@@ -620,7 +520,6 @@ function SiblingManagement() {
           <div className="view-popup">
             <div className="popup-head">
               <h2>Sibling Group Details</h2>
-
               <button
                 className="popup-close-btn"
                 onClick={() => setViewData(null)}
@@ -633,53 +532,23 @@ function SiblingManagement() {
               <p>
                 <strong>Guardian Name:</strong> {viewData.guardianName}
               </p>
-
               <p>
-                <strong>Guardian Mobile:</strong> {viewData.guardianMobile}
+                <strong>Guardian Mobile:</strong> {viewData.guardianMobileNo || viewData.guardianMobile}
               </p>
-
-              <p>
-                <strong>Total Children:</strong> {viewData.students.length}
-              </p>
-
-              <p className="full-width">
-                <strong>Address:</strong> {viewData.address || "-"}
-              </p>
-            </div>
-
-            <div className="table-wrap sibling-popup-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>S.No</th>
-                    <th>Admission No</th>
-                    <th>Student Name</th>
-                    <th>Class</th>
-                    <th>Section</th>
-                    <th>Profile</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {viewData.students.map((student, index) => (
-                    <tr key={student.id}>
-                      <td>{index + 1}</td>
-                      <td>{student.admissionNo}</td>
-                      <td>{student.studentName}</td>
-                      <td>{student.className}</td>
-                      <td>{student.sectionName}</td>
-                      <td>
-                        <button
-                          className="profile-icon-btn"
-                          onClick={() => handleOpenProfile(student)}
-                        >
-                          👤
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div>
+                <strong>Siblings in Group:</strong>
+                <ul style={{ marginTop: "6px", paddingLeft: "20px" }}>
+                  {viewData.students && viewData.students.length > 0 ? (
+                    viewData.students.map((s, idx) => (
+                      <li key={idx}>
+                        {s.studentName} — {s.className} [{s.admissionNo || s.srNo || "—"}]
+                      </li>
+                    ))
+                  ) : (
+                    <li>No students linked</li>
+                  )}
+                </ul>
+              </div>
             </div>
           </div>
         </div>

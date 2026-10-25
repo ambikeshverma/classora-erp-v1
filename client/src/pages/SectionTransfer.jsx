@@ -1,55 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./sectionTransfer.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { studentHubService } from "../services/api";
 
 function SectionTransfer() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const classOptions = [
-    "Class 1",
-    "Class 2",
-    "Class 3",
-    "Class 4",
-    "Class 5",
-    "Class 6",
-  ];
-
-  const sectionOptions = ["A", "B", "C", "D"];
-
-  const demoStudents = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      studentName: "Rahul Kumar",
-      admissionNo: "ADM001",
-      className: "Class 6",
-      sectionName: "A",
-      rollNo: "6A-001",
-      status: "Active",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      studentName: "Priya Singh",
-      admissionNo: "ADM002",
-      className: "Class 6",
-      sectionName: "A",
-      rollNo: "6A-002",
-      status: "Active",
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      studentName: "Aman Verma",
-      admissionNo: "ADM003",
-      className: "Class 6",
-      sectionName: "B",
-      rollNo: "6B-001",
-      status: "Active",
-    },
-  ];
-
-  const [students, setStudents] = useState(demoStudents);
+  const [loading, setLoading] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [students, setStudents] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [classFilter, setClassFilter] = useState("");
@@ -60,140 +23,127 @@ function SectionTransfer() {
   const [isSearched, setIsSearched] = useState(false);
   const [showTransferPopup, setShowTransferPopup] = useState(false);
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    classFilter: "",
-    currentSectionFilter: "",
-    searchText: "",
-  });
+  useEffect(() => {
+    const fetchMeta = async () => {
+      try {
+        const res = await studentHubService.getMeta();
+        if (res.data?.success) {
+          setClasses(res.data.data.classes || []);
+          setSections(res.data.data.sections || []);
+          if (res.data.data.classes?.length > 0) {
+            setClassFilter(res.data.data.classes[0].className);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load meta:", err);
+      }
+    };
+    fetchMeta();
+  }, []);
 
-  const getFilteredStudents = (filters) => {
-    return students
-      .filter((item) => {
-        const schoolMatch = item.schoolId === schoolId;
-
-        const classMatch = filters.classFilter
-          ? item.className === filters.classFilter
-          : true;
-
-        const sectionMatch = filters.currentSectionFilter
-          ? item.sectionName === filters.currentSectionFilter
-          : true;
-
-        const searchMatch = filters.searchText
-          ? item.studentName
-              .toLowerCase()
-              .includes(filters.searchText.toLowerCase()) ||
-            item.admissionNo
-              .toLowerCase()
-              .includes(filters.searchText.toLowerCase()) ||
-            item.rollNo
-              .toLowerCase()
-              .includes(filters.searchText.toLowerCase())
-          : true;
-
-        return schoolMatch && classMatch && sectionMatch && searchMatch;
-      })
-      .sort((a, b) => a.studentName.localeCompare(b.studentName));
-  };
-
-  const handleSearch = () => {
-    if (!classFilter || !currentSectionFilter) {
-      alert("Select class and current section");
+  const handleSearch = async () => {
+    if (!classFilter) {
+      alert("Please select a Class first");
       return;
     }
 
-    const filters = {
-      classFilter,
-      currentSectionFilter,
-      searchText,
-    };
+    try {
+      setLoading(true);
+      setIsSearched(true);
+      const params = { className: classFilter };
+      if (currentSectionFilter) params.section = currentSectionFilter;
 
-    setAppliedFilters(filters);
-
-    const result = getFilteredStudents(filters);
-
-    if (result.length === 0) {
-      alert("No student found");
+      const res = await studentHubService.getStudentsForTransfer(params);
+      if (res.data?.success) {
+        setStudents(res.data.data || []);
+      }
+      setSelectedIds([]);
+    } catch (err) {
+      console.error("Search error:", err);
+    } finally {
+      setLoading(false);
     }
-
-    setIsSearched(true);
-    setSelectedIds([]);
   };
 
-  const filteredStudents = getFilteredStudents(appliedFilters);
-
-  const handleTransfer = () => {
+  const handleTransfer = async () => {
     if (selectedIds.length === 0) {
-      alert("Select student");
+      alert("Please select at least one student to transfer");
       return;
     }
 
     if (!newSection) {
-      alert("Select destination section");
+      alert("Please select destination section");
       return;
     }
 
     if (newSection === currentSectionFilter) {
-      alert("Current section and new section cannot be same");
+      alert("Destination section must be different from the current section");
       return;
     }
 
-    const ok = window.confirm("Transfer selected students?");
+    try {
+      setTransferring(true);
+      const res = await studentHubService.bulkTransferSection({
+        studentIds: selectedIds,
+        toSection: newSection,
+      });
 
-    if (!ok) return;
-
-    setStudents(
-      students.map((student) => {
-        if (!selectedIds.includes(student.id)) {
-          return student;
-        }
-
-        return {
-          ...student,
-          sectionName: newSection,
-        };
-      })
-    );
-
-    alert("Section transferred successfully");
-
-    setSelectedIds([]);
-    setNewSection("");
-    setShowTransferPopup(false);
+      if (res.data?.success) {
+        alert(res.data.message || "Students transferred successfully");
+        setShowTransferPopup(false);
+        setNewSection("");
+        handleSearch();
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to transfer students");
+    } finally {
+      setTransferring(false);
+    }
   };
+
+  const availableSections = classFilter
+    ? sections.filter((s) => s.className === classFilter)
+    : sections;
+
+  const filteredStudents = students.filter((s) => {
+    if (!searchText.trim()) return true;
+    const q = searchText.toLowerCase();
+    return (
+      s.studentName?.toLowerCase().includes(q) ||
+      s.admissionNo?.toLowerCase().includes(q) ||
+      s.rollNo?.toLowerCase().includes(q) ||
+      s.rollNumber?.toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="section-transfer-page">
       <div className="common-page-header">
-        <AppButton
-          type="back"
-          onClick={() => {
-            window.location.href = "/student-hub";
-          }}
-        >
+        <AppButton type="back" onClick={() => navigate("/student-hub")}>
           ←
         </AppButton>
 
         <div>
           <h1>Section Transfer</h1>
-          <p>Transfer students between sections</p>
+          <p>Reassign students across sections within the same class</p>
         </div>
       </div>
 
       <div className="common-card">
         <div className="filter-grid">
           <div className="form-group">
-            <label>Class</label>
-
+            <label>Class *</label>
             <select
               value={classFilter}
-              onChange={(e) => setClassFilter(e.target.value)}
+              onChange={(e) => {
+                setClassFilter(e.target.value);
+                setCurrentSectionFilter("");
+              }}
             >
               <option value="">Select Class</option>
-
-              {classOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              {classes.map((item) => (
+                <option key={item._id || item.className} value={item.className}>
+                  {item.className}
                 </option>
               ))}
             </select>
@@ -201,16 +151,14 @@ function SectionTransfer() {
 
           <div className="form-group">
             <label>Current Section</label>
-
             <select
               value={currentSectionFilter}
               onChange={(e) => setCurrentSectionFilter(e.target.value)}
             >
-              <option value="">Select Section</option>
-
-              {sectionOptions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              <option value="">All Sections</option>
+              {availableSections.map((item) => (
+                <option key={item._id || item.sectionName} value={item.sectionName}>
+                  Section {item.sectionName}
                 </option>
               ))}
             </select>
@@ -218,123 +166,125 @@ function SectionTransfer() {
 
           <div className="form-group">
             <label>Search Student</label>
-
             <input
               type="text"
-              placeholder="Name, admission no or roll no"
+              placeholder="Filter by name, admission no, roll no..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
             />
           </div>
         </div>
 
-        <div className="search-btn-row section-actions">
+        <div className="search-btn-row">
           <AppButton type="primary" onClick={handleSearch}>
-            Search
+            Search Students
           </AppButton>
         </div>
       </div>
 
-      <div className="common-card">
-        <div className="list-header">
-          <h2>Student List</h2>
+      {isSearched && (
+        <div className="common-card">
+          <div className="list-header">
+            <h2>
+              Class Students ({filteredStudents.length})
+            </h2>
 
-          <div className="list-action-buttons">
-            <AppButton
-              type="primary"
-              onClick={() => {
-                if (selectedIds.length === 0) {
-                  alert("Select student");
-                  return;
-                }
-
-                setShowTransferPopup(true);
-              }}
-            >
-              Transfer Section
-            </AppButton>
+            <div className="list-action-buttons">
+              <AppButton
+                type="primary"
+                onClick={() => {
+                  if (selectedIds.length === 0) {
+                    alert("Please select at least one student to transfer");
+                    return;
+                  }
+                  setShowTransferPopup(true);
+                }}
+                disabled={students.length === 0}
+              >
+                Transfer Selected to New Section
+              </AppButton>
+            </div>
           </div>
-        </div>
 
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    checked={
-                      isSearched &&
-                      filteredStudents.length > 0 &&
-                      selectedIds.length === filteredStudents.length
-                    }
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(filteredStudents.map((item) => item.id));
-                      } else {
-                        setSelectedIds([]);
-                      }
-                    }}
-                  />
-                </th>
-
-                <th>S.No</th>
-                <th>Student Name</th>
-                <th>Admission Number</th>
-                <th>Class</th>
-                <th>Current Section</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {!isSearched ? (
-                <tr>
-                  <td colSpan="6" className="empty-row">
-                    Click Search to view students
-                  </td>
-                </tr>
-              ) : filteredStudents.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="empty-row">
-                    No student found
-                  </td>
-                </tr>
-              ) : (
-                filteredStudents.map((student, index) => (
-                  <tr key={student.id}>
-                    <td>
+          <div className="table-wrap">
+            {loading ? (
+              <SkeletonTable rows={5} columns={5} />
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ width: "40px" }}>
                       <input
                         type="checkbox"
-                        checked={selectedIds.includes(student.id)}
-                        onChange={() => {
-                          setSelectedIds((prev) =>
-                            prev.includes(student.id)
-                              ? prev.filter((id) => id !== student.id)
-                              : [...prev, student.id]
-                          );
+                        checked={
+                          filteredStudents.length > 0 &&
+                          selectedIds.length === filteredStudents.length
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds(filteredStudents.map((item) => item._id || item.id));
+                          } else {
+                            setSelectedIds([]);
+                          }
                         }}
                       />
-                    </td>
-
-                    <td>{index + 1}</td>
-                    <td>{student.studentName}</td>
-                    <td>{student.admissionNo}</td>
-                    <td>{student.className}</td>
-                    <td>{student.sectionName}</td>
+                    </th>
+                    <th>S.No</th>
+                    <th>Admission No</th>
+                    <th>Student Name</th>
+                    <th>Current Section</th>
+                    <th>Roll No</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+
+                <tbody>
+                  {filteredStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className="empty-row">
+                        No students found in this class/section.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStudents.map((item, index) => {
+                      const itemId = item._id || item.id;
+                      return (
+                        <tr key={itemId}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(itemId)}
+                              onChange={() => {
+                                setSelectedIds((prev) =>
+                                  prev.includes(itemId)
+                                    ? prev.filter((id) => id !== itemId)
+                                    : [...prev, itemId]
+                                );
+                              }}
+                            />
+                          </td>
+                          <td>{index + 1}</td>
+                          <td><span className="badge-code">{item.admissionNo || item.srNo || "—"}</span></td>
+                          <td><strong>{item.studentName}</strong></td>
+                          <td>
+                            <span className="badge-code">Section {item.section || item.sectionName || "—"}</span>
+                          </td>
+                          <td>{item.rollNo || item.rollNumber || "—"}</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {showTransferPopup && (
         <div className="popup-overlay">
           <div className="view-popup">
             <div className="popup-head">
-              <h2>Transfer Section</h2>
-
+              <h2>Transfer {selectedIds.length} Student(s)</h2>
               <button
                 className="popup-close-btn"
                 onClick={() => setShowTransferPopup(false)}
@@ -343,27 +293,37 @@ function SectionTransfer() {
               </button>
             </div>
 
-            <div className="form-group">
-              <label>New Section</label>
+            <div style={{ padding: "10px 0" }}>
+              <div className="form-group" style={{ marginBottom: "15px" }}>
+                <label>Select Target Section *</label>
+                <select
+                  value={newSection}
+                  onChange={(e) => setNewSection(e.target.value)}
+                >
+                  <option value="">Select Destination Section</option>
+                  {availableSections.map((s) => (
+                    <option key={s._id || s.sectionName} value={s.sectionName}>
+                      Section {s.sectionName}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-              <select
-                value={newSection}
-                onChange={(e) => setNewSection(e.target.value)}
-              >
-                <option value="">Select New Section</option>
-
-                {sectionOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-actions">
-              <AppButton type="primary" onClick={handleTransfer}>
-                Transfer
-              </AppButton>
+              <div className="form-actions">
+                <AppButton
+                  type="primary"
+                  onClick={handleTransfer}
+                  disabled={transferring}
+                >
+                  {transferring ? "Transferring..." : "Confirm Transfer"}
+                </AppButton>
+                <AppButton
+                  type="secondary"
+                  onClick={() => setShowTransferPopup(false)}
+                >
+                  Cancel
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>
