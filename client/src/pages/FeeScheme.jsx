@@ -5,7 +5,6 @@ import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
 function FeeScheme() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
 
   const allowedFeeTypes = [
     "Monthly",
@@ -41,7 +40,7 @@ function FeeScheme() {
   const [editingFeeType, setEditingFeeType] = useState("");
   const [isLocked, setIsLocked] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [, setSaving] = useState(false);
 
   useEffect(() => {
     fetchFeeScheme();

@@ -4,8 +4,6 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
-const visitorStatuses = ["Waiting", "Inside Campus", "Exited", "Cancelled"];
-const visitorTypes = ["Walk-In Visitor", "Appointment Visitor"];
 
 function GatePassManagement() {
   const [showForm, setShowForm] = useState(false);

@@ -5,9 +5,6 @@ import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
 function FeePlanManagement() {
-  const currentUser = {
-    name: localStorage.getItem("userName") || "School Admin",
-  };
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,6 +122,7 @@ function FeePlanManagement() {
       setNewStudentAmounts(createEmptyAmounts());
       setOldStudentAmounts(createEmptyAmounts());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, selectedPlanName, savedPlans, feeHeads, allowedFeeScheme]);
 
   const getSectionTotal = (amounts) => {

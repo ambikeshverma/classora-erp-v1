@@ -644,8 +644,8 @@ function NewAdmission() {
       </section>
 
       <div className="form-actions">
-        <AppButton type="primary" onClick={handleSave}>
-          Save
+        <AppButton type="primary" onClick={handleSave} disabled={submitting}>
+          {submitting ? "Saving..." : "Save"}
         </AppButton>
 
         <AppButton

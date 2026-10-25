@@ -149,6 +149,7 @@ function StaffManagement() {
   );
 
 
+  // eslint-disable-next-line no-unused-vars
   const generateEmployeeCode = () => {
     const count =
       staffList.filter((item) => item.schoolId === schoolId).length + 1;

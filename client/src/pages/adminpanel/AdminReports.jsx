@@ -6,7 +6,7 @@ import { adminPanelService } from "../../services/api";
 function AdminReports() {
   const [loading, setLoading] = useState(true);
   const [feePlans, setFeePlans] = useState([]);
-  const [feeScheme, setFeeScheme] = useState({});
+  const [, setFeeScheme] = useState({});
 
   useEffect(() => {
     loadReports();

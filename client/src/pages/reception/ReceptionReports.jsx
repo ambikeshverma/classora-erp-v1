@@ -18,6 +18,7 @@ function ReceptionReports() {
   }, []);
 
   // For MasterReport: fetch live data via API for each report's getData
+  // eslint-disable-next-line no-unused-vars
   const makeGetData = (fetchFn) => async ({ filters }) => {
     try {
       const params = {};
