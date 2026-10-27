@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import "./subjectSetup.css";
 import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { masterService } from "../services/api";
 
 function SubjectSetup() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [subjects, setSubjects] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
   const [editId, setEditId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [subject, setSubject] = useState({
     subjectName: "",
@@ -33,7 +36,11 @@ function SubjectSetup() {
     }
   };
 
+  const hasFetched = React.useRef(false);
+
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     fetchSubjects();
   }, []);
 
@@ -150,7 +157,7 @@ function SubjectSetup() {
       <div className="common-page-header">
         <AppButton
           type="back"
-          onClick={() => (window.location.href = "/academic-zone")}
+          onClick={() => navigate("/academic-zone")}
         >
           ←
         </AppButton>
@@ -228,17 +235,34 @@ function SubjectSetup() {
       </div>
 
       <div className="common-card">
-        <div className="table-top-header">
+        <div className="table-top-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
           <h2>Subject List</h2>
 
-          <div className="top-action-buttons">
-            <AppButton type="primary" onClick={handleEdit}>
-              Edit
-            </AppButton>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <input
+              type="text"
+              placeholder="Search subjects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: "8px",
+                border: "1px solid #d1d5db",
+                fontSize: "14px",
+                outline: "none",
+                minWidth: "180px",
+              }}
+            />
 
-            <AppButton type="delete" onClick={handleDelete}>
-              Delete
-            </AppButton>
+            <div className="top-action-buttons">
+              <AppButton type="primary" onClick={handleEdit}>
+                Edit
+              </AppButton>
+
+              <AppButton type="delete" onClick={handleDelete}>
+                Delete
+              </AppButton>
+            </div>
           </div>
         </div>
 
@@ -285,7 +309,17 @@ function SubjectSetup() {
                   </td>
                 </tr>
               ) : (
-                subjects.map((item, index) => {
+                subjects
+                  .filter((item) => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      (item.subjectName || "").toLowerCase().includes(q) ||
+                      (item.subjectCode || "").toLowerCase().includes(q) ||
+                      (item.subjectType || "").toLowerCase().includes(q)
+                    );
+                  })
+                  .map((item, index) => {
                   const sId = item._id || item.id;
                   return (
                     <tr key={sId}>

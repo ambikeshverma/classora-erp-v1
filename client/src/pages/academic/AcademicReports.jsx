@@ -1,97 +1,107 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import MasterReport from "../../components/reports/MasterReport";
+import { SkeletonStats, SkeletonTable } from "../../components/Skeleton";
+import { academicService, schoolService } from "../../services/api";
 
 function AcademicReports() {
-  // schoolId is available from JWT token via api interceptor (req.schoolId in backend)
+  const [loading, setLoading] = useState(true);
+  const [scholasticSubjects, setScholasticSubjects] = useState([]);
+  const [coScholasticSubjects, setCoScholasticSubjects] = useState([]);
+  const [classSubjectMappings, setClassSubjectMappings] = useState([]);
+  const [studentSubjectMappings, setStudentSubjectMappings] = useState([]);
+  const [classes, setClasses] = useState([]);
 
-  const schoolProfiles = [
-    {
-      schoolId: "SCH001",
-      schoolName: "Chandra Shekhar Azad Inter College",
-      address: "Azad Nagar, Barabanki",
-      email: "school@gmail.com",
-      website: "www.school.com",
-      phone: "9876543210",
-      logo: "",
-    },
-  ];
+  const [schoolProfile, setSchoolProfile] = useState({
+    schoolId: localStorage.getItem("schoolId") || "",
+    schoolName: localStorage.getItem("userName") || "School Admin",
+    address: "",
+    email: "",
+    phone: "",
+    website: "",
+    logo: "",
+  });
 
   const currentUser = {
     name: localStorage.getItem("userName") || "School Admin",
   };
 
-  const subjects = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      subjectName: "Hindi",
-      subjectCode: "HIN",
-      subjectType: "Theory",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      subjectName: "Science",
-      subjectCode: "SCI",
-      subjectType: "Practical",
-    },
-  ];
+  /* ===============================
+     Fetch Real Academic Data
+  =============================== */
+  const hasFetched = React.useRef(false);
 
-  const coScholasticSubjects = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      subjectName: "Discipline",
-      subjectCode: "DIS",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      subjectName: "Sports",
-      subjectCode: "SPT",
-    },
-  ];
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
-  const classSubjectMappings = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      className: "Class 9",
-      scholasticSubjects: ["Hindi", "English", "Math"],
-      coScholasticSubjects: ["Discipline", "Sports"],
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      className: "Class 10",
-      scholasticSubjects: ["Hindi", "English", "Science", "SST"],
-      coScholasticSubjects: ["Discipline"],
-    },
-  ];
+    const fetchReportData = async () => {
+      try {
+        setLoading(true);
 
-  const studentSubjectMappings = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      admissionNo: "ADM001",
-      studentName: "Aman Kumar",
-      className: "Class 9",
-      section: "A",
-      scholasticSubjects: ["Hindi", "English", "Math"],
-      coScholasticSubjects: ["Discipline"],
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      admissionNo: "ADM002",
-      studentName: "Riya Sharma",
-      className: "Class 9",
-      section: "A",
-      scholasticSubjects: ["Hindi", "Math"],
-      coScholasticSubjects: ["Sports"],
-    },
-  ];
+        const [reportsRes, metaRes, profRes] = await Promise.allSettled([
+          academicService.getReportsData(),
+          academicService.getMeta(),
+          schoolService.getProfile(),
+        ]);
 
+        if (reportsRes.status === "fulfilled" && reportsRes.value.data?.success) {
+          const d = reportsRes.value.data.data;
+          setScholasticSubjects(d.scholasticSubjects || []);
+          setCoScholasticSubjects(d.coScholasticSubjects || []);
+          setClassSubjectMappings(d.classSubjectMappings || []);
+          setStudentSubjectMappings(d.studentSubjectMappings || []);
+        }
+
+        if (metaRes.status === "fulfilled" && metaRes.value.data?.success) {
+          setClasses(metaRes.value.data.data.classes || []);
+        }
+
+        if (profRes.status === "fulfilled" && profRes.value.data?.success) {
+          const p = profRes.value.data.school || profRes.value.data.data || {};
+          setSchoolProfile({
+            schoolId: localStorage.getItem("schoolId") || p.campusId || p._id || "",
+            schoolName: p.schoolName || localStorage.getItem("userName") || "School Admin",
+            address: p.address || "",
+            email: p.email || "",
+            phone: p.phone || p.mobile || "",
+            website: p.website || "",
+            logo: p.logo || "",
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load academic reports data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReportData();
+  }, []);
+
+  // Dynamic filter options derived from real database records
+  const classOptions = classes.map((c) => c.className).filter(Boolean);
+  const sectionOptions = Array.from(
+    new Set(
+      classes.flatMap((c) =>
+        (c.sections || []).map((s) => s.sectionName || s)
+      )
+    )
+  ).filter(Boolean);
+
+  const subjectTypeOptions = Array.from(
+    new Set(
+      scholasticSubjects
+        .map((s) => s.subjectType)
+        .filter(Boolean)
+    )
+  );
+  if (subjectTypeOptions.length === 0) {
+    subjectTypeOptions.push("Theory", "Practical", "Scholastic");
+  }
+
+  /* ===============================
+     Report Definitions
+  =============================== */
   const reports = [
     {
       id: "subject-setup-report",
@@ -109,22 +119,21 @@ function AcademicReports() {
           name: "subjectType",
           label: "Subject Type",
           type: "select",
-          placeholder: "All Type",
-          options: ["Theory", "Practical"],
+          placeholder: "All Types",
+          options: subjectTypeOptions,
         },
       ],
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
         { key: "subjectName", label: "Subject Name" },
-        { key: "subjectCode", label: "Subject Code" },
-        { key: "subjectType", label: "Subject Type" },
+        { key: "subjectCode", label: "Subject Code", render: (row) => row.subjectCode || "-" },
+        { key: "subjectType", label: "Subject Type", render: (row) => row.subjectType || "Theory" },
       ],
-      getData: ({ schoolId, filters }) =>
-        subjects
-          .filter((item) => item.schoolId === schoolId)
+      getData: ({ filters }) =>
+        scholasticSubjects
           .filter((item) =>
             filters.subjectName
-              ? item.subjectName
+              ? (item.subjectName || "")
                   .toLowerCase()
                   .includes(filters.subjectName.toLowerCase())
               : true
@@ -138,7 +147,7 @@ function AcademicReports() {
       id: "co-scholastic-subject-report",
       title: "Co-Scholastic Subject Setup Report",
       description: "View co-scholastic subject setup details",
-      icon: "🎨",
+      icon: "🧩",
       filters: [
         {
           name: "subjectName",
@@ -156,21 +165,20 @@ function AcademicReports() {
       columns: [
         { key: "sno", label: "S.No", render: (_, index) => index + 1 },
         { key: "subjectName", label: "Subject Name" },
-        { key: "subjectCode", label: "Subject Code" },
+        { key: "subjectCode", label: "Subject Code", render: (row) => row.subjectCode || "-" },
       ],
-      getData: ({ schoolId, filters }) =>
+      getData: ({ filters }) =>
         coScholasticSubjects
-          .filter((item) => item.schoolId === schoolId)
           .filter((item) =>
             filters.subjectName
-              ? item.subjectName
+              ? (item.subjectName || "")
                   .toLowerCase()
                   .includes(filters.subjectName.toLowerCase())
               : true
           )
           .filter((item) =>
             filters.subjectCode
-              ? item.subjectCode
+              ? (item.subjectCode || "")
                   .toLowerCase()
                   .includes(filters.subjectCode.toLowerCase())
               : true
@@ -187,14 +195,14 @@ function AcademicReports() {
           name: "className",
           label: "Class",
           type: "select",
-          placeholder: "All Class",
-          options: ["Class 9", "Class 10", "Class 11", "Class 12"],
+          placeholder: "All Classes",
+          options: classOptions,
         },
         {
           name: "subjectType",
           label: "Subject Type",
           type: "select",
-          placeholder: "All Type",
+          placeholder: "All Types",
           options: ["Scholastic", "Co-Scholastic"],
         },
         {
@@ -210,28 +218,34 @@ function AcademicReports() {
         {
           key: "scholasticSubjects",
           label: "Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.join(", "),
+          render: (row) =>
+            row.scholasticSubjects && row.scholasticSubjects.length > 0
+              ? row.scholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "coScholasticSubjects",
           label: "Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.join(", "),
+          render: (row) =>
+            row.coScholasticSubjects && row.coScholasticSubjects.length > 0
+              ? row.coScholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "totalScholasticSubjects",
-          label: "Total Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.length,
+          label: "Total Scholastic",
+          render: (row) => (row.scholasticSubjects || []).length,
         },
         {
           key: "totalCoScholasticSubjects",
-          label: "Total Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.length,
+          label: "Total Co-Scholastic",
+          render: (row) => (row.coScholasticSubjects || []).length,
         },
         {
           key: "totalSubjects",
           label: "Total Subjects",
           render: (row) =>
-            row.scholasticSubjects.length + row.coScholasticSubjects.length,
+            (row.scholasticSubjects || []).length + (row.coScholasticSubjects || []).length,
         },
       ],
       defaultColumns: [
@@ -240,17 +254,22 @@ function AcademicReports() {
         {
           key: "scholasticSubjects",
           label: "Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.join(", "),
+          render: (row) =>
+            row.scholasticSubjects && row.scholasticSubjects.length > 0
+              ? row.scholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "coScholasticSubjects",
           label: "Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.join(", "),
+          render: (row) =>
+            row.coScholasticSubjects && row.coScholasticSubjects.length > 0
+              ? row.coScholasticSubjects.join(", ")
+              : "-",
         },
       ],
-      getData: ({ schoolId, filters }) =>
+      getData: ({ filters }) =>
         classSubjectMappings
-          .filter((item) => item.schoolId === schoolId)
           .filter((item) =>
             filters.className ? item.className === filters.className : true
           )
@@ -260,20 +279,21 @@ function AcademicReports() {
             const search = filters.subjectName.toLowerCase();
 
             if (filters.subjectType === "Scholastic") {
-              return item.scholasticSubjects.some((sub) =>
+              return (item.scholasticSubjects || []).some((sub) =>
                 sub.toLowerCase().includes(search)
               );
             }
 
             if (filters.subjectType === "Co-Scholastic") {
-              return item.coScholasticSubjects.some((sub) =>
+              return (item.coScholasticSubjects || []).some((sub) =>
                 sub.toLowerCase().includes(search)
               );
             }
 
-            return [...item.scholasticSubjects, ...item.coScholasticSubjects].some(
-              (sub) => sub.toLowerCase().includes(search)
-            );
+            return [
+              ...(item.scholasticSubjects || []),
+              ...(item.coScholasticSubjects || []),
+            ].some((sub) => sub.toLowerCase().includes(search));
           }),
     },
 
@@ -281,21 +301,21 @@ function AcademicReports() {
       id: "student-subject-mapping-report",
       title: "Student Subject Mapping Report",
       description: "View student-wise assigned subjects",
-      icon: "👨‍🎓",
+      icon: "🎓",
       filters: [
         {
           name: "className",
           label: "Class",
           type: "select",
-          placeholder: "All Class",
-          options: ["Class 9", "Class 10", "Class 11", "Class 12"],
+          placeholder: "All Classes",
+          options: classOptions,
         },
         {
           name: "section",
           label: "Section",
           type: "select",
-          placeholder: "All Section",
-          options: ["A", "B"],
+          placeholder: "All Sections",
+          options: sectionOptions,
         },
         {
           name: "studentSearch",
@@ -307,7 +327,7 @@ function AcademicReports() {
           name: "subjectType",
           label: "Subject Type",
           type: "select",
-          placeholder: "All Type",
+          placeholder: "All Types",
           options: ["Scholastic", "Co-Scholastic"],
         },
         {
@@ -323,31 +343,28 @@ function AcademicReports() {
         { key: "studentName", label: "Student Name" },
         { key: "className", label: "Class" },
         { key: "section", label: "Section" },
+        { key: "rollNo", label: "Roll No", render: (row) => row.rollNo || "-" },
         {
           key: "scholasticSubjects",
           label: "Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.join(", "),
+          render: (row) =>
+            row.scholasticSubjects && row.scholasticSubjects.length > 0
+              ? row.scholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "coScholasticSubjects",
           label: "Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.join(", "),
-        },
-        {
-          key: "totalScholasticSubjects",
-          label: "Total Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.length,
-        },
-        {
-          key: "totalCoScholasticSubjects",
-          label: "Total Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.length,
+          render: (row) =>
+            row.coScholasticSubjects && row.coScholasticSubjects.length > 0
+              ? row.coScholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "totalSubjects",
           label: "Total Subjects",
           render: (row) =>
-            row.scholasticSubjects.length + row.coScholasticSubjects.length,
+            (row.scholasticSubjects || []).length + (row.coScholasticSubjects || []).length,
         },
       ],
       defaultColumns: [
@@ -359,17 +376,22 @@ function AcademicReports() {
         {
           key: "scholasticSubjects",
           label: "Scholastic Subjects",
-          render: (row) => row.scholasticSubjects.join(", "),
+          render: (row) =>
+            row.scholasticSubjects && row.scholasticSubjects.length > 0
+              ? row.scholasticSubjects.join(", ")
+              : "-",
         },
         {
           key: "coScholasticSubjects",
           label: "Co-Scholastic Subjects",
-          render: (row) => row.coScholasticSubjects.join(", "),
+          render: (row) =>
+            row.coScholasticSubjects && row.coScholasticSubjects.length > 0
+              ? row.coScholasticSubjects.join(", ")
+              : "-",
         },
       ],
-      getData: ({ schoolId, filters }) =>
+      getData: ({ filters }) =>
         studentSubjectMappings
-          .filter((item) => item.schoolId === schoolId)
           .filter((item) =>
             filters.className ? item.className === filters.className : true
           )
@@ -382,8 +404,8 @@ function AcademicReports() {
             const search = filters.studentSearch.toLowerCase();
 
             return (
-              item.studentName.toLowerCase().includes(search) ||
-              item.admissionNo.toLowerCase().includes(search)
+              (item.studentName || "").toLowerCase().includes(search) ||
+              (item.admissionNo || "").toLowerCase().includes(search)
             );
           })
           .filter((item) => {
@@ -392,29 +414,41 @@ function AcademicReports() {
             const search = filters.subjectName.toLowerCase();
 
             if (filters.subjectType === "Scholastic") {
-              return item.scholasticSubjects.some((sub) =>
+              return (item.scholasticSubjects || []).some((sub) =>
                 sub.toLowerCase().includes(search)
               );
             }
 
             if (filters.subjectType === "Co-Scholastic") {
-              return item.coScholasticSubjects.some((sub) =>
+              return (item.coScholasticSubjects || []).some((sub) =>
                 sub.toLowerCase().includes(search)
               );
             }
 
-            return [...item.scholasticSubjects, ...item.coScholasticSubjects].some(
-              (sub) => sub.toLowerCase().includes(search)
-            );
+            return [
+              ...(item.scholasticSubjects || []),
+              ...(item.coScholasticSubjects || []),
+            ].some((sub) => sub.toLowerCase().includes(search));
           }),
     },
   ];
+
+  if (loading) {
+    return (
+      <div style={{ padding: "24px" }}>
+        <SkeletonStats count={4} />
+        <div style={{ marginTop: "24px" }}>
+          <SkeletonTable rows={6} columns={5} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MasterReport
       moduleTitle="Academic Analytics & Reports"
       reports={reports}
-      schoolProfiles={schoolProfiles}
+      schoolProfiles={[schoolProfile]}
       currentUser={currentUser}
     />
   );

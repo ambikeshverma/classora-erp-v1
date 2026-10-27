@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { schoolService } from "../services/api";
 
 export const useModulePermissions = (moduleKey) => {
@@ -21,9 +21,12 @@ export const useModulePermissions = (moduleKey) => {
   });
 
   const [toastMessage, setToastMessage] = useState(null);
+  const hasFetched = useRef(false);
 
   // Sync latest permissions from server on mount
   useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
     let isMounted = true;
     schoolService
       .getProfile()

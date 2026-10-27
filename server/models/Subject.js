@@ -8,6 +8,11 @@ const subjectSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    schoolId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SchoolAdmin",
+      index: true,
+    },
     subjectName: {
       type: String,
       required: true,
@@ -20,6 +25,11 @@ const subjectSchema = new mongoose.Schema(
       default: "",
     },
     subjectType: {
+      type: String,
+      enum: ["Scholastic", "Co-Scholastic", "Theory", "Practical"],
+      default: "Scholastic",
+    },
+    category: {
       type: String,
       enum: ["Scholastic", "Co-Scholastic"],
       default: "Scholastic",

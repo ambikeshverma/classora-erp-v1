@@ -539,6 +539,14 @@ function App() {
           }
         />
         <Route
+          path="/academic-zone/co-scholastic-subject-setup"
+          element={
+            <ProtectedRoute moduleKey="academic_zone" subModuleKey="co_scholastic_subject_setup">
+              <CoScholasticSubjectSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/academic-zone/class-subject-mapping"
           element={
             <ProtectedRoute moduleKey="academic_zone" subModuleKey="class_subject_mapping">

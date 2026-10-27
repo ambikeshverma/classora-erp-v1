@@ -157,79 +157,64 @@ input[type="checkbox"] {
   padding: 16px;
 }
 
-.subject-popup {
-  width: 620px;
+.popup-box {
+  width: 680px;
   max-width: 100%;
   max-height: 90vh;
   overflow-y: auto;
   background: #ffffff;
   border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
 }
 
-.popup-head {
+.popup-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.popup-head h2 {
+.popup-header h3 {
   margin: 0;
-  color: #111827;
+  color: #0f172a;
+  font-size: 20px;
 }
 
-.popup-close-btn {
-  width: 38px;
-  height: 38px;
-  border: none;
-  border-radius: 10px;
-  background: #fee2e2;
-  color: #dc2626;
-  font-size: 22px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.popup-subtitle {
-  margin: 0 0 18px;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-.popup-section {
-  margin-bottom: 20px;
-}
-
-.popup-section h3 {
-  margin: 0 0 12px;
-  color: #111827;
-  font-size: 17px;
-}
-
-.subject-options {
+.subject-checkbox-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
 }
 
-.subject-options label {
+.subject-checkbox-item {
   display: flex;
   align-items: center;
   gap: 8px;
   background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 11px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.subject-options input {
-  width: 17px;
-  height: 17px;
+.subject-checkbox-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.subject-checkbox-item.checked {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
 }
 
 .popup-actions {

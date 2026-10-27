@@ -10,6 +10,24 @@ const api = axios.create({
   },
 });
 
+// 🚀 In-flight GET request deduplicator: Prevents duplicate parallel API calls
+const inFlightGets = new Map();
+const originalGet = api.get.bind(api);
+api.get = (url, config) => {
+  const cacheKey = `${url}?${config?.params ? JSON.stringify(config.params) : ""}`;
+
+  if (inFlightGets.has(cacheKey)) {
+    return inFlightGets.get(cacheKey);
+  }
+
+  const reqPromise = originalGet(url, config).finally(() => {
+    inFlightGets.delete(cacheKey);
+  });
+
+  inFlightGets.set(cacheKey, reqPromise);
+  return reqPromise;
+};
+
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -275,7 +293,6 @@ export const userControlService = {
   deleteSubjectTeacher: (id) => api.delete(`/api/user-control/subject-teachers/${id}`),
 };
 
-// 📚 Master Endpoints (Subjects, Classes, etc.)
 export const masterService = {
   getSubjects: () => api.get("/api/master/subject/fetch"),
   createSubject: (data) => api.post("/api/master/subject/create", data),
@@ -283,6 +300,33 @@ export const masterService = {
   deleteSubject: (id) => api.delete(`/api/master/subject/${id}`),
   getClasses: () => api.get("/api/master/class/fetch"),
   createClass: (data) => api.post("/api/master/class/create", data),
+};
+
+// 📚 Academic Zone Endpoints
+export const academicService = {
+  // Batch Meta
+  getMeta: () => api.get("/api/academic/meta"),
+
+  // Co-Scholastic Subjects
+  getCoScholasticSubjects: () => api.get("/api/academic/co-scholastic-subjects"),
+  createCoScholasticSubject: (data) => api.post("/api/academic/co-scholastic-subjects", data),
+  updateCoScholasticSubject: (id, data) => api.put(`/api/academic/co-scholastic-subjects/${id}`, data),
+  deleteCoScholasticSubject: (id) => api.delete(`/api/academic/co-scholastic-subjects/${id}`),
+
+  // Class Subject Mapping
+  getClassSubjectMappings: () => api.get("/api/academic/class-subjects"),
+  saveClassSubjectMapping: (data) => api.post("/api/academic/class-subjects", data),
+  deleteClassSubjectMapping: (id) => api.delete(`/api/academic/class-subjects/${id}`),
+
+  // Student Subject Mapping
+  getStudentsForMapping: (params) => api.get("/api/academic/students-for-mapping", { params }),
+  getStudentSubjectMappings: (params) => api.get("/api/academic/student-subjects", { params }),
+  bulkAssignStudentSubjects: (data) => api.post("/api/academic/student-subjects/bulk-assign", data),
+  deleteStudentSubjectMapping: (id) => api.delete(`/api/academic/student-subjects/${id}`),
+  bulkDeleteStudentSubjectMappings: (ids) => api.post("/api/academic/student-subjects/bulk-delete", { ids }),
+
+  // Reports
+  getReportsData: () => api.get("/api/academic/reports-data"),
 };
 
 // ⚙️ Admin Panel Endpoints

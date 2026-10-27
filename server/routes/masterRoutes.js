@@ -193,11 +193,14 @@ router.post("/subject/create", schoolAuth, async (req, res) => {
       });
     }
 
+    const isCoScholastic = subjectType === "Co-Scholastic";
     const subject = await Subject.create({
       campusId: req.campusId,
+      schoolId: req.schoolId || req.campusId,
       subjectName: subjectName.trim(),
       subjectCode: (subjectCode || "").trim().toUpperCase(),
       subjectType: subjectType || "Scholastic",
+      category: isCoScholastic ? "Co-Scholastic" : "Scholastic",
     });
 
     res.status(201).json({
@@ -249,12 +252,15 @@ router.put("/subject/:id", schoolAuth, async (req, res) => {
       });
     }
 
+    const isCoScholastic = subjectType === "Co-Scholastic";
     const updated = await Subject.findOneAndUpdate(
       { _id: req.params.id, campusId: req.campusId },
       {
         subjectName: subjectName.trim(),
         subjectCode: (subjectCode || "").trim().toUpperCase(),
         subjectType: subjectType || "Scholastic",
+        category: isCoScholastic ? "Co-Scholastic" : "Scholastic",
+        schoolId: req.schoolId || req.campusId,
       },
       { new: true }
     );
@@ -278,14 +284,47 @@ router.put("/subject/:id", schoolAuth, async (req, res) => {
 
 router.delete("/subject/:id", schoolAuth, async (req, res) => {
   try {
-    const deleted = await Subject.findOneAndDelete({
+    const subject = await Subject.findOne({
       _id: req.params.id,
       campusId: req.campusId,
     });
 
-    if (!deleted) {
+    if (!subject) {
       return res.status(404).json({ success: false, message: "Subject not found" });
     }
+
+    // Wiring check 1: Check if mapped in ClassSubjectMapping
+    const ClassSubjectMapping = require("../models/ClassSubjectMapping");
+    const isMappedInClass = await ClassSubjectMapping.findOne({
+      campusId: req.campusId,
+      $or: [
+        { scholasticSubjects: subject.subjectName },
+        { coScholasticSubjects: subject.subjectName },
+      ],
+    }).lean();
+
+    if (isMappedInClass) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete subject '${subject.subjectName}': It is mapped in Class Subject Mapping for class '${isMappedInClass.className}'. Please remove it from class mapping first.`,
+      });
+    }
+
+    // Wiring check 2: Check if assigned in SubjectTeacherAssignment
+    const SubjectTeacherAssignment = require("../models/SubjectTeacherAssignment");
+    const isAssignedToTeacher = await SubjectTeacherAssignment.findOne({
+      campusId: req.campusId,
+      subjectId: subject._id,
+    }).lean();
+
+    if (isAssignedToTeacher) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete subject '${subject.subjectName}': It is currently assigned to a teacher. Please remove the teacher assignment first.`,
+      });
+    }
+
+    await Subject.deleteOne({ _id: subject._id });
 
     res.status(200).json({
       success: true,

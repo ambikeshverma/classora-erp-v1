@@ -119,7 +119,22 @@ const ScanLoader = ({
                 <Shield size={44} color="#fbbf24" style={{ filter: "drop-shadow(0 0 10px rgba(245, 158, 11, 0.6))" }} />
               </div>
             ) : (
-              <div className="scanloader-circle-glyph">C</div>
+              <>
+                <img
+                  src={`${process.env.PUBLIC_URL || ""}/app_logo.png`}
+                  alt="App Logo"
+                  className="scanloader-app-logo"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                    if (e.currentTarget.nextElementSibling) {
+                      e.currentTarget.nextElementSibling.style.display = "flex";
+                    }
+                  }}
+                />
+                <div className="scanloader-circle-glyph scanloader-fallback-glyph" style={{ display: "none" }}>
+                  C
+                </div>
+              </>
             )}
           </div>
         </div>
