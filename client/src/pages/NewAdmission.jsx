@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./newAdmission.css";
 import AppButton from "../components/AppButton";
@@ -178,9 +178,11 @@ function NewAdmission() {
     : [];
 
   // Fee Plans for the currently selected class
-  const availableFeePlans = form.className
-    ? feePlans.filter((item) => item.className === form.className)
-    : [];
+  const availableFeePlans = useMemo(() => {
+    return form.className
+      ? feePlans.filter((item) => item.className === form.className)
+      : [];
+  }, [form.className, feePlans]);
 
   const selectedFeePlan = feePlans.find(
     (item) => item.planName === form.feePlan

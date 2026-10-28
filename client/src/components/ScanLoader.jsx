@@ -121,7 +121,7 @@ const ScanLoader = ({
             ) : (
               <>
                 <img
-                  src={`${process.env.PUBLIC_URL || ""}/app_logo.png`}
+                  src={`${process.env.PUBLIC_URL || ""}/app_logo.webp`}
                   alt="App Logo"
                   className="scanloader-app-logo"
                   onError={(e) => {

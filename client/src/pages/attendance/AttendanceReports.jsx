@@ -1,7 +1,56 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MasterReport from "../../components/reports/MasterReport";
 import { SkeletonStats, SkeletonTable } from "../../components/Skeleton";
 import { attendanceService, schoolService } from "../../services/api";
+
+const months = [
+  { value: "04", label: "April" },
+  { value: "05", label: "May" },
+  { value: "06", label: "June" },
+  { value: "07", label: "July" },
+  { value: "08", label: "August" },
+  { value: "09", label: "September" },
+  { value: "10", label: "October" },
+  { value: "11", label: "November" },
+  { value: "12", label: "December" },
+  { value: "01", label: "January" },
+  { value: "02", label: "February" },
+  { value: "03", label: "March" },
+];
+
+const isSunday = (date) => new Date(date).getDay() === 0;
+
+const getDatesBetween = (fromDate, toDate) => {
+  if (!fromDate || !toDate) return [];
+  const dates = [];
+  const current = new Date(fromDate);
+  const end = new Date(toDate);
+
+  while (current <= end) {
+    dates.push(current.toISOString().split("T")[0]);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+};
+
+const getMonthDates = (month) => {
+  const currentYear = new Date().getFullYear();
+  const year = ["01", "02", "03"].includes(month)
+    ? String(currentYear + 1)
+    : String(currentYear);
+
+  const totalDays = new Date(Number(year), Number(month), 0).getDate();
+
+  return Array.from({ length: totalDays }, (_, index) => {
+    const day = String(index + 1).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+};
+
+const getAttendancePercent = (present, leave, workingDays) => {
+  if (!workingDays || workingDays <= 0) return 0;
+  return Number((((present + leave) / workingDays) * 100).toFixed(2));
+};
 
 function AttendanceReports() {
   const [loading, setLoading] = useState(true);
@@ -83,104 +132,76 @@ function AttendanceReports() {
     fetchReportsData();
   }, []);
 
-  const months = [
-    { value: "04", label: "April" },
-    { value: "05", label: "May" },
-    { value: "06", label: "June" },
-    { value: "07", label: "July" },
-    { value: "08", label: "August" },
-    { value: "09", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
-    { value: "01", label: "January" },
-    { value: "02", label: "February" },
-    { value: "03", label: "March" },
-  ];
-
   const today = new Date().toISOString().split("T")[0];
   const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 
-  const getClassName = (classId) =>
-    classes.find((item) => String(item.classId) === String(classId))?.className || "-";
+  const getClassName = useCallback(
+    (classId) =>
+      classes.find((item) => String(item.classId) === String(classId))?.className || "-",
+    [classes]
+  );
 
-  const getSectionName = (sectionId) =>
-    sections.find((item) => String(item.sectionId) === String(sectionId))?.sectionName || "-";
+  const getSectionName = useCallback(
+    (sectionId) =>
+      sections.find((item) => String(item.sectionId) === String(sectionId))?.sectionName || "-",
+    [sections]
+  );
 
-  const getDepartmentName = (departmentId) =>
-    departments.find((item) => String(item.departmentId) === String(departmentId))
-      ?.departmentName || "-";
+  const getDepartmentName = useCallback(
+    (departmentId) =>
+      departments.find((item) => String(item.departmentId) === String(departmentId))
+        ?.departmentName || "-",
+    [departments]
+  );
 
-  const getPositionName = (positionId) =>
-    positions.find((item) => String(item.positionId) === String(positionId))
-      ?.positionName || "-";
+  const getPositionName = useCallback(
+    (positionId) =>
+      positions.find((item) => String(item.positionId) === String(positionId))
+        ?.positionName || "-",
+    [positions]
+  );
 
-  const isSunday = (date) => new Date(date).getDay() === 0;
+  const isHoliday = useCallback(
+    (date) => holidays.some((item) => item.date === date),
+    [holidays]
+  );
 
-  const isHoliday = (date) => holidays.some((item) => item.date === date);
+  const getStudentStatus = useCallback(
+    (studentId, date) => {
+      if (isHoliday(date)) return "H";
+      if (isSunday(date)) return "W";
 
-  const getStudentStatus = (studentId, date) => {
-    if (isHoliday(date)) return "H";
-    if (isSunday(date)) return "W";
+      const found = studentAttendance.find(
+        (item) => String(item.studentId) === String(studentId) && item.date === date
+      );
+      return found ? found.status : "-";
+    },
+    [holidays, isHoliday, studentAttendance]
+  );
 
-    const found = studentAttendance.find(
-      (item) => String(item.studentId) === String(studentId) && item.date === date
-    );
-    return found ? found.status : "-";
-  };
+  const getStaffStatus = useCallback(
+    (employeeId, date) => {
+      if (isHoliday(date)) return "H";
+      if (isSunday(date)) return "W";
 
-  const getStaffStatus = (employeeId, date) => {
-    if (isHoliday(date)) return "H";
-    if (isSunday(date)) return "W";
+      const found = staffAttendance.find(
+        (item) =>
+          (String(item.employeeId) === String(employeeId) ||
+            String(item.staffId) === String(employeeId)) &&
+          item.date === date
+      );
 
-    const found = staffAttendance.find(
-      (item) =>
-        (String(item.employeeId) === String(employeeId) ||
-          String(item.staffId) === String(employeeId)) &&
-        item.date === date
-    );
+      if (found) {
+        if (found.status === "Present") return "P";
+        if (found.status === "Absent") return "A";
+        if (found.status?.startsWith("Leave")) return "L";
+        return found.status || "-";
+      }
 
-    if (found) {
-      if (found.status === "Present") return "P";
-      if (found.status === "Absent") return "A";
-      if (found.status?.startsWith("Leave")) return "L";
-      return found.status || "-";
-    }
-
-    return "-";
-  };
-
-  const getDatesBetween = (fromDate, toDate) => {
-    if (!fromDate || !toDate) return [];
-    const dates = [];
-    const current = new Date(fromDate);
-    const end = new Date(toDate);
-
-    while (current <= end) {
-      dates.push(current.toISOString().split("T")[0]);
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  };
-
-  const getMonthDates = (month) => {
-    const currentYear = new Date().getFullYear();
-    const year = ["01", "02", "03"].includes(month)
-      ? String(currentYear + 1)
-      : String(currentYear);
-
-    const totalDays = new Date(Number(year), Number(month), 0).getDate();
-
-    return Array.from({ length: totalDays }, (_, index) => {
-      const day = String(index + 1).padStart(2, "0");
-      return `${year}-${month}-${day}`;
-    });
-  };
-
-  const getAttendancePercent = (present, leave, workingDays) => {
-    if (!workingDays || workingDays <= 0) return 0;
-    return Number((((present + leave) / workingDays) * 100).toFixed(2));
-  };
+      return "-";
+    },
+    [holidays, isHoliday, staffAttendance]
+  );
 
   const classOptions = useMemo(
     () =>
@@ -218,45 +239,55 @@ function AttendanceReports() {
     [positions]
   );
 
-  const commonStudentFilters = [
-    {
-      name: "classId",
-      label: "Class",
-      type: "select",
-      placeholder: "All Class",
-      options: classOptions,
-    },
-    {
-      name: "sectionId",
-      label: "Section",
-      type: "select",
-      placeholder: "All Section",
-      options: sectionOptions,
-    },
-  ];
+  const commonStudentFilters = useMemo(
+    () => [
+      {
+        name: "classId",
+        label: "Class",
+        type: "select",
+        placeholder: "All Class",
+        options: classOptions,
+      },
+      {
+        name: "sectionId",
+        label: "Section",
+        type: "select",
+        placeholder: "All Section",
+        options: sectionOptions,
+      },
+    ],
+    [classOptions, sectionOptions]
+  );
 
-  const commonStaffFilters = [
-    {
-      name: "departmentId",
-      label: "Department",
-      type: "select",
-      placeholder: "All Department",
-      options: departmentOptions,
-    },
-    {
-      name: "positionId",
-      label: "Position",
-      type: "select",
-      placeholder: "All Position",
-      options: positionOptions,
-    },
-  ];
+  const commonStaffFilters = useMemo(
+    () => [
+      {
+        name: "departmentId",
+        label: "Department",
+        type: "select",
+        placeholder: "All Department",
+        options: departmentOptions,
+      },
+      {
+        name: "positionId",
+        label: "Position",
+        type: "select",
+        placeholder: "All Position",
+        options: positionOptions,
+      },
+    ],
+    [departmentOptions, positionOptions]
+  );
 
-  const dayColumns = getMonthDates(currentMonth).map((date) => ({
-    key: date,
-    label: date.split("-")[2],
-    render: (row) => row[date] || "-",
-  }));
+  const dayColumns = useMemo(
+    () =>
+      getMonthDates(currentMonth).map((date) => ({
+        key: date,
+        label: date.split("-")[2],
+        render: (row) => row[date] || "-",
+      })),
+    [currentMonth]
+  );
 
   const reports = useMemo(() => {
     const sId = schoolProfile.schoolId;
@@ -994,6 +1025,12 @@ function AttendanceReports() {
     commonStudentFilters,
     commonStaffFilters,
     dayColumns,
+    getClassName,
+    getDepartmentName,
+    getPositionName,
+    getSectionName,
+    getStaffStatus,
+    getStudentStatus,
   ]);
 
   if (loading) {

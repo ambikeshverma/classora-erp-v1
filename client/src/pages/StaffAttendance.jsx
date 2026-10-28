@@ -1,8 +1,8 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import "./staffAttendance.css";
 import AppButton from "../components/AppButton";
-import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
+import { SkeletonTable } from "../components/Skeleton";
 import { attendanceService } from "../services/api";
 
 function StaffAttendance() {
