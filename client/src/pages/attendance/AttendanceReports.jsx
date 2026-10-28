@@ -176,7 +176,7 @@ function AttendanceReports() {
       );
       return found ? found.status : "-";
     },
-    [holidays, isHoliday, studentAttendance]
+    [isHoliday, studentAttendance]
   );
 
   const getStaffStatus = useCallback(
@@ -200,7 +200,7 @@ function AttendanceReports() {
 
       return "-";
     },
-    [holidays, isHoliday, staffAttendance]
+    [isHoliday, staffAttendance]
   );
 
   const classOptions = useMemo(
@@ -1017,8 +1017,6 @@ function AttendanceReports() {
     positions,
     students,
     staffList,
-    holidays,
-    studentAttendance,
     staffAttendance,
     today,
     currentMonth,
