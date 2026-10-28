@@ -11,6 +11,7 @@ const SiblingGroup = require("../models/SiblingGroup");
 const Medium = require("../models/Medium");
 const Subject = require("../models/Subject");
 const House = require("../models/House");
+const ClassSubjectMapping = require("../models/ClassSubjectMapping");
 
 // Role guard: Only schoolAdmin can manage Admissions
 const schoolAdminOnly = (req, res, next) => {
@@ -26,10 +27,23 @@ const schoolAdminOnly = (req, res, next) => {
 
 router.use(schoolAdminOnly);
 
+// Helper to get school scope covering both ObjectId schoolId and String campusId
+const getSchoolScope = (req) => {
+  const schoolId = req.schoolId || req.user?.schoolId;
+  const actualCampusId = req.school?.campusId || req.user?.campusCode || req.user?.campusId;
+  return {
+    $or: [
+      { schoolId },
+      ...(actualCampusId ? [{ campusId: actualCampusId }] : []),
+      ...(req.campusId ? [{ campusId: req.campusId }] : []),
+    ],
+  };
+};
+
 /* ==========================================================
    OPTIMIZED META ENDPOINT
    Batches Classes, Fee Plans, Concessions, Sibling Groups,
-   Mediums, Subjects, Houses, and counts in one trip.
+   Mediums, Subjects, Houses, ClassSubjectMappings, and counts.
 ========================================================== */
 router.get("/meta", async (req, res) => {
   try {
@@ -43,6 +57,7 @@ router.get("/meta", async (req, res) => {
       mediums,
       subjects,
       houses,
+      classSubjectMappings,
       totalAdmissions,
       totalEnquiries,
     ] = await Promise.all([
@@ -53,6 +68,7 @@ router.get("/meta", async (req, res) => {
       Medium.find({ campusId }).select("mediumName mediumCode").sort({ mediumName: 1 }).lean(),
       Subject.find({ campusId }).select("subjectName subjectCode").sort({ subjectName: 1 }).lean(),
       House.find({ campusId, isActive: true }).select("houseName houseCode color").sort({ houseName: 1 }).lean().catch(() => []),
+      ClassSubjectMapping.find({ campusId }).select("className scholasticSubjects coScholasticSubjects").lean().catch(() => []),
       Admission.countDocuments({ campusId }),
       AdmissionEnquiry.countDocuments({ campusId }),
     ]);
@@ -69,6 +85,7 @@ router.get("/meta", async (req, res) => {
         mediums: mediums || [],
         subjects: subjects || [],
         houses: housesList,
+        classSubjectMappings: classSubjectMappings || [],
         enquirySources: ["Walk-in", "WhatsApp", "Facebook", "Instagram", "Reference", "Website", "Phone Call"],
         stats: {
           totalAdmissions: totalAdmissions || 0,
@@ -85,49 +102,99 @@ router.get("/meta", async (req, res) => {
    ADMISSIONS CRUD
 ========================================================== */
 
-// 1. Add new admission (Preserves existing contract for /add)
+// 1. Add new admission
 router.post("/add", async (req, res) => {
   try {
-    const schoolId = req.schoolId || req.user?.schoolId;
-    const campusId = req.campusId || schoolId;
+    const schoolId = req.schoolId || req.user?.schoolId; // Mongoose ObjectId
+    const actualCampusId = req.school?.campusId || req.user?.campusCode || req.user?.campusId; // String campus code e.g. "SCH001"
     if (!schoolId) {
       return res.status(400).json({ success: false, msg: "School ID could not be identified from token" });
     }
 
+    const schoolScope = getSchoolScope(req);
     let { srNo, mobile, aadhar, schoolAdmissionNo, studentName, className } = req.body;
+
+    // Clean optional fields: empty string should be set to undefined to avoid unique index collision
+    const cleanSchoolAdmissionNo = schoolAdmissionNo && String(schoolAdmissionNo).trim()
+      ? String(schoolAdmissionNo).trim()
+      : undefined;
+
+    const cleanAadhar = aadhar && String(aadhar).trim()
+      ? String(aadhar).trim()
+      : undefined;
 
     // Generate srNo if not provided
     if (!srNo || !String(srNo).trim()) {
-      const count = await Admission.countDocuments({ campusId });
+      const count = await Admission.countDocuments(schoolScope);
       srNo = `SR-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
+    } else {
+      srNo = String(srNo).trim();
     }
 
-    // Check duplicate
-    const duplicate = await Admission.findOne({
-      campusId,
-      $or: [
-        { srNo },
-        ...(mobile ? [{ mobile }] : []),
-        ...(aadhar ? [{ aadhar }] : []),
-        ...(schoolAdmissionNo ? [{ schoolAdmissionNo }] : []),
-      ],
-    });
+    // 1. Aadhar MUST be unique if provided
+    if (cleanAadhar) {
+      const aadharDuplicate = await Admission.findOne({
+        ...schoolScope,
+        aadhar: cleanAadhar,
+      });
+      if (aadharDuplicate) {
+        return res.status(400).json({
+          success: false,
+          msg: `A student is already registered with Aadhar number: ${cleanAadhar}`,
+        });
+      }
+    }
 
-    if (duplicate) {
+    // 2. SR No MUST be unique
+    const srDuplicate = await Admission.findOne({
+      ...schoolScope,
+      srNo,
+    });
+    if (srDuplicate) {
       return res.status(400).json({
         success: false,
-        msg: "Duplicate record found. Admission already exists with this SR No, Mobile, or Aadhar.",
+        msg: `An admission already exists with SR No: ${srNo}`,
       });
     }
 
-    const admission = new Admission({
+    // 3. School Admission No MUST be unique if provided
+    if (cleanSchoolAdmissionNo) {
+      const admNoDuplicate = await Admission.findOne({
+        ...schoolScope,
+        schoolAdmissionNo: cleanSchoolAdmissionNo,
+      });
+      if (admNoDuplicate) {
+        return res.status(400).json({
+          success: false,
+          msg: `An admission already exists with School Admission No: ${cleanSchoolAdmissionNo}`,
+        });
+      }
+    }
+
+    // NOTE: Mobile number is intentionally NOT checked for duplicate:
+    // Parents enrolling multiple children (siblings) can share the same mobile number.
+
+    const admissionData = {
       ...req.body,
       srNo,
       schoolId,
-      campusId,
+      campusId: actualCampusId || String(schoolId),
       status: req.body.status || "Active",
-    });
+    };
 
+    if (cleanSchoolAdmissionNo) {
+      admissionData.schoolAdmissionNo = cleanSchoolAdmissionNo;
+    } else {
+      delete admissionData.schoolAdmissionNo;
+    }
+
+    if (cleanAadhar) {
+      admissionData.aadhar = cleanAadhar;
+    } else {
+      delete admissionData.aadhar;
+    }
+
+    const admission = new Admission(admissionData);
     await admission.save();
 
     // Create or update Student record for consistency
@@ -135,8 +202,15 @@ router.post("/add", async (req, res) => {
       await Student.create({
         name: studentName,
         class: className,
+        className: className,
+        section: req.body.section || "",
+        rollNo: req.body.rollNo || "",
+        fatherName: req.body.fatherName || "",
+        mobile: mobile || "",
+        admissionNo: cleanSchoolAdmissionNo || srNo,
+        srNo,
         schoolId,
-        campusId,
+        campusId: actualCampusId || String(schoolId),
         status: "Active",
       });
     } catch (sErr) {
@@ -149,6 +223,13 @@ router.post("/add", async (req, res) => {
       admission,
     });
   } catch (err) {
+    if (err.code === 11000) {
+      const keyPattern = Object.keys(err.keyPattern || {}).join(", ");
+      return res.status(400).json({
+        success: false,
+        msg: `Duplicate entry detected for (${keyPattern}). Please ensure SR No, Aadhar, and School Admission No are unique.`,
+      });
+    }
     res.status(500).json({ success: false, msg: err.message });
   }
 });
@@ -156,19 +237,11 @@ router.post("/add", async (req, res) => {
 // 2. Get all admissions for logged-in school/campus
 router.get("/", async (req, res) => {
   try {
-    const schoolId = req.schoolId || req.user?.schoolId;
-    const campusId = req.campusId || schoolId;
-    if (!schoolId) {
-      return res.status(400).json({ success: false, msg: "School ID could not be identified from token" });
-    }
-
+    const schoolScope = getSchoolScope(req);
     const { className, section, search, status } = req.query;
 
-    // Always scope to this school/campus first
     const query = {
-      $and: [
-        { $or: [{ campusId }, { schoolId }] },
-      ],
+      $and: [schoolScope],
     };
 
     if (className) query.$and.push({ className });
@@ -197,34 +270,32 @@ router.get("/", async (req, res) => {
 
 /* ==========================================================
    ADMISSION ENQUIRIES CRUD
-   NOTE: These routes MUST be defined before /:id wildcard
-   so Express does not treat "enquiries" as a Mongo ObjectId.
 ========================================================== */
 
 // Enquiries - Get all enquiries
 router.get("/enquiries", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
-    const { status, search } = req.query;
+    const schoolScope = getSchoolScope(req);
+    const { status, classInterested, search } = req.query;
 
-    const query = { campusId };
-    if (status) query.status = status;
+    const filter = { ...schoolScope };
+    if (status) filter.status = status;
+    if (classInterested) filter.classInterested = classInterested;
     if (search) {
       const reg = new RegExp(search.trim(), "i");
-      query.$or = [
+      filter.$or = [
         { studentName: reg },
-        { mobileNumber: reg },
-        { fatherName: reg },
-        { enquiryNo: reg },
+        { parentName: reg },
+        { mobile: reg },
+        { enquiryNumber: reg },
       ];
     }
 
-    const enquiries = await AdmissionEnquiry.find(query).sort({ createdAt: -1 }).lean();
+    const enquiries = await AdmissionEnquiry.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.status(200).json({
-      success: true,
-      data: enquiries || [],
-    });
+    res.status(200).json({ success: true, data: enquiries });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -234,34 +305,39 @@ router.get("/enquiries", async (req, res) => {
 router.post("/enquiries", async (req, res) => {
   try {
     const schoolId = req.schoolId || req.user?.schoolId;
-    const campusId = req.campusId || schoolId;
-    const { studentName, mobileNumber, classInterested, source, enquiryDate } = req.body;
+    const actualCampusId = req.school?.campusId || req.user?.campusCode || req.user?.campusId;
+    const { studentName, parentName, mobile, classInterested, source } = req.body;
 
-    if (!studentName || !mobileNumber || !classInterested) {
+    if (!studentName || !mobile || !classInterested) {
       return res.status(400).json({
         success: false,
-        message: "Student Name, Mobile Number, and Class Interested are required.",
+        message: "Student name, mobile number, and class interested are required",
       });
     }
 
-    const count = await AdmissionEnquiry.countDocuments({ campusId });
-    const currentYear = new Date().getFullYear();
-    const enquiryNo = `ENQ-${currentYear}-${String(count + 1).padStart(4, "0")}`;
+    const count = await AdmissionEnquiry.countDocuments(getSchoolScope(req));
+    const enquiryNumber = `ENQ-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
 
-    const newEnquiry = await AdmissionEnquiry.create({
+    const enquiry = new AdmissionEnquiry({
       ...req.body,
+      enquiryNumber,
       schoolId,
-      campusId,
-      enquiryNo,
+      campusId: actualCampusId || String(schoolId),
+      studentName: studentName.trim(),
+      parentName: parentName ? parentName.trim() : "",
+      mobile: mobile.trim(),
+      classInterested,
       source: source || "Walk-in",
-      status: req.body.status || "NEW",
-      enquiryDate: enquiryDate || new Date().toISOString().split("T")[0],
+      status: req.body.status || "New",
+      enquiryDate: req.body.enquiryDate || new Date().toISOString().split("T")[0],
     });
+
+    await enquiry.save();
 
     res.status(201).json({
       success: true,
-      message: "Enquiry added successfully",
-      data: newEnquiry,
+      message: "Enquiry created successfully",
+      data: enquiry,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -271,10 +347,9 @@ router.post("/enquiries", async (req, res) => {
 // Enquiries - Update enquiry
 router.put("/enquiries/:id", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
-
+    const schoolScope = getSchoolScope(req);
     const updated = await AdmissionEnquiry.findOneAndUpdate(
-      { _id: req.params.id, campusId },
+      { _id: req.params.id, ...schoolScope },
       { $set: req.body },
       { new: true }
     );
@@ -296,11 +371,11 @@ router.put("/enquiries/:id", async (req, res) => {
 // Enquiries - Update enquiry status
 router.patch("/enquiries/:id/status", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
+    const schoolScope = getSchoolScope(req);
     const { status } = req.body;
 
     const updated = await AdmissionEnquiry.findOneAndUpdate(
-      { _id: req.params.id, campusId },
+      { _id: req.params.id, ...schoolScope },
       { $set: { status } },
       { new: true }
     );
@@ -311,7 +386,7 @@ router.patch("/enquiries/:id/status", async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `Enquiry status changed to ${status}`,
+      message: "Enquiry status updated successfully",
       data: updated,
     });
   } catch (error) {
@@ -322,11 +397,10 @@ router.patch("/enquiries/:id/status", async (req, res) => {
 // Enquiries - Delete enquiry
 router.delete("/enquiries/:id", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
-
+    const schoolScope = getSchoolScope(req);
     const deleted = await AdmissionEnquiry.findOneAndDelete({
       _id: req.params.id,
-      campusId,
+      ...schoolScope,
     });
 
     if (!deleted) {
@@ -344,22 +418,46 @@ router.delete("/enquiries/:id", async (req, res) => {
 
 /* ==========================================================
    ANALYTICS & REPORTS
-   NOTE: Must also be before /:id wildcard.
 ========================================================== */
 router.get("/reports", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
+    const schoolScope = getSchoolScope(req);
 
-    const [admissions, enquiries] = await Promise.all([
-      Admission.find({ campusId }).sort({ admissionDate: -1, createdAt: -1 }).lean(),
-      AdmissionEnquiry.find({ campusId }).sort({ enquiryDate: -1, createdAt: -1 }).lean(),
-    ]);
+    const [admissionsByClass, admissionsByMonth, enquiriesByStatus, concessionsSummary] =
+      await Promise.all([
+        Admission.aggregate([
+          { $match: schoolScope },
+          { $group: { _id: "$className", count: { $sum: 1 } } },
+          { $sort: { _id: 1 } },
+        ]),
+        Admission.aggregate([
+          { $match: schoolScope },
+          {
+            $group: {
+              _id: { $substr: ["$admissionDate", 0, 7] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: -1 } },
+          { $limit: 12 },
+        ]),
+        AdmissionEnquiry.aggregate([
+          { $match: schoolScope },
+          { $group: { _id: "$status", count: { $sum: 1 } } },
+        ]),
+        Admission.aggregate([
+          { $match: { ...schoolScope, concessionPlan: { $ne: "No Concession Plan" } } },
+          { $group: { _id: "$concessionPlan", count: { $sum: 1 } } },
+        ]),
+      ]);
 
     res.status(200).json({
       success: true,
       data: {
-        admissions: admissions || [],
-        enquiries: enquiries || [],
+        admissionsByClass,
+        admissionsByMonth,
+        enquiriesByStatus,
+        concessionsSummary,
       },
     });
   } catch (error) {
@@ -370,10 +468,10 @@ router.get("/reports", async (req, res) => {
 // 3. Get single admission by ID
 router.get("/:id", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
+    const schoolScope = getSchoolScope(req);
     const admission = await Admission.findOne({
       _id: req.params.id,
-      $or: [{ campusId }, { schoolId: req.schoolId }],
+      ...schoolScope,
     }).lean();
 
     if (!admission) {
@@ -389,10 +487,10 @@ router.get("/:id", async (req, res) => {
 // 4. Update admission by ID
 router.put("/:id", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
+    const schoolScope = getSchoolScope(req);
 
     const updated = await Admission.findOneAndUpdate(
-      { _id: req.params.id, $or: [{ campusId }, { schoolId: req.schoolId }] },
+      { _id: req.params.id, ...schoolScope },
       { $set: req.body },
       { new: true }
     );
@@ -414,11 +512,11 @@ router.put("/:id", async (req, res) => {
 // 5. Delete admission by ID
 router.delete("/:id", async (req, res) => {
   try {
-    const campusId = req.campusId || req.schoolId;
+    const schoolScope = getSchoolScope(req);
 
     const admission = await Admission.findOneAndDelete({
       _id: req.params.id,
-      $or: [{ campusId }, { schoolId: req.schoolId }],
+      ...schoolScope,
     });
 
     if (!admission) {
@@ -430,7 +528,7 @@ router.delete("/:id", async (req, res) => {
       await Student.findOneAndDelete({
         name: admission.studentName,
         class: admission.className,
-        campusId,
+        ...schoolScope,
       });
     } catch (_) {}
 
@@ -447,25 +545,30 @@ router.delete("/:id", async (req, res) => {
 router.post("/bulk-import", async (req, res) => {
   try {
     const schoolId = req.schoolId || req.user?.schoolId;
-    const campusId = req.campusId || schoolId;
+    const actualCampusId = req.school?.campusId || req.user?.campusCode || req.user?.campusId;
     const { rows, session } = req.body;
 
     if (!Array.isArray(rows) || rows.length === 0) {
       return res.status(400).json({ success: false, message: "No student records provided for import" });
     }
 
+    const schoolScope = getSchoolScope(req);
     let insertedCount = 0;
     let skippedCount = 0;
     const errors = [];
 
-    const existingCount = await Admission.countDocuments({ campusId });
+    const existingCount = await Admission.countDocuments(schoolScope);
     const currentYear = new Date().getFullYear();
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const studentName = row.studentName ? String(row.studentName).trim() : "";
       const className = row.className ? String(row.className).trim() : "";
-      const mobile = row.mobile ? String(row.mobile).trim() : "";
+      const aadhar = row.aadhar && String(row.aadhar).trim() ? String(row.aadhar).trim() : undefined;
+      const srNo = row.srNo && String(row.srNo).trim() ? String(row.srNo).trim() : undefined;
+      const schoolAdmissionNo = row.schoolAdmissionNo && String(row.schoolAdmissionNo).trim()
+        ? String(row.schoolAdmissionNo).trim()
+        : undefined;
 
       if (!studentName || !className) {
         skippedCount++;
@@ -473,43 +576,66 @@ router.post("/bulk-import", async (req, res) => {
         continue;
       }
 
-      // Check duplicate
-      const duplicate = await Admission.findOne({
-        campusId,
-        $or: [
-          ...(row.srNo ? [{ srNo: row.srNo }] : []),
-          ...(mobile ? [{ mobile }] : []),
-          ...(row.aadhar ? [{ aadhar: row.aadhar }] : []),
-        ],
-      });
-
-      if (duplicate) {
-        skippedCount++;
-        errors.push({ row: i + 1, message: `Duplicate record (SR/Mobile/Aadhar already exists for: ${studentName})` });
-        continue;
+      // Check duplicate: Aadhar, SR No, School Admission No (NOT mobile!)
+      if (aadhar) {
+        const duplicateAadhar = await Admission.findOne({ ...schoolScope, aadhar });
+        if (duplicateAadhar) {
+          skippedCount++;
+          errors.push({ row: i + 1, message: `Duplicate Aadhar (${aadhar}) for student: ${studentName}` });
+          continue;
+        }
       }
 
-      const generatedSrNo = row.srNo || `SR-${currentYear}-${String(existingCount + insertedCount + 1).padStart(4, "0")}`;
+      if (srNo) {
+        const duplicateSr = await Admission.findOne({ ...schoolScope, srNo });
+        if (duplicateSr) {
+          skippedCount++;
+          errors.push({ row: i + 1, message: `Duplicate SR No (${srNo}) for student: ${studentName}` });
+          continue;
+        }
+      }
 
-      const newAdmission = new Admission({
+      if (schoolAdmissionNo) {
+        const duplicateAdm = await Admission.findOne({ ...schoolScope, schoolAdmissionNo });
+        if (duplicateAdm) {
+          skippedCount++;
+          errors.push({ row: i + 1, message: `Duplicate School Admission No (${schoolAdmissionNo}) for student: ${studentName}` });
+          continue;
+        }
+      }
+
+      const generatedSrNo = srNo || `SR-${currentYear}-${String(existingCount + insertedCount + 1).padStart(4, "0")}`;
+
+      const newAdmissionData = {
         ...row,
         studentName,
         className,
         srNo: generatedSrNo,
         schoolId,
-        campusId,
+        campusId: actualCampusId || String(schoolId),
         session: session || row.session || `${currentYear}-${currentYear + 1}`,
         status: row.status || "Active",
-      });
+      };
 
+      if (schoolAdmissionNo) newAdmissionData.schoolAdmissionNo = schoolAdmissionNo;
+      else delete newAdmissionData.schoolAdmissionNo;
+
+      if (aadhar) newAdmissionData.aadhar = aadhar;
+      else delete newAdmissionData.aadhar;
+
+      const newAdmission = new Admission(newAdmissionData);
       await newAdmission.save();
 
       try {
         await Student.create({
           name: studentName,
           class: className,
+          className: className,
+          section: row.section || "",
+          srNo: generatedSrNo,
+          admissionNo: schoolAdmissionNo || generatedSrNo,
           schoolId,
-          campusId,
+          campusId: actualCampusId || String(schoolId),
           status: "Active",
         });
       } catch (_) {}

@@ -1,179 +1,87 @@
-import React from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import MasterReport from "../../components/reports/MasterReport";
+import { SkeletonStats, SkeletonTable } from "../../components/Skeleton";
+import { attendanceService, schoolService } from "../../services/api";
 
 function AttendanceReports() {
- 
+  const [loading, setLoading] = useState(true);
 
-  const schoolProfiles = [
-    {
-      schoolId: "SCH001",
-      schoolName: "Chandra Shekhar Azad Inter College",
-      address: "Azad Nagar, Barabanki",
-      email: "school@gmail.com",
-      website: "www.school.com",
-      phone: "9876543210",
-      logo: "",
-    },
-  ];
+  // Dynamic entities from DB
+  const [classes, setClasses] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+  const [studentAttendance, setStudentAttendance] = useState([]);
+  const [staffAttendance, setStaffAttendance] = useState([]);
+
+  // School profile from DB
+  const [schoolProfile, setSchoolProfile] = useState({
+    schoolId: localStorage.getItem("schoolId") || localStorage.getItem("campusId") || "",
+    schoolName: localStorage.getItem("userName") || "School Admin",
+    address: "",
+    email: "",
+    website: "",
+    phone: "",
+    logo: "",
+  });
 
   const currentUser = {
     name: localStorage.getItem("userName") || "School Admin",
   };
 
-  const classes = [
-    { classId: "CLS001", className: "Class 3" },
-    { classId: "CLS002", className: "Class 10" },
-  ];
+  const hasFetched = useRef(false);
 
-  const sections = [
-    { sectionId: "SEC001", classId: "CLS001", sectionName: "A" },
-    { sectionId: "SEC002", classId: "CLS001", sectionName: "B" },
-    { sectionId: "SEC003", classId: "CLS002", sectionName: "A" },
-  ];
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
 
-  const departments = [
-    { departmentId: "DEP001", departmentName: "Teaching" },
-    { departmentId: "DEP002", departmentName: "Accounts" },
-  ];
+    const fetchReportsData = async () => {
+      try {
+        setLoading(true);
 
-  const positions = [
-    {
-      positionId: "POS001",
-      departmentId: "DEP001",
-      positionName: "Teacher",
-    },
-    {
-      positionId: "POS002",
-      departmentId: "DEP001",
-      positionName: "Coordinator",
-    },
-    {
-      positionId: "POS003",
-      departmentId: "DEP002",
-      positionName: "Accountant",
-    },
-  ];
+        const [reportsRes, profRes] = await Promise.allSettled([
+          attendanceService.getReportsData(),
+          schoolService.getProfile(),
+        ]);
 
-  const students = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      classId: "CLS001",
-      sectionId: "SEC001",
-      rollNo: "001",
-      studentName: "Aman Kumar",
-      fatherName: "Rajesh Kumar",
-      mobile: "9876543210",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      classId: "CLS001",
-      sectionId: "SEC001",
-      rollNo: "002",
-      studentName: "Riya Sharma",
-      fatherName: "Manoj Sharma",
-      mobile: "9876543211",
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      classId: "CLS002",
-      sectionId: "SEC003",
-      rollNo: "001",
-      studentName: "Rahul Singh",
-      fatherName: "Suresh Singh",
-      mobile: "9876543212",
-    },
-  ];
+        if (reportsRes.status === "fulfilled" && reportsRes.value.data?.success) {
+          const d = reportsRes.value.data.data;
+          setClasses(d.classes || []);
+          setSections(d.sections || []);
+          setDepartments(d.departments || []);
+          setPositions(d.positions || []);
+          setStudents(d.students || []);
+          setStaffList(d.staffList || []);
+          setHolidays(d.holidays || []);
+          setStudentAttendance(d.studentAttendance || []);
+          setStaffAttendance(d.staffAttendance || []);
+        }
 
-  const staffList = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      departmentId: "DEP001",
-      positionId: "POS001",
-      mobile: "9876543210",
-      isActive: true,
-      lastWorkingDate: "",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0002",
-      employeeName: "Rahul Verma",
-      departmentId: "DEP002",
-      positionId: "POS003",
-      mobile: "9876543211",
-      isActive: true,
-      lastWorkingDate: "",
-    },
-  ];
+        if (profRes.status === "fulfilled" && profRes.value.data?.success) {
+          const p = profRes.value.data.school || profRes.value.data.data || {};
+          setSchoolProfile((prev) => ({
+            ...prev,
+            schoolId: p.campusId || p._id || prev.schoolId,
+            schoolName: p.schoolName || prev.schoolName,
+            address: p.address || "",
+            email: p.email || "",
+            website: p.website || "",
+            phone: p.contactNo || "",
+            logo: p.schoolLogo || "",
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load attendance reports data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const holidays = [
-    {
-      date: "2026-05-15",
-      reason: "Holiday",
-    },
-  ];
-
-  const studentAttendance = [
-    {
-      schoolId: "SCH001",
-      studentId: 1,
-      date: "2026-05-01",
-      status: "P",
-    },
-    {
-      schoolId: "SCH001",
-      studentId: 2,
-      date: "2026-05-01",
-      status: "A",
-    },
-    {
-      schoolId: "SCH001",
-      studentId: 3,
-      date: "2026-05-01",
-      status: "P",
-    },
-    {
-      schoolId: "SCH001",
-      studentId: 1,
-      date: "2026-05-02",
-      status: "P",
-    },
-    {
-      schoolId: "SCH001",
-      studentId: 2,
-      date: "2026-05-02",
-      status: "L",
-    },
-    {
-      schoolId: "SCH001",
-      studentId: 3,
-      date: "2026-05-02",
-      status: "A",
-    },
-  ];
-
-  const staffAttendance = [
-    {
-      schoolId: "SCH001",
-      employeeId: 1,
-      date: "2026-05-01",
-      status: "P",
-      checkInTime: "08:05 AM",
-    },
-    {
-      schoolId: "SCH001",
-      employeeId: 2,
-      date: "2026-05-01",
-      status: "A",
-      checkInTime: "--",
-    },
-  ];
+    fetchReportsData();
+  }, []);
 
   const months = [
     { value: "04", label: "April" },
@@ -191,20 +99,21 @@ function AttendanceReports() {
   ];
 
   const today = new Date().toISOString().split("T")[0];
+  const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 
   const getClassName = (classId) =>
-    classes.find((item) => item.classId === classId)?.className || "-";
+    classes.find((item) => String(item.classId) === String(classId))?.className || "-";
 
   const getSectionName = (sectionId) =>
-    sections.find((item) => item.sectionId === sectionId)?.sectionName || "-";
+    sections.find((item) => String(item.sectionId) === String(sectionId))?.sectionName || "-";
 
   const getDepartmentName = (departmentId) =>
-    departments.find((item) => item.departmentId === departmentId)
+    departments.find((item) => String(item.departmentId) === String(departmentId))
       ?.departmentName || "-";
 
   const getPositionName = (positionId) =>
-    positions.find((item) => item.positionId === positionId)?.positionName ||
-    "-";
+    positions.find((item) => String(item.positionId) === String(positionId))
+      ?.positionName || "-";
 
   const isSunday = (date) => new Date(date).getDay() === 0;
 
@@ -214,26 +123,35 @@ function AttendanceReports() {
     if (isHoliday(date)) return "H";
     if (isSunday(date)) return "W";
 
-    return (
-      studentAttendance.find(
-        (item) => item.studentId === studentId && item.date === date
-      )?.status || "-"
+    const found = studentAttendance.find(
+      (item) => String(item.studentId) === String(studentId) && item.date === date
     );
+    return found ? found.status : "-";
   };
 
   const getStaffStatus = (employeeId, date) => {
     if (isHoliday(date)) return "H";
     if (isSunday(date)) return "W";
 
-    return (
-      staffAttendance.find(
-        (item) => item.employeeId === employeeId && item.date === date
-      )?.status || "-"
+    const found = staffAttendance.find(
+      (item) =>
+        (String(item.employeeId) === String(employeeId) ||
+          String(item.staffId) === String(employeeId)) &&
+        item.date === date
     );
+
+    if (found) {
+      if (found.status === "Present") return "P";
+      if (found.status === "Absent") return "A";
+      if (found.status?.startsWith("Leave")) return "L";
+      return found.status || "-";
+    }
+
+    return "-";
   };
+
   const getDatesBetween = (fromDate, toDate) => {
     if (!fromDate || !toDate) return [];
-
     const dates = [];
     const current = new Date(fromDate);
     const end = new Date(toDate);
@@ -242,66 +160,63 @@ function AttendanceReports() {
       dates.push(current.toISOString().split("T")[0]);
       current.setDate(current.getDate() + 1);
     }
-
     return dates;
   };
 
   const getMonthDates = (month) => {
+    const currentYear = new Date().getFullYear();
     const year = ["01", "02", "03"].includes(month)
-      ? "2027"
-      : "2026";
+      ? String(currentYear + 1)
+      : String(currentYear);
 
-    const totalDays = new Date(
-      Number(year),
-      Number(month),
-      0
-    ).getDate();
+    const totalDays = new Date(Number(year), Number(month), 0).getDate();
 
-    return Array.from(
-      { length: totalDays },
-      (_, index) => {
-        const day = String(index + 1).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      }
-    );
+    return Array.from({ length: totalDays }, (_, index) => {
+      const day = String(index + 1).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    });
   };
 
-  const getAttendancePercent = (
-    present,
-    leave,
-    workingDays
-  ) => {
-    if (!workingDays) return 0;
-
-    return Number(
-      (
-        ((present + leave) / workingDays) *
-        100
-      ).toFixed(2)
-    );
+  const getAttendancePercent = (present, leave, workingDays) => {
+    if (!workingDays || workingDays <= 0) return 0;
+    return Number((((present + leave) / workingDays) * 100).toFixed(2));
   };
 
-  const classOptions = classes.map((item) => ({
-    value: item.classId,
-    label: item.className,
-  }));
-
-  const sectionOptions = sections.map((item) => ({
-    value: item.sectionId,
-    label: item.sectionName,
-  }));
-
-  const departmentOptions = departments.map(
-    (item) => ({
-      value: item.departmentId,
-      label: item.departmentName,
-    })
+  const classOptions = useMemo(
+    () =>
+      classes.map((item) => ({
+        value: item.classId,
+        label: item.className,
+      })),
+    [classes]
   );
 
-  const positionOptions = positions.map((item) => ({
-    value: item.positionId,
-    label: item.positionName,
-  }));
+  const sectionOptions = useMemo(
+    () =>
+      sections.map((item) => ({
+        value: item.sectionId,
+        label: `${item.className ? item.className + " - " : ""}${item.sectionName}`,
+      })),
+    [sections]
+  );
+
+  const departmentOptions = useMemo(
+    () =>
+      departments.map((item) => ({
+        value: item.departmentId,
+        label: item.departmentName,
+      })),
+    [departments]
+  );
+
+  const positionOptions = useMemo(
+    () =>
+      positions.map((item) => ({
+        value: item.positionId,
+        label: item.positionName,
+      })),
+    [positions]
+  );
 
   const commonStudentFilters = [
     {
@@ -337,1255 +252,766 @@ function AttendanceReports() {
     },
   ];
 
-  const dayColumns = getMonthDates("05").map(
-    (date) => ({
-      key: date,
-      label: date.split("-")[2],
-      render: (row) => row[date] || "-",
-    })
-  );
+  const dayColumns = getMonthDates(currentMonth).map((date) => ({
+    key: date,
+    label: date.split("-")[2],
+    render: (row) => row[date] || "-",
+  }));
 
-  const reports = [
+  const reports = useMemo(() => {
+    const sId = schoolProfile.schoolId;
 
-/* ===================================================
-   1. STUDENT ATTENDANCE SUMMARY REPORT
-=================================================== */
-
-{
-  id: "student-attendance-summary-report",
-  title: "Student Attendance Summary Report",
-  description:
-    "View class or section wise student attendance summary",
-  icon: "🎓",
-
-  defaultFilters: {
-    classId: "",
-    sectionId: "",
-    attendanceDate: today,
-  },
-
-  filters: [
-    ...commonStudentFilters,
-    {
-      name: "attendanceDate",
-      label: "Date",
-      type: "date",
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "groupName",
-      label: "Class / Section",
-    },
-    {
-      key: "total",
-      label: "Total",
-    },
-    {
-      key: "present",
-      label: "Present",
-    },
-    {
-      key: "absent",
-      label: "Absent",
-    },
-    {
-      key: "leave",
-      label: "Leave",
-    },
-    {
-      key: "percentage",
-      label: "% Presence",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const date =
-      filters.attendanceDate || today;
-
-    const filteredStudents =
-      students.filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          (!filters.classId ||
-            item.classId ===
-              filters.classId) &&
-          (!filters.sectionId ||
-            item.sectionId ===
-              filters.sectionId)
-      );
-
-    const groups = {};
-
-    filteredStudents.forEach(
-      (student) => {
-        let groupKey =
-          student.classId;
-
-        let groupName =
-          getClassName(
-            student.classId
-          );
-
-        if (
-          filters.classId &&
-          !filters.sectionId
-        ) {
-          groupKey =
-            student.sectionId;
-
-          groupName =
-            getSectionName(
-              student.sectionId
-            );
-        }
-
-        if (
-          filters.classId &&
-          filters.sectionId
-        ) {
-          groupKey =
-            `${student.classId}-${student.sectionId}`;
-
-          groupName =
-            `${getClassName(
-              student.classId
-            )} - ${getSectionName(
-              student.sectionId
-            )}`;
-        }
-
-        if (!groups[groupKey]) {
-          groups[groupKey] = {
-            schoolId,
-            groupName,
-            total: 0,
-            present: 0,
-            absent: 0,
-            leave: 0,
-          };
-        }
-
-        const status =
-          getStudentStatus(
-            student.id,
-            date
-          );
-
-        groups[groupKey].total += 1;
-
-        if (status === "P")
-          groups[groupKey].present += 1;
-
-        if (status === "A")
-          groups[groupKey].absent += 1;
-
-        if (status === "L")
-          groups[groupKey].leave += 1;
-      }
-    );
-
-    return Object.values(
-      groups
-    ).map((item) => ({
-      ...item,
-      percentage: item.total
-        ? `${Math.round(
-            (item.present /
-              item.total) *
-              100
-          )}%`
-        : "0%",
-    }));
-  },
-},
-
-/* ===================================================
-   2. DAILY STUDENT ATTENDANCE REPORT
-=================================================== */
-
-{
-  id: "daily-student-attendance-report",
-
-  title:
-    "Daily Student Attendance Report",
-
-  description:
-    "View student wise attendance for selected date",
-
-  icon: "🎓",
-
-  defaultFilters: {
-    classId: "",
-    sectionId: "",
-    attendanceStatus: "",
-    attendanceDate: today,
-  },
-
-  filters: [
-    ...commonStudentFilters,
-
-    {
-      name: "attendanceStatus",
-      label: "Student Status",
-      type: "select",
-      placeholder: "All Status",
-
-      options: [
-        {
-          value: "P",
-          label: "Present",
+    return [
+      /* ===================================================
+         1. STUDENT ATTENDANCE SUMMARY REPORT
+      =================================================== */
+      {
+        id: "student-attendance-summary-report",
+        title: "Student Attendance Summary Report",
+        description: "View class or section wise student attendance summary",
+        icon: "🎓",
+        defaultFilters: {
+          classId: "",
+          sectionId: "",
+          attendanceDate: today,
         },
-        {
-          value: "A",
-          label: "Absent",
-        },
-        {
-          value: "L",
-          label: "Leave",
-        },
-      ],
-    },
-
-    {
-      name: "attendanceDate",
-      label: "Date",
-      type: "date",
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "rollNo",
-      label: "Roll No",
-    },
-    {
-      key: "studentName",
-      label: "Student Name",
-    },
-    {
-      key: "fatherName",
-      label: "Father Name",
-    },
-    {
-      key: "className",
-      label: "Class",
-    },
-    {
-      key: "sectionName",
-      label: "Section",
-    },
-    {
-      key: "attendanceStatus",
-      label: "Attendance Status",
-    },
-  ],
-  getData: ({ schoolId, filters }) => {
-    const date =
-      filters.attendanceDate || today;
-
-    return students
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          (!filters.classId ||
-            item.classId ===
-              filters.classId) &&
-          (!filters.sectionId ||
-            item.sectionId ===
-              filters.sectionId)
-      )
-      .map((student) => ({
-        ...student,
-        className: getClassName(
-          student.classId
-        ),
-        sectionName: getSectionName(
-          student.sectionId
-        ),
-        attendanceStatus:
-          getStudentStatus(
-            student.id,
-            date
-          ),
-      }))
-      .filter((item) =>
-        filters.attendanceStatus
-          ? item.attendanceStatus ===
-            filters.attendanceStatus
-          : true
-      );
-  },
-},
-
-/* ===================================================
-   3. MONTHLY STUDENT ATTENDANCE REPORT
-=================================================== */
-
-{
-  id: "monthly-student-attendance-report",
-
-  title:
-    "Monthly Student Attendance Report",
-
-  description:
-    "View monthly student attendance register",
-
-  icon: "🎓",
-
-  defaultFilters: {
-    classId: "CLS001",
-    sectionId: "SEC001",
-    month: "05",
-  },
-
-  filters: [
-    {
-      name: "classId",
-      label: "Class *",
-      type: "select",
-      placeholder: "Select Class",
-      options: classOptions,
-    },
-    {
-      name: "sectionId",
-      label: "Section *",
-      type: "select",
-      placeholder: "Select Section",
-      options: sectionOptions,
-    },
-    {
-      name: "month",
-      label: "Month",
-      type: "select",
-      placeholder: "Select Month",
-      options: months,
-    },
-  ],
-
-  columns: [
-    {
-      key: "rollNo",
-      label: "Roll No",
-    },
-    {
-      key: "studentName",
-      label: "Student Name",
-    },
-    ...dayColumns,
-    {
-      key: "present",
-      label: "P",
-    },
-    {
-      key: "absent",
-      label: "A",
-    },
-    {
-      key: "leave",
-      label: "L",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const month =
-      filters.month || "05";
-
-    const dates =
-      getMonthDates(month);
-
-    return students
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.classId ===
-            filters.classId &&
-          item.sectionId ===
-            filters.sectionId
-      )
-      .map((student) => {
-        let present = 0;
-        let absent = 0;
-        let leave = 0;
-
-        const row = {
-          schoolId,
-          rollNo: student.rollNo,
-          studentName:
-            student.studentName,
-        };
-
-        dates.forEach((date) => {
-          const status =
-            getStudentStatus(
-              student.id,
-              date
-            );
-
-          row[date] = status;
-
-          if (status === "P")
-            present += 1;
-
-          if (status === "A")
-            absent += 1;
-
-          if (status === "L")
-            leave += 1;
-        });
-
-        return {
-          ...row,
-          present,
-          absent,
-          leave,
-        };
-      });
-  },
-},
-
-/* ===================================================
-   4. STUDENT LONG ABSENCE REPORT
-=================================================== */
-
-{
-  id: "student-long-absence-report",
-
-  title: "Student Long Absence Report",
-
-  description:
-    "View students continuously absent for selected date range",
-
-  icon: "🎓",
-
-  defaultFilters: {
-    classId: "",
-    sectionId: "",
-    fromDate: today,
-    toDate: today,
-    minimumAbsentDays: "3",
-  },
-
-  filters: [
-    ...commonStudentFilters,
-
-    {
-      name: "fromDate",
-      label: "From Date",
-      type: "date",
-    },
-    {
-      name: "toDate",
-      label: "To Date",
-      type: "date",
-    },
-    {
-      name: "minimumAbsentDays",
-      label: "Minimum Absent Days",
-      type: "number",
-      placeholder: "Enter days",
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "rollNo",
-      label: "Roll No",
-    },
-    {
-      key: "studentName",
-      label: "Student Name",
-    },
-    {
-      key: "fatherName",
-      label: "Father Name",
-    },
-    {
-      key: "className",
-      label: "Class",
-    },
-    {
-      key: "sectionName",
-      label: "Section",
-    },
-    {
-      key: "absentDays",
-      label: "Absent Days",
-    },
-    {
-      key: "fromDate",
-      label: "From Date",
-    },
-    {
-      key: "toDate",
-      label: "To Date",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const dates =
-      getDatesBetween(
-        filters.fromDate,
-        filters.toDate
-      );
-
-    const minDays = Number(
-      filters.minimumAbsentDays || 1
-    );
-
-    return students
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          (!filters.classId ||
-            item.classId ===
-              filters.classId) &&
-          (!filters.sectionId ||
-            item.sectionId ===
-              filters.sectionId)
-      )
-      .map((student) => {
-        const absentDates =
-          dates.filter(
-            (date) =>
-              getStudentStatus(
-                student.id,
-                date
-              ) === "A"
-          );
-
-        return {
-          ...student,
-          className: getClassName(
-            student.classId
-          ),
-          sectionName: getSectionName(
-            student.sectionId
-          ),
-          absentDays:
-            absentDates.length,
-          fromDate:
-            absentDates[0] || "-",
-          toDate:
-            absentDates[
-              absentDates.length - 1
-            ] || "-",
-        };
-      })
-      .filter(
-        (item) =>
-          item.absentDays >= minDays
-      );
-  },
-},
-
-/* ===================================================
-   5. STUDENT ATTENDANCE PERCENTAGE REPORT
-=================================================== */
-
-{
-  id: "student-attendance-percentage-report",
-
-  title:
-    "Student Attendance Percentage Report",
-
-  description:
-    "View student attendance percentage between selected range",
-
-  icon: "🎓",
-
-  defaultFilters: {
-    classId: "",
-    sectionId: "",
-    fromDate: today,
-    toDate: today,
-    fromPercent: "1",
-    toPercent: "100",
-    sortBy: "rollNo",
-  },
-
-  filters: [
-    ...commonStudentFilters,
-
-    {
-      name: "fromDate",
-      label: "From Date",
-      type: "date",
-    },
-    {
-      name: "toDate",
-      label: "To Date",
-      type: "date",
-    },
-    {
-      name: "fromPercent",
-      label: "From %",
-      type: "number",
-    },
-    {
-      name: "toPercent",
-      label: "To %",
-      type: "number",
-    },
-    {
-      name: "sortBy",
-      label: "Sort By",
-      type: "select",
-      showAllOption: false,
-      options: [
-        {
-          value: "rollNo",
-          label:
-            "Roll Number",
-        },
-        {
-          value: "percentage",
-          label:
-            "Attendance %",
-        },
-      ],
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "rollNo",
-      label: "Roll No",
-    },
-    {
-      key: "studentName",
-      label: "Student Name",
-    },
-    {
-      key: "className",
-      label: "Class",
-    },
-    {
-      key: "sectionName",
-      label: "Section",
-    },
-    {
-      key: "workingDays",
-      label: "Working Days",
-    },
-    {
-      key: "present",
-      label: "Present",
-    },
-    {
-      key: "absent",
-      label: "Absent",
-    },
-    {
-      key: "leave",
-      label: "Leave",
-    },
-    {
-      key: "percentage",
-      label: "Attendance %",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const dates =
-      getDatesBetween(
-        filters.fromDate,
-        filters.toDate
-      );
-
-    let data = students
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          (!filters.classId ||
-            item.classId ===
-              filters.classId) &&
-          (!filters.sectionId ||
-            item.sectionId ===
-              filters.sectionId)
-      )
-      .map((student) => {
-        let workingDays = 0;
-        let present = 0;
-        let absent = 0;
-        let leave = 0;
-
-        dates.forEach((date) => {
-          const status =
-            getStudentStatus(
-              student.id,
-              date
-            );
-
-          if (
-            status !== "H" &&
-            status !== "W"
-          ) {
-            workingDays += 1;
-          }
-
-          if (status === "P")
-            present += 1;
-
-          if (status === "A")
-            absent += 1;
-
-          if (status === "L")
-            leave += 1;
-        });
-
-        const percentage =
-          getAttendancePercent(
-            present,
-            leave,
-            workingDays
-          );
-
-        return {
-          ...student,
-          className: getClassName(
-            student.classId
-          ),
-          sectionName: getSectionName(
-            student.sectionId
-          ),
-          workingDays,
-          present,
-          absent,
-          leave,
-          percentage,
-        };
-      });
-
-    const fromPercent = Number(
-      filters.fromPercent || 1
-    );
-
-    const toPercent = Number(
-      filters.toPercent || 100
-    );
-
-    data = data.filter(
-      (item) =>
-        item.percentage >=
-          fromPercent &&
-        item.percentage <= toPercent
-    );
-
-    if (filters.sortBy === "percentage") {
-      data.sort(
-        (a, b) =>
-          b.percentage -
-          a.percentage
-      );
-    } else {
-      data.sort(
-        (a, b) =>
-          Number(a.rollNo) -
-          Number(b.rollNo)
-      );
-    }
-
-    return data;
-  },
-},
-/* ===================================================
-   6. STAFF ATTENDANCE SUMMARY REPORT
-=================================================== */
-
-{
-  id: "staff-attendance-summary-report",
-
-  title: "Staff Attendance Summary Report",
-
-  description:
-    "View department or position wise staff attendance summary",
-
-  icon: "👨‍🏫",
-
-  defaultFilters: {
-    departmentId: "",
-    positionId: "",
-    attendanceDate: today,
-  },
-
-  filters: [
-    ...commonStaffFilters,
-
-    {
-      name: "attendanceDate",
-      label: "Date",
-      type: "date",
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "groupName",
-      label: "Department / Position",
-    },
-    {
-      key: "total",
-      label: "Total Staff",
-    },
-    {
-      key: "present",
-      label: "Present",
-    },
-    {
-      key: "absent",
-      label: "Absent",
-    },
-    {
-      key: "leave",
-      label: "Leave",
-    },
-    {
-      key: "percentage",
-      label: "% Presence",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const date =
-      filters.attendanceDate || today;
-
-    const activeStaff =
-      staffList.filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.isActive &&
-          !item.lastWorkingDate &&
-          (!filters.departmentId ||
-            item.departmentId ===
-              filters.departmentId) &&
-          (!filters.positionId ||
-            item.positionId ===
-              filters.positionId)
-      );
-
-    const groups = {};
-
-    activeStaff.forEach((staff) => {
-      let groupKey =
-        staff.departmentId;
-
-      let groupName =
-        getDepartmentName(
-          staff.departmentId
-        );
-
-      if (
-        filters.departmentId &&
-        !filters.positionId
-      ) {
-        groupKey =
-          staff.positionId;
-
-        groupName =
-          getPositionName(
-            staff.positionId
-          );
-      }
-
-      if (
-        filters.departmentId &&
-        filters.positionId
-      ) {
-        groupKey =
-          `${staff.departmentId}-${staff.positionId}`;
-
-        groupName =
-          `${getDepartmentName(
-            staff.departmentId
-          )} - ${getPositionName(
-            staff.positionId
-          )}`;
-      }
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = {
-          schoolId,
-          groupName,
-          total: 0,
-          present: 0,
-          absent: 0,
-          leave: 0,
-        };
-      }
-
-      const status =
-        getStaffStatus(
-          staff.id,
-          date
-        );
-
-      groups[groupKey].total += 1;
-
-      if (status === "P")
-        groups[groupKey].present += 1;
-
-      if (status === "A")
-        groups[groupKey].absent += 1;
-
-      if (status === "L")
-        groups[groupKey].leave += 1;
-    });
-
-    return Object.values(groups).map(
-      (item) => ({
-        ...item,
-        percentage: item.total
-          ? `${Math.round(
-              (item.present /
-                item.total) *
-                100
-            )}%`
-          : "0%",
-      })
-    );
-  },
-},
-
-/* ===================================================
-   7. DAILY STAFF ATTENDANCE REPORT
-=================================================== */
-
-{
-  id: "daily-staff-attendance-report",
-
-  title: "Daily Staff Attendance Report",
-
-  description:
-    "View daily staff attendance details",
-
-  icon: "👨‍🏫",
-
-  defaultFilters: {
-    departmentId: "",
-    positionId: "",
-    attendanceStatus: "",
-    attendanceDate: today,
-  },
-
-  filters: [
-    ...commonStaffFilters,
-
-    {
-      name: "attendanceStatus",
-      label: "Attendance Status",
-      type: "select",
-      placeholder: "All Status",
-      options: [
-        {
-          value: "P",
-          label: "Present",
-        },
-        {
-          value: "A",
-          label: "Absent",
-        },
-        {
-          value: "L",
-          label: "Leave",
-        },
-        {
-          value: "-",
-          label: "Not Marked",
-        },
-      ],
-    },
-
-    {
-      name: "attendanceDate",
-      label: "Date",
-      type: "date",
-    },
-  ],
-
-  columns: [
-    {
-      key: "sno",
-      label: "S.No",
-      render: (_, index) => index + 1,
-    },
-    {
-      key: "employeeCode",
-      label: "Employee Code",
-    },
-    {
-      key: "employeeName",
-      label: "Employee Name",
-    },
-    {
-      key: "departmentName",
-      label: "Department",
-    },
-    {
-      key: "positionName",
-      label: "Position",
-    },
-    {
-      key: "mobile",
-      label: "Mobile",
-    },
-    {
-      key: "attendanceStatus",
-      label: "Attendance Status",
-    },
-    {
-      key: "checkInTime",
-      label: "Check-In Time",
-    },
-  ],
-
-  getData: ({ schoolId, filters }) => {
-    const date =
-      filters.attendanceDate || today;
-
-    return staffList
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.isActive &&
-          !item.lastWorkingDate &&
-          (!filters.departmentId ||
-            item.departmentId ===
-              filters.departmentId) &&
-          (!filters.positionId ||
-            item.positionId ===
-              filters.positionId)
-      )
-      .map((staff) => {
-        const record =
-          staffAttendance.find(
+        filters: [
+          ...commonStudentFilters,
+          {
+            name: "attendanceDate",
+            label: "Date",
+            type: "date",
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "groupName", label: "Class / Section" },
+          { key: "total", label: "Total" },
+          { key: "present", label: "Present" },
+          { key: "absent", label: "Absent" },
+          { key: "leave", label: "Leave" },
+          { key: "percentage", label: "% Presence" },
+        ],
+        getData: ({ filters }) => {
+          const date = filters.attendanceDate || today;
+
+          const filteredStudents = students.filter(
             (item) =>
-              item.employeeId ===
-                staff.id &&
-              item.date === date
+              (!filters.classId || String(item.classId) === String(filters.classId)) &&
+              (!filters.sectionId || String(item.sectionId) === String(filters.sectionId))
           );
 
-        return {
-          ...staff,
-          departmentName:
-            getDepartmentName(
-              staff.departmentId
-            ),
-          positionName:
-            getPositionName(
-              staff.positionId
-            ),
-          attendanceStatus:
-            getStaffStatus(
-              staff.id,
-              date
-            ),
-          checkInTime:
-            record?.checkInTime || "--",
-        };
-      })
-      .filter((item) =>
-        filters.attendanceStatus
-          ? item.attendanceStatus ===
-            filters.attendanceStatus
-          : true
-      );
-  },
-},
+          const groups = {};
 
-/* ===================================================
-   8. MONTHLY STAFF ATTENDANCE REPORT
-=================================================== */
+          filteredStudents.forEach((student) => {
+            let groupKey = student.classId;
+            let groupName = getClassName(student.classId);
 
-{
-  id: "monthly-staff-attendance-report",
+            if (filters.classId && !filters.sectionId) {
+              groupKey = student.sectionId;
+              groupName = getSectionName(student.sectionId);
+            }
 
-  title: "Monthly Staff Attendance Report",
+            if (filters.classId && filters.sectionId) {
+              groupKey = `${student.classId}-${student.sectionId}`;
+              groupName = `${getClassName(student.classId)} (${getSectionName(
+                student.sectionId
+              )})`;
+            }
 
-  description:
-    "View monthly staff attendance register",
+            if (!groups[groupKey]) {
+              groups[groupKey] = {
+                schoolId: sId,
+                groupName,
+                total: 0,
+                present: 0,
+                absent: 0,
+                leave: 0,
+              };
+            }
 
-  icon: "👨‍🏫",
+            groups[groupKey].total += 1;
 
-  defaultFilters: {
-    departmentId: "DEP001",
-    positionId: "POS001",
-    month: "05",
-  },
+            const status = getStudentStatus(student.id || student.studentId, date);
+            if (status === "P") groups[groupKey].present += 1;
+            if (status === "A") groups[groupKey].absent += 1;
+            if (status === "L") groups[groupKey].leave += 1;
+          });
 
-  filters: [
-    {
-      name: "departmentId",
-      label: "Department *",
-      type: "select",
-      placeholder: "Select Department",
-      options: departmentOptions,
-    },
-    {
-      name: "positionId",
-      label: "Position *",
-      type: "select",
-      placeholder: "Select Position",
-      options: positionOptions,
-    },
-    {
-      name: "month",
-      label: "Month",
-      type: "select",
-      placeholder: "Select Month",
-      options: months,
-    },
-  ],
+          return Object.values(groups).map((group) => ({
+            ...group,
+            percentage: `${getAttendancePercent(
+              group.present,
+              group.leave,
+              group.total
+            )}%`,
+          }));
+        },
+      },
 
-  columns: [
-    {
-      key: "employeeCode",
-      label: "Employee Code",
-    },
-    {
-      key: "employeeName",
-      label: "Employee Name",
-    },
-    ...dayColumns,
-    {
-      key: "present",
-      label: "P",
-    },
-    {
-      key: "absent",
-      label: "A",
-    },
-    {
-      key: "leave",
-      label: "L",
-    },
-    {
-      key: "paidDays",
-      label: "Paid Days",
-    },
-    {
-      key: "percentage",
-      label: "Attendance %",
-    },
-  ],
+      /* ===================================================
+         2. DAILY STUDENT ATTENDANCE REPORT
+      =================================================== */
+      {
+        id: "daily-student-attendance-report",
+        title: "Daily Student Attendance Report",
+        description: "View student wise daily attendance status",
+        icon: "📅",
+        defaultFilters: {
+          classId: "",
+          sectionId: "",
+          attendanceStatus: "",
+          attendanceDate: today,
+        },
+        filters: [
+          ...commonStudentFilters,
+          {
+            name: "attendanceStatus",
+            label: "Attendance Status",
+            type: "select",
+            placeholder: "All Status",
+            options: [
+              { value: "P", label: "Present" },
+              { value: "A", label: "Absent" },
+              { value: "L", label: "Leave" },
+              { value: "W", label: "Weekly Off" },
+              { value: "H", label: "Holiday" },
+            ],
+          },
+          {
+            name: "attendanceDate",
+            label: "Attendance Date",
+            type: "date",
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "rollNo", label: "Roll No" },
+          { key: "studentName", label: "Student Name" },
+          { key: "fatherName", label: "Father Name" },
+          { key: "className", label: "Class" },
+          { key: "sectionName", label: "Section" },
+          { key: "status", label: "Status" },
+          { key: "mobile", label: "Mobile" },
+        ],
+        getData: ({ filters }) => {
+          const date = filters.attendanceDate || today;
 
-  getData: ({ schoolId, filters }) => {
-    const month =
-      filters.month || "05";
-
-    const dates =
-      getMonthDates(month);
-
-    return staffList
-      .filter(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.isActive &&
-          !item.lastWorkingDate &&
-          item.departmentId ===
-            filters.departmentId &&
-          item.positionId ===
-            filters.positionId
-      )
-      .map((staff) => {
-        let present = 0;
-        let absent = 0;
-        let leave = 0;
-        let holiday = 0;
-        let weeklyOff = 0;
-
-        const row = {
-          schoolId,
-          employeeCode:
-            staff.employeeCode,
-          employeeName:
-            staff.employeeName,
-        };
-
-        dates.forEach((date) => {
-          const status =
-            getStaffStatus(
-              staff.id,
-              date
+          return students
+            .filter(
+              (item) =>
+                (!filters.classId || String(item.classId) === String(filters.classId)) &&
+                (!filters.sectionId || String(item.sectionId) === String(filters.sectionId))
+            )
+            .map((student) => ({
+              schoolId: sId,
+              rollNo: student.rollNo,
+              studentName: student.studentName,
+              fatherName: student.fatherName,
+              className: getClassName(student.classId),
+              sectionName: getSectionName(student.sectionId),
+              mobile: student.mobile,
+              status: getStudentStatus(student.id || student.studentId, date),
+            }))
+            .filter((item) =>
+              filters.attendanceStatus
+                ? item.status === filters.attendanceStatus
+                : true
             );
+        },
+      },
 
-          row[date] = status;
+      /* ===================================================
+         3. MONTHLY STUDENT ATTENDANCE REPORT
+      =================================================== */
+      {
+        id: "monthly-student-attendance-report",
+        title: "Monthly Student Attendance Report",
+        description: "View student wise full month attendance register",
+        icon: "🗓️",
+        defaultFilters: {
+          classId: classes[0]?.classId || "",
+          sectionId: sections[0]?.sectionId || "",
+          month: currentMonth,
+        },
+        filters: [
+          ...commonStudentFilters,
+          {
+            name: "month",
+            label: "Month",
+            type: "select",
+            placeholder: "Select Month",
+            options: months,
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "rollNo", label: "Roll No" },
+          { key: "studentName", label: "Student Name" },
+          ...dayColumns,
+          { key: "present", label: "Present" },
+          { key: "absent", label: "Absent" },
+          { key: "leave", label: "Leave" },
+          { key: "percentage", label: "%" },
+        ],
+        getData: ({ filters }) => {
+          const month = filters.month || currentMonth;
+          const dates = getMonthDates(month);
 
-          if (status === "P")
-            present += 1;
+          return students
+            .filter(
+              (item) =>
+                (!filters.classId || String(item.classId) === String(filters.classId)) &&
+                (!filters.sectionId || String(item.sectionId) === String(filters.sectionId))
+            )
+            .map((student) => {
+              let present = 0;
+              let absent = 0;
+              let leave = 0;
+              let holiday = 0;
+              let weeklyOff = 0;
 
-          if (status === "A")
-            absent += 1;
+              const row = {
+                schoolId: sId,
+                rollNo: student.rollNo,
+                studentName: student.studentName,
+              };
 
-          if (status === "L")
-            leave += 1;
+              dates.forEach((date) => {
+                const status = getStudentStatus(student.id || student.studentId, date);
+                row[date] = status;
 
-          if (status === "H")
-            holiday += 1;
+                if (status === "P") present += 1;
+                if (status === "A") absent += 1;
+                if (status === "L") leave += 1;
+                if (status === "H") holiday += 1;
+                if (status === "W") weeklyOff += 1;
+              });
 
-          if (status === "W")
-            weeklyOff += 1;
-        });
+              const workingDays = dates.length - holiday - weeklyOff;
 
-        const workingDays =
-          dates.length -
-          holiday -
-          weeklyOff;
+              return {
+                ...row,
+                present,
+                absent,
+                leave,
+                percentage: `${getAttendancePercent(present, leave, workingDays)}%`,
+              };
+            });
+        },
+      },
 
-        const paidDays =
-          present +
-          leave +
-          holiday +
-          weeklyOff;
+      /* ===================================================
+         4. STUDENT LONG ABSENCE REPORT
+      =================================================== */
+      {
+        id: "student-long-absence-report",
+        title: "Student Long Absence Report",
+        description: "View students with continuous absence for selected days",
+        icon: "⚠️",
+        defaultFilters: {
+          classId: "",
+          sectionId: "",
+          fromDate: today,
+          toDate: today,
+          minDays: "3",
+        },
+        filters: [
+          ...commonStudentFilters,
+          {
+            name: "fromDate",
+            label: "From Date",
+            type: "date",
+          },
+          {
+            name: "toDate",
+            label: "To Date",
+            type: "date",
+          },
+          {
+            name: "minDays",
+            label: "Min Days",
+            type: "select",
+            placeholder: "Select Days",
+            options: [
+              { value: "2", label: "2 Days" },
+              { value: "3", label: "3 Days" },
+              { value: "5", label: "5 Days" },
+              { value: "7", label: "7 Days" },
+            ],
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "rollNo", label: "Roll No" },
+          { key: "studentName", label: "Student Name" },
+          { key: "fatherName", label: "Father Name" },
+          { key: "className", label: "Class" },
+          { key: "sectionName", label: "Section" },
+          { key: "absentDays", label: "Absent Days" },
+          { key: "lastPresentDate", label: "Last Present Date" },
+          { key: "mobile", label: "Mobile" },
+        ],
+        getData: ({ filters }) => {
+          const fromDate = filters.fromDate || today;
+          const toDate = filters.toDate || today;
+          const minDays = Number(filters.minDays || 3);
+          const dates = getDatesBetween(fromDate, toDate);
 
-        return {
-          ...row,
-          present,
-          absent,
-          leave,
-          paidDays,
-          percentage: `${getAttendancePercent(
-            present,
-            leave,
-            workingDays
-          )}%`,
-        };
-      });
-  },
-},
-  ];
+          return students
+            .filter(
+              (item) =>
+                (!filters.classId || String(item.classId) === String(filters.classId)) &&
+                (!filters.sectionId || String(item.sectionId) === String(filters.sectionId))
+            )
+            .map((student) => {
+              let absentDays = 0;
+              let lastPresentDate = "-";
+
+              dates.forEach((date) => {
+                const status = getStudentStatus(student.id || student.studentId, date);
+                if (status === "A") {
+                  absentDays += 1;
+                }
+                if (status === "P") {
+                  lastPresentDate = date;
+                }
+              });
+
+              return {
+                schoolId: sId,
+                rollNo: student.rollNo,
+                studentName: student.studentName,
+                fatherName: student.fatherName,
+                className: getClassName(student.classId),
+                sectionName: getSectionName(student.sectionId),
+                mobile: student.mobile,
+                absentDays,
+                lastPresentDate,
+              };
+            })
+            .filter((item) => item.absentDays >= minDays);
+        },
+      },
+
+      /* ===================================================
+         5. STUDENT ATTENDANCE PERCENTAGE REPORT
+      =================================================== */
+      {
+        id: "student-attendance-percentage-report",
+        title: "Student Attendance Percentage Report",
+        description: "View student attendance percentage for given date range",
+        icon: "📊",
+        defaultFilters: {
+          classId: "",
+          sectionId: "",
+          fromDate: today,
+          toDate: today,
+          operator: "All",
+          percentage: "75",
+        },
+        filters: [
+          ...commonStudentFilters,
+          {
+            name: "fromDate",
+            label: "From Date",
+            type: "date",
+          },
+          {
+            name: "toDate",
+            label: "To Date",
+            type: "date",
+          },
+          {
+            name: "operator",
+            label: "Criteria",
+            type: "select",
+            placeholder: "All",
+            options: [
+              { value: "All", label: "All" },
+              { value: "LessThan", label: "Less Than" },
+              { value: "GreaterThan", label: "Greater Than" },
+            ],
+          },
+          {
+            name: "percentage",
+            label: "% Value",
+            type: "select",
+            placeholder: "Select %",
+            options: [
+              { value: "50", label: "50%" },
+              { value: "60", label: "60%" },
+              { value: "75", label: "75%" },
+              { value: "85", label: "85%" },
+            ],
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "rollNo", label: "Roll No" },
+          { key: "studentName", label: "Student Name" },
+          { key: "className", label: "Class" },
+          { key: "sectionName", label: "Section" },
+          { key: "workingDays", label: "Working Days" },
+          { key: "presentDays", label: "Present Days" },
+          { key: "leaveDays", label: "Leave Days" },
+          { key: "percentage", label: "% Presence" },
+          { key: "mobile", label: "Mobile" },
+        ],
+        getData: ({ filters }) => {
+          const fromDate = filters.fromDate || today;
+          const toDate = filters.toDate || today;
+          const targetPercent = Number(filters.percentage || 75);
+          const operator = filters.operator || "All";
+          const dates = getDatesBetween(fromDate, toDate);
+
+          return students
+            .filter(
+              (item) =>
+                (!filters.classId || String(item.classId) === String(filters.classId)) &&
+                (!filters.sectionId || String(item.sectionId) === String(filters.sectionId))
+            )
+            .map((student) => {
+              let presentDays = 0;
+              let leaveDays = 0;
+              let holidayDays = 0;
+              let weeklyOffDays = 0;
+
+              dates.forEach((date) => {
+                const status = getStudentStatus(student.id || student.studentId, date);
+                if (status === "P") presentDays += 1;
+                if (status === "L") leaveDays += 1;
+                if (status === "H") holidayDays += 1;
+                if (status === "W") weeklyOffDays += 1;
+              });
+
+              const workingDays = dates.length - holidayDays - weeklyOffDays;
+              const percentValue = getAttendancePercent(
+                presentDays,
+                leaveDays,
+                workingDays
+              );
+
+              return {
+                schoolId: sId,
+                rollNo: student.rollNo,
+                studentName: student.studentName,
+                className: getClassName(student.classId),
+                sectionName: getSectionName(student.sectionId),
+                workingDays,
+                presentDays,
+                leaveDays,
+                percentValue,
+                percentage: `${percentValue}%`,
+                mobile: student.mobile,
+              };
+            })
+            .filter((item) => {
+              if (operator === "LessThan") return item.percentValue < targetPercent;
+              if (operator === "GreaterThan") return item.percentValue > targetPercent;
+              return true;
+            });
+        },
+      },
+
+      /* ===================================================
+         6. STAFF ATTENDANCE SUMMARY REPORT
+      =================================================== */
+      {
+        id: "staff-attendance-summary-report",
+        title: "Staff Attendance Summary Report",
+        description: "View department or position wise staff attendance summary",
+        icon: "👨‍🏫",
+        defaultFilters: {
+          departmentId: "",
+          positionId: "",
+          attendanceDate: today,
+        },
+        filters: [
+          ...commonStaffFilters,
+          {
+            name: "attendanceDate",
+            label: "Date",
+            type: "date",
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "groupName", label: "Department / Position" },
+          { key: "total", label: "Total Staff" },
+          { key: "present", label: "Present" },
+          { key: "absent", label: "Absent" },
+          { key: "leave", label: "Leave" },
+          { key: "percentage", label: "% Presence" },
+        ],
+        getData: ({ filters }) => {
+          const date = filters.attendanceDate || today;
+
+          const filteredStaff = staffList.filter(
+            (item) =>
+              item.isActive &&
+              (!filters.departmentId ||
+                String(item.departmentId) === String(filters.departmentId)) &&
+              (!filters.positionId ||
+                String(item.positionId) === String(filters.positionId))
+          );
+
+          const groups = {};
+
+          filteredStaff.forEach((staff) => {
+            let groupKey = staff.departmentId;
+            let groupName = getDepartmentName(staff.departmentId);
+
+            if (filters.departmentId && !filters.positionId) {
+              groupKey = staff.positionId;
+              groupName = getPositionName(staff.positionId);
+            }
+
+            if (filters.departmentId && filters.positionId) {
+              groupKey = `${staff.departmentId}-${staff.positionId}`;
+              groupName = `${getDepartmentName(staff.departmentId)} (${getPositionName(
+                staff.positionId
+              )})`;
+            }
+
+            if (!groups[groupKey]) {
+              groups[groupKey] = {
+                schoolId: sId,
+                groupName,
+                total: 0,
+                present: 0,
+                absent: 0,
+                leave: 0,
+              };
+            }
+
+            groups[groupKey].total += 1;
+
+            const status = getStaffStatus(staff.id || staff.staffId, date);
+            if (status === "P") groups[groupKey].present += 1;
+            if (status === "A") groups[groupKey].absent += 1;
+            if (status === "L") groups[groupKey].leave += 1;
+          });
+
+          return Object.values(groups).map((group) => ({
+            ...group,
+            percentage: `${getAttendancePercent(
+              group.present,
+              group.leave,
+              group.total
+            )}%`,
+          }));
+        },
+      },
+
+      /* ===================================================
+         7. DAILY STAFF ATTENDANCE REPORT
+      =================================================== */
+      {
+        id: "daily-staff-attendance-report",
+        title: "Daily Staff Attendance Report",
+        description: "View staff wise daily attendance and check-in time",
+        icon: "🕒",
+        defaultFilters: {
+          departmentId: "",
+          positionId: "",
+          attendanceStatus: "",
+          attendanceDate: today,
+        },
+        filters: [
+          ...commonStaffFilters,
+          {
+            name: "attendanceStatus",
+            label: "Attendance Status",
+            type: "select",
+            placeholder: "All Status",
+            options: [
+              { value: "P", label: "Present" },
+              { value: "A", label: "Absent" },
+              { value: "L", label: "Leave" },
+              { value: "W", label: "Weekly Off" },
+              { value: "H", label: "Holiday" },
+            ],
+          },
+          {
+            name: "attendanceDate",
+            label: "Attendance Date",
+            type: "date",
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "employeeCode", label: "Employee Code" },
+          { key: "employeeName", label: "Employee Name" },
+          { key: "departmentName", label: "Department" },
+          { key: "positionName", label: "Position" },
+          { key: "status", label: "Status" },
+          { key: "checkInTime", label: "Check In Time" },
+          { key: "mobile", label: "Mobile" },
+        ],
+        getData: ({ filters }) => {
+          const date = filters.attendanceDate || today;
+
+          return staffList
+            .filter(
+              (item) =>
+                item.isActive &&
+                (!filters.departmentId ||
+                  String(item.departmentId) === String(filters.departmentId)) &&
+                (!filters.positionId ||
+                  String(item.positionId) === String(filters.positionId))
+            )
+            .map((staff) => {
+              const att = staffAttendance.find(
+                (item) =>
+                  (String(item.employeeId) === String(staff.id || staff.staffId) ||
+                    String(item.staffId) === String(staff.id || staff.staffId)) &&
+                  item.date === date
+              );
+
+              return {
+                schoolId: sId,
+                employeeCode: staff.employeeCode,
+                employeeName: staff.employeeName,
+                departmentName: getDepartmentName(staff.departmentId),
+                positionName: getPositionName(staff.positionId),
+                status: getStaffStatus(staff.id || staff.staffId, date),
+                checkInTime: att ? att.checkInTime || "--" : "--",
+                mobile: staff.mobile,
+              };
+            })
+            .filter((item) =>
+              filters.attendanceStatus
+                ? item.status === filters.attendanceStatus
+                : true
+            );
+        },
+      },
+
+      /* ===================================================
+         8. MONTHLY STAFF ATTENDANCE REPORT
+      =================================================== */
+      {
+        id: "monthly-staff-attendance-report",
+        title: "Monthly Staff Attendance Report",
+        description: "View staff full month attendance register and paid days",
+        icon: "📋",
+        defaultFilters: {
+          departmentId: departments[0]?.departmentId || "",
+          positionId: positions[0]?.positionId || "",
+          month: currentMonth,
+        },
+        filters: [
+          ...commonStaffFilters,
+          {
+            name: "month",
+            label: "Month",
+            type: "select",
+            placeholder: "Select Month",
+            options: months,
+          },
+        ],
+        columns: [
+          { key: "sno", label: "S.No", render: (_, index) => index + 1 },
+          { key: "employeeCode", label: "Employee Code" },
+          { key: "employeeName", label: "Employee Name" },
+          ...dayColumns,
+          { key: "present", label: "Present" },
+          { key: "absent", label: "Absent" },
+          { key: "leave", label: "Leave" },
+          { key: "paidDays", label: "Paid Days" },
+          { key: "percentage", label: "%" },
+        ],
+        getData: ({ filters }) => {
+          const month = filters.month || currentMonth;
+          const dates = getMonthDates(month);
+
+          return staffList
+            .filter(
+              (item) =>
+                item.isActive &&
+                (!filters.departmentId ||
+                  String(item.departmentId) === String(filters.departmentId)) &&
+                (!filters.positionId ||
+                  String(item.positionId) === String(filters.positionId))
+            )
+            .map((staff) => {
+              let present = 0;
+              let absent = 0;
+              let leave = 0;
+              let holiday = 0;
+              let weeklyOff = 0;
+
+              const row = {
+                schoolId: sId,
+                employeeCode: staff.employeeCode,
+                employeeName: staff.employeeName,
+              };
+
+              dates.forEach((date) => {
+                const status = getStaffStatus(staff.id || staff.staffId, date);
+                row[date] = status;
+
+                if (status === "P") present += 1;
+                if (status === "A") absent += 1;
+                if (status === "L") leave += 1;
+                if (status === "H") holiday += 1;
+                if (status === "W") weeklyOff += 1;
+              });
+
+              const workingDays = dates.length - holiday - weeklyOff;
+              const paidDays = present + leave + holiday + weeklyOff;
+
+              return {
+                ...row,
+                present,
+                absent,
+                leave,
+                paidDays,
+                percentage: `${getAttendancePercent(
+                  present,
+                  leave,
+                  workingDays
+                )}%`,
+              };
+            });
+        },
+      },
+    ];
+  }, [
+    schoolProfile,
+    classes,
+    sections,
+    departments,
+    positions,
+    students,
+    staffList,
+    holidays,
+    studentAttendance,
+    staffAttendance,
+    today,
+    currentMonth,
+    commonStudentFilters,
+    commonStaffFilters,
+    dayColumns,
+  ]);
+
+  if (loading) {
+    return (
+      <div style={{ padding: "24px" }}>
+        <SkeletonStats count={4} />
+        <div style={{ marginTop: "24px" }}>
+          <SkeletonTable rows={6} columns={6} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <MasterReport
       moduleTitle="Attendance Analytics & Reports"
       reports={reports}
-      schoolProfiles={schoolProfiles}
+      schoolProfiles={[schoolProfile]}
       currentUser={currentUser}
     />
   );

@@ -267,6 +267,13 @@ export const hrService = {
   updateStaff: (id, data) => api.put(`/api/hr/staff/${id}`, data),
   toggleStaffStatus: (id) => api.patch(`/api/hr/staff/${id}/toggle-status`),
   deleteStaff: (id) => api.delete(`/api/hr/staff/${id}`),
+
+  // Leaves (Connected to Staff Attendance)
+  getLeaves: (params) => api.get("/api/hr/leaves", { params }),
+  createLeave: (data) => api.post("/api/hr/leaves", data),
+  updateLeave: (id, data) => api.put(`/api/hr/leaves/${id}`, data),
+  deleteLeave: (id) => api.delete(`/api/hr/leaves/${id}`),
+  updateLeaveStatus: (id, status) => api.patch(`/api/hr/leaves/${id}/status`, { status }),
 };
 
 // 🔐 User Control Endpoints
@@ -509,6 +516,21 @@ export const studentHubService = {
 
   // Reports
   getReports: () => api.get("/api/student-hub/reports"),
+};
+
+// 📋 Attendance System Endpoints
+export const attendanceService = {
+  getMeta: () => api.get("/api/attendance/meta"),
+  getStudentAttendance: (params) => api.get("/api/attendance/students", { params }),
+  saveStudentAttendance: (data) => api.post("/api/attendance/students", data),
+  getStaffAttendance: (params) => api.get("/api/attendance/staff", { params }),
+  saveStaffAttendance: (data) => api.post("/api/attendance/staff", data),
+  getGeoSettings: () => api.get("/api/attendance/geo-settings"),
+  saveGeoSettings: (data) => api.post("/api/attendance/geo-settings", data),
+  getHolidays: () => api.get("/api/attendance/holidays"),
+  saveHoliday: (data) => api.post("/api/attendance/holidays", data),
+  deleteHoliday: (params) => api.delete("/api/attendance/holidays", { params }),
+  getReportsData: (params) => api.get("/api/attendance/reports-data", { params }),
 };
 
 export default api;

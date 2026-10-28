@@ -58,13 +58,12 @@ const studentSchema = new mongoose.Schema({
 
   schoolId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "School",
+    ref: "SchoolAdmin",
     required: true,
     index: true,
   },
   campusId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "School",
+    type: mongoose.Schema.Types.Mixed, // String campus code or ObjectId
     index: true,
   },
   status: {
@@ -78,4 +77,4 @@ const studentSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model("Student", studentSchema);
+module.exports = mongoose.models.Student || mongoose.model("Student", studentSchema);

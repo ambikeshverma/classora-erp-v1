@@ -1,65 +1,146 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import "./studentAttendance.css";
 import AppButton from "../components/AppButton";
+import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
+import { attendanceService } from "../services/api";
 
 function StudentAttendance() {
+  const navigate = useNavigate();
   const today = new Date();
   const formatDate = (date) =>
-  date.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+    date.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   const todayKey = today.toISOString().split("T")[0];
-
-  const [selectedClassSection, setSelectedClassSection] = useState("");
-  const [openStatusFor, setOpenStatusFor] = useState(null);
 
   const statusOptions = ["P", "A", "L", "W", "H"];
 
-  const classSections = [
-    { id: "10-A", label: "10 (A)" },
-    { id: "10-B", label: "10 (B)" },
-    { id: "11-SCI", label: "11 (Science)" },
-    { id: "12-HUM", label: "12 (Humanities)" },
-  ];
+  // Meta & Loading states
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [classOptions, setClassOptions] = useState([]);
+  const [todayClosed, setTodayClosed] = useState(null);
 
-  const closedDates = [
-    // Dashboard Academic Calendar se backend ke through aayega
-    // { date: "2026-05-31", reason: "Holiday" },
-  ];
+  // Selected class-section
+  const [selectedClassSection, setSelectedClassSection] = useState("");
+  const [openStatusFor, setOpenStatusFor] = useState(null);
 
-  const todayClosed = closedDates.find((item) => item.date === todayKey);
+  // Students attendance state
+  const [students, setStudents] = useState([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [hasQueried, setHasQueried] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const [students, setStudents] = useState([
-    {
-      id: 1,
-      rollNo: "001",
-      name: "Ankit Verma",
-      fatherName: "Rajesh Verma",
-      mobile: "9876543210",
-      photo: "",
-      status: "NA",
+  // Fetch Meta (Classes, Sections, Holidays)
+  useEffect(() => {
+    let isMounted = true;
+    setMetaLoading(true);
+
+    attendanceService
+      .getMeta()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.data?.success) {
+          const classes = res.data.data.classes || [];
+          const options = [];
+
+          classes.forEach((c) => {
+            if (Array.isArray(c.sections) && c.sections.length > 0) {
+              c.sections.forEach((s) => {
+                options.push({
+                  id: `${c.className}||${s.sectionName}`,
+                  className: c.className,
+                  section: s.sectionName,
+                  label: `${c.className} (${s.sectionName})`,
+                });
+              });
+            } else {
+              options.push({
+                id: `${c.className}||A`,
+                className: c.className,
+                section: "A",
+                label: `${c.className} (A)`,
+              });
+            }
+          });
+
+          setClassOptions(options);
+
+          // Check if today is closed
+          const closed = (res.data.data.closedDates || []).find(
+            (item) => item.date === todayKey
+          );
+          if (closed) {
+            setTodayClosed(closed);
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load attendance meta:", err);
+      })
+      .finally(() => {
+        if (isMounted) setMetaLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [todayKey]);
+
+  // Load students when class & section is selected
+  const fetchStudents = useCallback(
+    async (classSectionValue) => {
+      if (!classSectionValue) {
+        setStudents([]);
+        setHasQueried(false);
+        return;
+      }
+
+      const [className, section] = classSectionValue.split("||");
+      setStudentsLoading(true);
+      setHasQueried(true);
+      setOpenStatusFor(null);
+
+      try {
+        const res = await attendanceService.getStudentAttendance({
+          className,
+          section,
+          date: todayKey,
+        });
+
+        if (res.data?.success) {
+          setStudents(res.data.data.students || []);
+          if (res.data.data.isClosed && !todayClosed) {
+            setTodayClosed({
+              date: todayKey,
+              reason: res.data.data.closedReason || "School Closed",
+            });
+          }
+        } else {
+          setStudents([]);
+        }
+      } catch (err) {
+        console.error("Failed to load students for attendance:", err);
+        setToast({
+          type: "error",
+          message: err.response?.data?.message || "Failed to load student attendance",
+        });
+        setStudents([]);
+      } finally {
+        setStudentsLoading(false);
+      }
     },
-    {
-      id: 2,
-      rollNo: "002",
-      name: "Rahul Singh",
-      fatherName: "Manoj Singh",
-      mobile: "9876543211",
-      photo: "",
-      status: "NA",
-    },
-    {
-      id: 3,
-      rollNo: "003",
-      name: "Aman Gupta",
-      fatherName: "Suresh Gupta",
-      mobile: "9876543212",
-      photo: "",
-      status: "NA",
-    },
-  ]);
+    [todayKey, todayClosed]
+  );
+
+  const handleClassChange = (e) => {
+    const value = e.target.value;
+    setSelectedClassSection(value);
+    fetchStudents(value);
+  };
 
   const summary = useMemo(() => {
     const total = students.length;
@@ -72,13 +153,16 @@ function StudentAttendance() {
     return { total, present, absent, leave, na, percent };
   }, [students]);
 
-  const getInitials = (name) =>
-    name
+  const getInitials = (name) => {
+    if (!name) return "--";
+    return name
       .split(" ")
+      .filter(Boolean)
       .map((word) => word[0])
       .join("")
       .slice(0, 2)
       .toUpperCase();
+  };
 
   const applyBulkStatus = (status) => {
     if (!status || todayClosed) return;
@@ -98,14 +182,16 @@ function StudentAttendance() {
 
     setStudents((prev) =>
       prev.map((student) =>
-        student.id === studentId ? { ...student, status } : student
+        student.id === studentId || student.studentId === studentId
+          ? { ...student, status }
+          : student
       )
     );
 
     setOpenStatusFor(null);
   };
 
-  const saveAttendance = () => {
+  const saveAttendance = async () => {
     if (todayClosed) {
       alert("Today is marked as school closed. Attendance cannot be saved.");
       return;
@@ -116,6 +202,11 @@ function StudentAttendance() {
       return;
     }
 
+    if (students.length === 0) {
+      alert("No students to save attendance for.");
+      return;
+    }
+
     if (summary.na > 0) {
       alert(
         `${summary.na} student(s) are still marked as NA. Please complete attendance first.`
@@ -123,7 +214,35 @@ function StudentAttendance() {
       return;
     }
 
-    alert("Attendance saved successfully");
+    const [className, section] = selectedClassSection.split("||");
+    setSaving(true);
+    setToast(null);
+
+    try {
+      const res = await attendanceService.saveStudentAttendance({
+        date: todayKey,
+        className,
+        section,
+        records: students,
+        summary,
+      });
+
+      if (res.data?.success) {
+        setToast({
+          type: "success",
+          message: "Student attendance saved successfully!",
+        });
+        setTimeout(() => setToast(null), 4000);
+      }
+    } catch (err) {
+      console.error("Save attendance error:", err);
+      setToast({
+        type: "error",
+        message: err.response?.data?.message || "Failed to save attendance",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -133,7 +252,7 @@ function StudentAttendance() {
           <AppButton
             type="back"
             onClick={() => {
-              window.location.href = "/attendance-system";
+              navigate("/attendance-system");
             }}
           >
             ←
@@ -145,10 +264,14 @@ function StudentAttendance() {
           </div>
         </div>
 
-        <div className="attendance-header-date">
-  📅 {formatDate(today)}
-</div>
+        <div className="attendance-header-date">📅 {formatDate(today)}</div>
       </div>
+
+      {toast && (
+        <div className={`attendance-toast-msg ${toast.type}`}>
+          {toast.message}
+        </div>
+      )}
 
       <div className="common-card">
         <div className="student-attendance-top-grid">
@@ -157,15 +280,18 @@ function StudentAttendance() {
 
             <select
               value={selectedClassSection}
-              onChange={(e) => {
-                setSelectedClassSection(e.target.value);
-                setOpenStatusFor(null);
-              }}
-              disabled={!!todayClosed}
+              onChange={handleClassChange}
+              disabled={!!todayClosed || metaLoading}
             >
-              <option value="">Select Class</option>
+              <option value="">
+                {metaLoading
+                  ? "Loading classes..."
+                  : classOptions.length === 0
+                  ? "No classes found in database"
+                  : "Select Class"}
+              </option>
 
-              {classSections.map((item) => (
+              {classOptions.map((item) => (
                 <option value={item.id} key={item.id}>
                   {item.label}
                 </option>
@@ -185,114 +311,192 @@ function StudentAttendance() {
 
       {!todayClosed && (
         <>
-          <div className="summary-grid">
-            <div className="summary-card">
-              <span>Students</span>
-              <strong>{summary.total}</strong>
-            </div>
-
-            <div className="summary-card present">
-              <span>Present</span>
-              <strong>{summary.present}</strong>
-            </div>
-
-            <div className="summary-card absent">
-              <span>Absent</span>
-              <strong>{summary.absent}</strong>
-            </div>
-
-            <div className="summary-card leave">
-              <span>Leave</span>
-              <strong>{summary.leave}</strong>
-            </div>
-
-            <div className="summary-card na">
-              <span>NA</span>
-              <strong>{summary.na}</strong>
-            </div>
-
-            <div className="summary-card percent">
-              <span>%</span>
-              <strong>{summary.percent}%</strong>
-            </div>
-          </div>
-
-          <div className="common-card">
-            <div className="list-header">
-              <h2>Attendance List</h2>
-
-              <div className="bulk-attendance-box">
-                <span>Bulk Attendance</span>
-
-                <select onChange={(e) => applyBulkStatus(e.target.value)}>
-                  <option value="">Select</option>
-
-                  {statusOptions.map((status) => (
-                    <option value={status} key={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
+          {/* Shimmer effect when loading students */}
+          {studentsLoading && (
+            <div style={{ marginTop: "20px" }}>
+              <SkeletonStats count={6} />
+              <div style={{ marginTop: "20px" }}>
+                <SkeletonTable rows={5} columns={3} />
               </div>
             </div>
+          )}
 
-            <div className="table-wrap desktop-attendance-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th className="roll-col">Roll</th>
-                    <th>Student Details</th>
-                    <th className="attendance-col">Attendance</th>
-                  </tr>
-                </thead>
+          {/* When not loading and has selected class */}
+          {!studentsLoading && hasQueried && students.length === 0 && (
+            <div className="common-card">
+              <div className="empty-attendance-box">
+                <strong>No Active Students Found</strong>
+                <p>
+                  No active students are enrolled in the selected class and section.
+                  Add students through Admissions or Student Hub first.
+                </p>
+              </div>
+            </div>
+          )}
 
-                <tbody>
+          {!studentsLoading && students.length > 0 && (
+            <>
+              <div className="summary-grid">
+                <div className="summary-card">
+                  <span>Students</span>
+                  <strong>{summary.total}</strong>
+                </div>
+
+                <div className="summary-card present">
+                  <span>Present</span>
+                  <strong>{summary.present}</strong>
+                </div>
+
+                <div className="summary-card absent">
+                  <span>Absent</span>
+                  <strong>{summary.absent}</strong>
+                </div>
+
+                <div className="summary-card leave">
+                  <span>Leave</span>
+                  <strong>{summary.leave}</strong>
+                </div>
+
+                <div className="summary-card na">
+                  <span>NA</span>
+                  <strong>{summary.na}</strong>
+                </div>
+
+                <div className="summary-card percent">
+                  <span>%</span>
+                  <strong>{summary.percent}%</strong>
+                </div>
+              </div>
+
+              <div className="common-card">
+                <div className="list-header">
+                  <h2>Attendance List</h2>
+
+                  <div className="bulk-attendance-box">
+                    <span>Bulk Attendance</span>
+
+                    <select onChange={(e) => applyBulkStatus(e.target.value)}>
+                      <option value="">Select</option>
+
+                      {statusOptions.map((status) => (
+                        <option value={status} key={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="table-wrap desktop-attendance-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th className="roll-col">Roll</th>
+                        <th>Student Details</th>
+                        <th className="attendance-col">Attendance</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {students.map((student) => (
+                        <tr key={student.id || student.studentId}>
+                          <td className="roll-col">{student.rollNo || "--"}</td>
+
+                          <td>
+                            <div className="student-detail-box">
+                              <div className="student-avatar">
+                                {student.photo ? (
+                                  <img src={student.photo} alt={student.name} />
+                                ) : (
+                                  getInitials(student.name)
+                                )}
+                              </div>
+
+                              <div className="student-info">
+                                <strong>{student.name}</strong>
+                                <span>Father : {student.fatherName || "--"}</span>
+                                <span>Mobile : {student.mobile || "--"}</span>
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="attendance-col">
+                            <div className="status-selector">
+                              <button
+                                type="button"
+                                className={`status-btn status-${student.status.toLowerCase()}`}
+                                onClick={() =>
+                                  setOpenStatusFor(
+                                    openStatusFor === (student.id || student.studentId)
+                                      ? null
+                                      : (student.id || student.studentId)
+                                  )
+                                }
+                              >
+                                {student.status} <span>▼</span>
+                              </button>
+
+                              {openStatusFor === (student.id || student.studentId) && (
+                                <div className="status-dropdown">
+                                  {statusOptions.map((status) => (
+                                    <button
+                                      key={status}
+                                      type="button"
+                                      onClick={() =>
+                                        updateStudentStatus(
+                                          student.id || student.studentId,
+                                          status
+                                        )
+                                      }
+                                    >
+                                      {status}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mobile-attendance-list">
                   {students.map((student) => (
-                    <tr key={student.id}>
-                      <td className="roll-col">{student.rollNo}</td>
+                    <div
+                      className="mobile-attendance-card"
+                      key={student.id || student.studentId}
+                    >
+                      <div className="mobile-card-top">
+                        <span>Roll No : {student.rollNo || "--"}</span>
 
-                      <td>
-                        <div className="student-detail-box">
-                          <div className="student-avatar">
-                            {student.photo ? (
-                              <img src={student.photo} alt={student.name} />
-                            ) : (
-                              getInitials(student.name)
-                            )}
-                          </div>
-
-                          <div className="student-info">
-                            <strong>{student.name}</strong>
-                            <span>Father : {student.fatherName}</span>
-                            <span>Mobile : {student.mobile}</span>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="attendance-col">
                         <div className="status-selector">
                           <button
                             type="button"
                             className={`status-btn status-${student.status.toLowerCase()}`}
                             onClick={() =>
                               setOpenStatusFor(
-                                openStatusFor === student.id
+                                openStatusFor === (student.id || student.studentId)
                                   ? null
-                                  : student.id
+                                  : (student.id || student.studentId)
                               )
                             }
                           >
                             {student.status} <span>▼</span>
                           </button>
 
-                          {openStatusFor === student.id && (
+                          {openStatusFor === (student.id || student.studentId) && (
                             <div className="status-dropdown">
                               {statusOptions.map((status) => (
                                 <button
                                   key={status}
                                   type="button"
                                   onClick={() =>
-                                    updateStudentStatus(student.id, status)
+                                    updateStudentStatus(
+                                      student.id || student.studentId,
+                                      status
+                                    )
                                   }
                                 >
                                   {status}
@@ -301,86 +505,57 @@ function StudentAttendance() {
                             </div>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                      </div>
 
-            <div className="mobile-attendance-list">
-              {students.map((student) => (
-                <div className="mobile-attendance-card" key={student.id}>
-                  <div className="mobile-card-top">
-                    <span>Roll No : {student.rollNo}</span>
-
-                    <div className="status-selector">
-                      <button
-                        type="button"
-                        className={`status-btn status-${student.status.toLowerCase()}`}
-                        onClick={() =>
-                          setOpenStatusFor(
-                            openStatusFor === student.id
-                              ? null
-                              : student.id
-                          )
-                        }
-                      >
-                        {student.status} <span>▼</span>
-                      </button>
-
-                      {openStatusFor === student.id && (
-                        <div className="status-dropdown">
-                          {statusOptions.map((status) => (
-                            <button
-                              key={status}
-                              type="button"
-                              onClick={() =>
-                                updateStudentStatus(student.id, status)
-                              }
-                            >
-                              {status}
-                            </button>
-                          ))}
+                      <div className="student-detail-box">
+                        <div className="student-avatar">
+                          {student.photo ? (
+                            <img src={student.photo} alt={student.name} />
+                          ) : (
+                            getInitials(student.name)
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <div className="student-detail-box">
-                    <div className="student-avatar">
-                      {student.photo ? (
-                        <img src={student.photo} alt={student.name} />
-                      ) : (
-                        getInitials(student.name)
-                      )}
+                        <div className="student-info">
+                          <strong>{student.name}</strong>
+                          <span>Father : {student.fatherName || "--"}</span>
+                          <span>Mobile : {student.mobile || "--"}</span>
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="student-info">
-                      <strong>{student.name}</strong>
-                      <span>Father : {student.fatherName}</span>
-                      <span>Mobile : {student.mobile}</span>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div className="form-actions">
-              <AppButton type="primary" onClick={saveAttendance}>
-                Save Attendance
-              </AppButton>
+                <div className="form-actions">
+                  <AppButton
+                    type="primary"
+                    onClick={saveAttendance}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving Attendance..." : "Save Attendance"}
+                  </AppButton>
 
-              <AppButton
-                type="secondary"
-                onClick={() => {
-                  window.location.href = "/attendance-system";
-                }}
-              >
-                Go Back
-              </AppButton>
+                  <AppButton
+                    type="secondary"
+                    onClick={() => {
+                      navigate("/attendance-system");
+                    }}
+                  >
+                    Go Back
+                  </AppButton>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!hasQueried && !studentsLoading && (
+            <div className="common-card">
+              <div className="empty-attendance-box">
+                <strong>Please Select a Class</strong>
+                <p>Select a class and section from above to load and mark attendance.</p>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
     </div>

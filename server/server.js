@@ -62,6 +62,7 @@ const adminPanelRoutes = require("./routes/adminPanelRoutes");
 const receptionRoutes = require("./routes/receptionRoutes");
 const studentHubRoutes = require("./routes/studentHubRoutes");
 const academicRoutes = require("./routes/academicRoutes");
+const attendanceRoutes = require("./routes/attendanceRoutes");
 
 app.use("/api/superAdmin", adminRoutes);
 app.use("/api/school", schoolRoutes);
@@ -74,6 +75,7 @@ app.use("/api/admin-panel", adminPanelRoutes);
 app.use("/api/reception", receptionRoutes);
 app.use("/api/student-hub", studentHubRoutes);
 app.use("/api/academic", schoolAuth, academicRoutes);
+app.use("/api/attendance", schoolAuth, attendanceRoutes);
 
 // 404 Handler
 app.use((req, res) => {

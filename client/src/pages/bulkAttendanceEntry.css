@@ -590,3 +590,41 @@ tbody td {
     padding: 6px 10px;
   }
 }
+
+
+.empty-attendance-box {
+  padding: 42px 20px;
+  text-align: center;
+  color: #64748b;
+  font-size: 15px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  margin: 16px 0;
+}
+
+.empty-attendance-box p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.attendance-toast-msg {
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.attendance-toast-msg.success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.attendance-toast-msg.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}

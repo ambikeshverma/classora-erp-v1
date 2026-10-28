@@ -7,6 +7,7 @@ const Staff = require("../models/Staff");
 const SystemUser = require("../models/SystemUser");
 const ClassTeacherAssignment = require("../models/ClassTeacherAssignment");
 const SubjectTeacherAssignment = require("../models/SubjectTeacherAssignment");
+const StaffLeave = require("../models/StaffLeave");
 
 // Role guard: Only schoolAdmin can manage HR and Staff
 const schoolAdminOnly = (req, res, next) => {
@@ -547,6 +548,131 @@ router.delete("/staff/:id", async (req, res) => {
     }
 
     res.status(200).json({ success: true, message: "Staff deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/* ==========================================================
+   LEAVE MANAGEMENT (Connected with Attendance System)
+========================================================== */
+
+// GET Leaves
+router.get("/leaves", async (req, res) => {
+  try {
+    const { status, staffId } = req.query;
+    const filter = { campusId: req.campusId };
+    if (status) filter.status = status;
+    if (staffId) filter.staffId = staffId;
+
+    const leaves = await StaffLeave.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.status(200).json({ success: true, data: leaves });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// CREATE Leave
+router.post("/leaves", async (req, res) => {
+  try {
+    const { staffId, leaveType, fromDate, toDate, reason, status } = req.body;
+    if (!staffId || !leaveType || !fromDate || !toDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Staff member, leave type, from date and to date are required",
+      });
+    }
+
+    const staff = await Staff.findOne({ _id: staffId, campusId: req.campusId })
+      .populate("departmentId", "departmentName")
+      .populate("positionId", "positionName");
+
+    if (!staff) {
+      return res.status(404).json({ success: false, message: "Staff member not found" });
+    }
+
+    const leave = new StaffLeave({
+      schoolId: req.schoolId,
+      campusId: req.campusId,
+      staffId: staff._id,
+      employeeCode: staff.employeeCode,
+      employeeName: staff.employeeName,
+      department: staff.departmentId?.departmentName || "",
+      position: staff.positionId?.positionName || "",
+      leaveType,
+      fromDate,
+      toDate,
+      reason: reason || "",
+      status: status || "Approved",
+    });
+
+    await leave.save();
+    res.status(201).json({ success: true, message: "Leave record created successfully", data: leave });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// UPDATE Leave
+router.put("/leaves/:id", async (req, res) => {
+  try {
+    const { leaveType, fromDate, toDate, reason, status } = req.body;
+    const updated = await StaffLeave.findOneAndUpdate(
+      { _id: req.params.id, campusId: req.campusId },
+      { $set: { leaveType, fromDate, toDate, reason, status } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Leave record not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Leave record updated successfully", data: updated });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE Leave
+router.delete("/leaves/:id", async (req, res) => {
+  try {
+    const deleted = await StaffLeave.findOneAndDelete({
+      _id: req.params.id,
+      campusId: req.campusId,
+    });
+
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Leave record not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Leave record deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// UPDATE Leave Status (Approve/Reject)
+router.patch("/leaves/:id/status", async (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!["Approved", "Pending", "Rejected"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status value" });
+    }
+
+    const updated = await StaffLeave.findOneAndUpdate(
+      { _id: req.params.id, campusId: req.campusId },
+      { $set: { status } },
+      { new: true }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Leave record not found" });
+    }
+
+    res.status(200).json({ success: true, message: `Leave status updated to ${status}`, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

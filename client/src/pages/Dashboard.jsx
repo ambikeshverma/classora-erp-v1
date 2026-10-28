@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import AppButton from "../components/AppButton";
-import { schoolService } from "../services/api";
+import { schoolService, attendanceService } from "../services/api";
 import { MODULES_REGISTRY } from "../constants/modulesRegistry";
 import { useAuth } from "../context/AuthContext";
 import ScanLoader from "../components/ScanLoader";
@@ -141,6 +141,10 @@ function Dashboard() {
         if (!isMounted) return;
         if (res.data?.success) setNotices(res.data.notices || []);
       }).catch(() => {}),
+      attendanceService.getHolidays().then((res) => {
+        if (!isMounted) return;
+        if (res.data?.success) setClosedDates(res.data.data || []);
+      }).catch(() => {}),
     ]).finally(() => {
       if (isMounted) setPageLoading(false);
     });
@@ -228,7 +232,7 @@ function Dashboard() {
     return found ? found.reason : "";
   };
 
-  const saveClosedDates = () => {
+  const saveClosedDates = async () => {
     if (!closedFromDate || !closedToDate) {
       alert("Please select date range");
       return;
@@ -252,57 +256,90 @@ function Dashboard() {
 
     while (current <= to) {
       newDates.push({
-  date: formatDateKey(current),
-  fromDate: closedFromDate,
-  toDate: closedToDate,
-  reason: closedReason.trim(),
-});
-
+        date: formatDateKey(current),
+        fromDate: closedFromDate,
+        toDate: closedToDate,
+        reason: closedReason.trim(),
+      });
       current.setDate(current.getDate() + 1);
     }
 
-    setClosedDates((prev) => {
-      const filtered = prev.filter(
-        (oldItem) =>
-          !newDates.some((newItem) => newItem.date === oldItem.date)
-      );
-
-      return [...filtered, ...newDates];
-    });
+    try {
+      const res = await attendanceService.saveHoliday({
+        fromDate: closedFromDate,
+        toDate: closedToDate,
+        reason: closedReason.trim(),
+      });
+      if (res.data?.success && res.data.data) {
+        setClosedDates(res.data.data);
+      } else {
+        setClosedDates((prev) => {
+          const filtered = prev.filter(
+            (oldItem) => !newDates.some((newItem) => newItem.date === oldItem.date)
+          );
+          return [...filtered, ...newDates];
+        });
+      }
+    } catch (err) {
+      console.warn("Could not persist holiday to server, using local fallback:", err.message);
+      setClosedDates((prev) => {
+        const filtered = prev.filter(
+          (oldItem) => !newDates.some((newItem) => newItem.date === oldItem.date)
+        );
+        return [...filtered, ...newDates];
+      });
+    }
 
     setShowClosedPopup(false);
     setClosedReason("");
   };
-  const deleteHoliday = () => {
-  if (!closedFromDate || !closedToDate) return;
 
-  const todayKey = formatDateKey(new Date());
+  const deleteHoliday = async () => {
+    if (!closedFromDate || !closedToDate) return;
 
-  const relatedDates = closedDates.filter(
-    (item) => item.fromDate === closedFromDate && item.toDate === closedToDate
-  );
+    const todayKey = formatDateKey(new Date());
 
-  const hasPastDate = relatedDates.some((item) => item.date < todayKey);
-
-  if (hasPastDate) {
-    alert(
-      "Holiday already started or past date exists. You cannot delete it. You can change future holiday dates only."
+    const relatedDates = closedDates.filter(
+      (item) => item.fromDate === closedFromDate && item.toDate === closedToDate
     );
-    return;
-  }
 
-  const ok = window.confirm("Delete this holiday?");
-  if (!ok) return;
+    const hasPastDate = relatedDates.some((item) => item.date < todayKey);
 
-  setClosedDates((prev) =>
-    prev.filter(
-      (item) =>
-        !(item.fromDate === closedFromDate && item.toDate === closedToDate)
-    )
-  );
+    if (hasPastDate) {
+      alert(
+        "Holiday already started or past date exists. You cannot delete it. You can change future holiday dates only."
+      );
+      return;
+    }
 
-  setShowClosedPopup(false);
-};
+    const ok = window.confirm("Delete this holiday?");
+    if (!ok) return;
+
+    try {
+      const res = await attendanceService.deleteHoliday({
+        fromDate: closedFromDate,
+        toDate: closedToDate,
+      });
+      if (res.data?.success && res.data.data) {
+        setClosedDates(res.data.data);
+      } else {
+        setClosedDates((prev) =>
+          prev.filter(
+            (item) => !(item.fromDate === closedFromDate && item.toDate === closedToDate)
+          )
+        );
+      }
+    } catch (err) {
+      console.warn("Could not delete holiday from server, using local fallback:", err.message);
+      setClosedDates((prev) =>
+        prev.filter(
+          (item) => !(item.fromDate === closedFromDate && item.toDate === closedToDate)
+        )
+      );
+    }
+
+    setShowClosedPopup(false);
+  };
 
   const isToday = (day) =>
     day === today.getDate() &&

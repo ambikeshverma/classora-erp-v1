@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./newAdmission.css";
 import AppButton from "../components/AppButton";
+import ScanLoader from "../components/ScanLoader";
 import { admissionService } from "../services/api";
 
 const statesOfIndia = [
@@ -16,133 +17,111 @@ const statesOfIndia = [
   "Lakshadweep"
 ];
 
-const defaultClassOptions = [
-  "Nursery", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-  "Class 6", "Class 7", "Class 8", "Class 9", "Class 10",
-  "Class 11", "Class 12"
-];
-
-const defaultSectionOptions = ["A", "B", "C", "Hindi Medium", "English Medium"];
-
-const defaultMediumOptions = ["Hindi Medium", "English Medium"];
-
-const defaultFeePlans = [
-  { id: 1, className: "Class 6", planName: "6HM", medium: "Hindi Medium", totalFee: 18500 },
-  { id: 2, className: "Class 6", planName: "6EM", medium: "English Medium", totalFee: 22500 },
-  { id: 3, className: "Class 7", planName: "7HM", medium: "Hindi Medium", totalFee: 19500 },
-  { id: 4, className: "Class 7", planName: "7EM", medium: "English Medium", totalFee: 23500 },
-];
-
-const defaultSiblingGroups = [
-  "No Siblings",
-  "Rahul Kumar Group",
-  "Priya Singh Group",
-  "Aman Verma Group",
-];
-
-const defaultConcessionPlans = [
-  "No Concession Plan",
-  "Staff Child",
-  "Sibling Concession",
-  "Scholarship",
-];
-
-const routeOptions = [
-  "Not Assigned",
-  "Rasauli Route",
-  "Lucknow Route",
-  "Madaran Route",
-];
-
-const vehicleOptions = [
-  "Not Assigned",
-  "UP32AB1234 - Bus 1",
-  "UP41CD5678 - Van 1",
-];
-
-const houseOptions = [
-  "Not Assigned",
-  "Red House",
-  "Blue House",
-  "Green House",
-  "Yellow House",
-];
-
-const classSubjectMappings = {
-  Nursery: ["English", "Hindi", "Math", "Drawing"],
-  "Class 1": ["English", "Hindi", "Math", "EVS", "Computer"],
-  "Class 2": ["English", "Hindi", "Math", "EVS", "Computer"],
-  "Class 3": ["English", "Hindi", "Math", "Science", "SST", "Computer"],
-  "Class 4": ["English", "Hindi", "Math", "Science", "SST", "Computer"],
-  "Class 5": ["English", "Hindi", "Math", "Science", "SST", "Computer"],
-  "Class 6": ["English", "Hindi", "Math", "Science", "SST", "Computer", "Sanskrit"],
-  "Class 7": ["English", "Hindi", "Math", "Science", "SST", "Computer", "Sanskrit"],
-  "Class 8": ["English", "Hindi", "Math", "Science", "SST", "Computer", "Sanskrit"],
-  "Class 9": ["English", "Hindi", "Math", "Science", "SST"],
-  "Class 10": ["English", "Hindi", "Math", "Science", "SST"],
-  "Class 11": ["English", "Hindi", "Physics", "Chemistry", "Math", "Biology"],
-  "Class 12": ["English", "Hindi", "Physics", "Chemistry", "Math", "Biology"]
-};
-
 function NewAdmission() {
   const navigate = useNavigate();
   const hasFetched = useRef(false);
   const currentSession =
     localStorage.getItem("currentSession") || "2026-2027";
 
-  const [classOptions, setClassOptions] = useState(defaultClassOptions);
+  // Dynamic Options from DB
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [classOptions, setClassOptions] = useState([]);
   const [classSections, setClassSections] = useState({});
-  const [feePlans, setFeePlans] = useState(defaultFeePlans);
-  const [concessionPlans, setConcessionPlans] = useState(defaultConcessionPlans);
-  const [siblingGroups, setSiblingGroups] = useState(defaultSiblingGroups);
-  const [mediumOptions, setMediumOptions] = useState(defaultMediumOptions);
-  const [houseList, setHouseList] = useState(houseOptions);
+  const [classSubjectMap, setClassSubjectMap] = useState({});
+  const [feePlans, setFeePlans] = useState([]);
+  const [concessionPlans, setConcessionPlans] = useState(["No Concession Plan"]);
+  const [siblingGroups, setSiblingGroups] = useState(["No Siblings"]);
+  const [mediumOptions, setMediumOptions] = useState([]);
+  const [houseList, setHouseList] = useState(["Not Assigned"]);
   const [allSubjects, setAllSubjects] = useState([]);
+  const [routeOptions] = useState(["Not Assigned"]);
+  const [vehicleOptions] = useState(["Not Assigned"]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    // Guard against React StrictMode double-invoke in dev
     if (hasFetched.current) return;
     hasFetched.current = true;
+    setMetaLoading(true);
 
     admissionService
       .getMeta()
       .then((res) => {
         if (res.data?.data) {
-          const { classes, feePlans: fps, concessions, siblingGroups: sgs, mediums: meds, subjects: subs, houses: hs } = res.data.data;
+          const {
+            classes,
+            feePlans: fps,
+            concessions,
+            siblingGroups: sgs,
+            mediums: meds,
+            subjects: subs,
+            houses: hs,
+            classSubjectMappings: csms,
+          } = res.data.data;
+
           if (classes && classes.length > 0) {
             setClassOptions(classes.map((c) => c.className));
             const secMap = {};
             classes.forEach((c) => {
               if (c.sections && c.sections.length > 0) {
-                // Extract sectionName strings — sections are objects {sectionName, sectionCode, _id}
                 secMap[c.className] = c.sections.map((s) =>
-                  typeof s === "string" ? s : (s.sectionName || s.name || String(s))
+                  typeof s === "string"
+                    ? s
+                    : s.sectionName || s.name || String(s)
                 );
+              } else {
+                secMap[c.className] = [];
               }
             });
             setClassSections(secMap);
           }
+
+          if (csms && csms.length > 0) {
+            const cMap = {};
+            csms.forEach((m) => {
+              cMap[m.className] = [
+                ...(m.scholasticSubjects || []),
+                ...(m.coScholasticSubjects || []),
+              ];
+            });
+            setClassSubjectMap(cMap);
+          }
+
           if (fps && fps.length > 0) {
-            setFeePlans(fps.map((f) => ({
-              id: f._id,
-              className: f.className,
-              planName: f.feePlanName,
-              totalFee: f.newTotal || f.oldTotal || 0,
-            })));
+            setFeePlans(
+              fps.map((f) => ({
+                id: f._id,
+                className: f.className,
+                planName: f.feePlanName,
+                totalFee: f.newTotal || f.oldTotal || 0,
+              }))
+            );
           }
+
           if (concessions && concessions.length > 0) {
-            setConcessionPlans(["No Concession Plan", ...concessions.map((c) => c.concessionName)]);
+            setConcessionPlans([
+              "No Concession Plan",
+              ...concessions.map((c) => c.concessionName),
+            ]);
           }
+
           if (sgs && sgs.length > 0) {
-            setSiblingGroups(["No Siblings", ...sgs.map((s) => s.groupName)]);
+            setSiblingGroups([
+              "No Siblings",
+              ...sgs.map((s) => s.groupName),
+            ]);
           }
+
           if (meds && meds.length > 0) {
             setMediumOptions(meds.map((m) => m.mediumName));
           }
+
           if (hs && hs.length > 0) {
-            setHouseList(["Not Assigned", ...hs.map((h) => h.houseName)]);
+            setHouseList([
+              "Not Assigned",
+              ...hs.map((h) => h.houseName),
+            ]);
           }
+
           if (subs && subs.length > 0) {
             setAllSubjects(subs.map((s) => s.subjectName));
           }
@@ -150,6 +129,9 @@ function NewAdmission() {
       })
       .catch((err) => {
         console.error("Failed to load admissions meta:", err);
+      })
+      .finally(() => {
+        setMetaLoading(false);
       });
   }, []);
 
@@ -183,19 +165,22 @@ function NewAdmission() {
   const [selectedSubjects, setSelectedSubjects] = useState([]);
   const [studentImagePreview, setStudentImagePreview] = useState("");
 
-  const subjects =
-    allSubjects.length > 0
-      ? allSubjects
-      : classSubjectMappings[form.className] || [];
+  // Subjects for the currently selected class
+  const subjects = form.className
+    ? classSubjectMap[form.className] && classSubjectMap[form.className].length > 0
+      ? classSubjectMap[form.className]
+      : allSubjects
+    : [];
 
-  const sectionOptions =
-    form.className && classSections[form.className] && classSections[form.className].length > 0
-      ? classSections[form.className]
-      : defaultSectionOptions;
+  // Sections for the currently selected class
+  const sectionOptions = form.className
+    ? classSections[form.className] || []
+    : [];
 
-  const availableFeePlans = feePlans.filter(
-    (item) => item.className === form.className
-  );
+  // Fee Plans for the currently selected class
+  const availableFeePlans = form.className
+    ? feePlans.filter((item) => item.className === form.className)
+    : [];
 
   const selectedFeePlan = feePlans.find(
     (item) => item.planName === form.feePlan
@@ -211,14 +196,13 @@ function NewAdmission() {
   }, [form.medium, mediumOptions]);
 
   useEffect(() => {
-    if (availableFeePlans.length === 1) {
+    if (availableFeePlans.length === 1 && !form.feePlan) {
       setForm((prev) => ({
         ...prev,
         feePlan: availableFeePlans[0].planName,
       }));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.className, feePlans]);
+  }, [availableFeePlans, form.feePlan]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -242,9 +226,7 @@ function NewAdmission() {
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
-
     if (!file) return;
-
     setStudentImagePreview(URL.createObjectURL(file));
   };
 
@@ -286,14 +268,14 @@ function NewAdmission() {
       "studentName", "fatherName", "motherName", "dob", "mobile", "medium"
     ];
 
-    for (let field of requiredFields) {
-      if (!form[field]) {
+    for (let f of requiredFields) {
+      if (!form[f] || !String(form[f]).trim()) {
         alert("Please fill all mandatory fields marked with *");
         return false;
       }
     }
 
-    if (selectedSubjects.length === 0) {
+    if (subjects.length > 0 && selectedSubjects.length === 0) {
       alert("Please select at least one subject");
       return false;
     }
@@ -306,7 +288,6 @@ function NewAdmission() {
 
     try {
       const token = localStorage.getItem("token");
-
       if (!token) {
         alert("Login expired. Please login again.");
         navigate("/");
@@ -323,7 +304,7 @@ function NewAdmission() {
       setSubmitting(true);
       const res = await admissionService.createAdmission(finalData);
 
-      alert(res.data.msg || "Admission saved successfully ✅");
+      alert(res.data?.msg || "Admission saved successfully ✅");
       navigate("/admissions");
     } catch (err) {
       alert(
@@ -335,6 +316,7 @@ function NewAdmission() {
       setSubmitting(false);
     }
   };
+
   const field = (
     label,
     name,
@@ -363,12 +345,39 @@ function NewAdmission() {
     options,
     required = false
   ) => {
-    // Normalize options — each item must be a plain string
     const safeOptions = (options || []).map((opt) => {
       if (typeof opt === "string" || typeof opt === "number") return String(opt);
-      // object fallback — should not normally happen after normalization
       return opt?.sectionName || opt?.name || opt?.label || JSON.stringify(opt);
     });
+
+    let placeholder = "< Select >";
+    let isDisabled = false;
+
+    if (name === "className" && safeOptions.length === 0) {
+      placeholder = "No classes found in database";
+    }
+
+    if (name === "section") {
+      if (!form.className) {
+        placeholder = "Select Class First";
+        isDisabled = true;
+      } else if (safeOptions.length === 0) {
+        placeholder = `No sections defined for ${form.className}`;
+      }
+    }
+
+    if (name === "feePlan") {
+      if (!form.className) {
+        placeholder = "Select Class First";
+        isDisabled = true;
+      } else if (safeOptions.length === 0) {
+        placeholder = `No fee plans defined for ${form.className}`;
+      }
+    }
+
+    if (name === "medium" && safeOptions.length === 0) {
+      placeholder = "No mediums found in database";
+    }
 
     return (
       <div className="form-group" key={name}>
@@ -380,8 +389,9 @@ function NewAdmission() {
           name={name}
           value={form[name]}
           onChange={handleChange}
+          disabled={isDisabled}
         >
-          <option value="">&lt; Select &gt;</option>
+          <option value="">{placeholder}</option>
 
           {safeOptions.map((option, idx) => (
             <option key={`${name}-${idx}-${option}`} value={option}>
@@ -392,6 +402,23 @@ function NewAdmission() {
       </div>
     );
   };
+
+  if (metaLoading) {
+    return (
+      <div className="admission-form-page">
+        <div className="form-header">
+          <button className="back-btn" onClick={() => navigate("/admissions")}>
+            ←
+          </button>
+          <div>
+            <h1>+ New Student Admission</h1>
+            <p>Loading admission options from server...</p>
+          </div>
+        </div>
+        <ScanLoader text="Loading admission form details..." />
+      </div>
+    );
+  }
 
   return (
     <div className="admission-form-page">
@@ -581,6 +608,7 @@ function NewAdmission() {
           {field("Pin Code", "localPin")}
         </div>
       </section>
+
       <section className="form-section">
         <h2>Parents Details</h2>
 
@@ -635,6 +663,10 @@ function NewAdmission() {
         {!form.className ? (
           <p className="subject-note">
             Please select class first to load subjects.
+          </p>
+        ) : subjects.length === 0 ? (
+          <p className="subject-note">
+            No subjects mapped for {form.className}. You can configure subjects in Academic Zone.
           </p>
         ) : (
           <>
