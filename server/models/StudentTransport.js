@@ -9,6 +9,10 @@ const studentTransportSchema = new mongoose.Schema(
     routeId: { type: mongoose.Schema.Types.ObjectId, ref: "TransportRoute", required: true },
     routeName: { type: String, default: "" },
     monthlyFee: { type: Number, default: 0 },
+    // Optional: set from Student Transport Allocation (fee collection allocates a route only)
+    vehicleId: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle", default: null },
+    vehicleName: { type: String, default: "" },
+    vehicleNo: { type: String, default: "" },
     removedPeriods: { type: [String], default: [] },
   },
   { timestamps: true }
@@ -17,5 +21,6 @@ const studentTransportSchema = new mongoose.Schema(
 studentTransportSchema.index({ campusId: 1, studentId: 1, session: 1 }, { unique: true });
 studentTransportSchema.index({ campusId: 1, session: 1 });
 studentTransportSchema.index({ campusId: 1, routeId: 1 });
+studentTransportSchema.index({ campusId: 1, vehicleId: 1 });
 
 module.exports = mongoose.models.StudentTransport || mongoose.model("StudentTransport", studentTransportSchema);

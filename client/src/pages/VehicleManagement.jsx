@@ -1,250 +1,162 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./vehicleManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { transportService } from "../services/api";
+
+const DOCUMENT_TYPES = [
+  "Registration Certificate (RC)",
+  "Fitness Certificate",
+  "Insurance",
+  "Pollution Certificate (PUC)",
+  "Permit",
+  "Road Tax Receipt",
+  "Other",
+];
+
+const ALLOWED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/jpg", "image/png"];
+const MAX_DOCUMENT_BYTES = 6 * 1024 * 1024;
+
+const EMPTY_FORM = {
+  vehicleName: "",
+  vehicleNo: "",
+  madeYear: "",
+  totalSeats: "",
+  driverId: "",
+  driverName: "",
+  driverMobile: "",
+  conductorId: "",
+  conductorName: "",
+  conductorMobile: "",
+};
+
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+const downloadDataUrl = (fileUrl, fileName) => {
+  const link = document.createElement("a");
+  link.href = fileUrl;
+  link.download = fileName || "document";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 function VehicleManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  // Future API source:
-  // HR & Staff Management -> Staff Management
-  // Position = Driver
-  const driverEmployees = [
-    {
-      id: 1,
-      name: "Mukesh Kumar",
-      mobile: "9876543210",
-      position: "Driver",
-    },
-    {
-      id: 2,
-      name: "Ramesh Yadav",
-      mobile: "9876543211",
-      position: "Driver",
-    },
-  ];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // Future API source:
-  // HR & Staff Management -> Staff Management
-  // Position = Conductor
-  const conductorEmployees = [
-    {
-      id: 1,
-      name: "Suresh Verma",
-      mobile: "9876543220",
-      position: "Conductor",
-    },
-    {
-      id: 2,
-      name: "Amit Singh",
-      mobile: "9876543221",
-      position: "Conductor",
-    },
-  ];
-
-  const documentTypes = [
-    "Registration Certificate (RC)",
-    "Fitness Certificate",
-    "Insurance",
-    "Pollution Certificate (PUC)",
-    "Permit",
-    "Road Tax Receipt",
-    "Other",
-  ];
+  const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [conductors, setConductors] = useState([]);
 
   const [showForm, setShowForm] = useState(false);
-  const [vehicles, setVehicles] = useState([]);
+  const [editId, setEditId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [vehicleNameFilter, setVehicleNameFilter] = useState("");
   const [driverNameFilter, setDriverNameFilter] = useState("");
-  const [isSearched, setIsSearched] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [appliedFilters, setAppliedFilters] = useState({ vehicleName: "", driverName: "" });
+
+  const [formData, setFormData] = useState(EMPTY_FORM);
+
+  // Documents of the vehicle being edited (without files), plus changes made in the form
+  const [savedDocuments, setSavedDocuments] = useState([]);
+  const [newDocuments, setNewDocuments] = useState([]);
+  const [removedTypes, setRemovedTypes] = useState([]);
 
   const [showUploadPopup, setShowUploadPopup] = useState(false);
+  const [uploadData, setUploadData] = useState({ documentType: "", file: null });
+
   const [showDownloadPopup, setShowDownloadPopup] = useState(false);
   const [downloadVehicle, setDownloadVehicle] = useState(null);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState([]);
 
-  const [uploadData, setUploadData] = useState({
-    documentType: "",
-    file: null,
-  });
+  const loadVehicles = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [vehicleRes, staffRes] = await Promise.all([
+        transportService.getVehicles(),
+        transportService.getStaffOptions(),
+      ]);
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    vehicleNameFilter: "",
-    driverNameFilter: "",
-  });
+      setVehicles(vehicleRes.data?.data || []);
+      setDrivers(staffRes.data?.data?.drivers || []);
+      setConductors(staffRes.data?.data?.conductors || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load vehicles");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [formData, setFormData] = useState({
-    vehicleName: "",
-    vehicleNo: "",
-    madeYear: "",
-    totalSeats: "",
-    driverId: "",
-    driverName: "",
-    driverMobile: "",
-    conductorId: "",
-    conductorName: "",
-    conductorMobile: "",
-    documents: [],
-    isAssigned: false,
-  });
+  useEffect(() => {
+    loadVehicles();
+  }, [loadVehicles]);
 
   const resetForm = () => {
-    setFormData({
-      vehicleName: "",
-      vehicleNo: "",
-      madeYear: "",
-      totalSeats: "",
-      driverId: "",
-      driverName: "",
-      driverMobile: "",
-      conductorId: "",
-      conductorName: "",
-      conductorMobile: "",
-      documents: [],
-      isAssigned: false,
-    });
-
+    setFormData(EMPTY_FORM);
     setEditId(null);
-    setUploadData({
-      documentType: "",
-      file: null,
-    });
+    setSavedDocuments([]);
+    setNewDocuments([]);
+    setRemovedTypes([]);
+    setUploadData({ documentType: "", file: null });
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleCrewChange = (role, list) => (e) => {
+    const member = list.find((item) => item._id === e.target.value);
 
     setFormData({
       ...formData,
-      [name]: value,
+      [`${role}Id`]: member?._id || "",
+      [`${role}Name`]: member?.name || "",
+      [`${role}Mobile`]: member?.mobile || "",
     });
   };
 
-  const handleDriverChange = (e) => {
-    const selectedId = Number(e.target.value);
-
-    const selectedDriver = driverEmployees.find(
-      (item) => item.id === selectedId
-    );
-
-    if (!selectedDriver) {
-      setFormData({
-        ...formData,
-        driverId: "",
-        driverName: "",
-        driverMobile: "",
-      });
-      return;
-    }
-
-    setFormData({
-      ...formData,
-      driverId: selectedDriver.id,
-      driverName: selectedDriver.name,
-      driverMobile: selectedDriver.mobile,
-    });
-  };
-
-  const handleConductorChange = (e) => {
-    const selectedId = Number(e.target.value);
-
-    const selectedConductor = conductorEmployees.find(
-      (item) => item.id === selectedId
-    );
-
-    if (!selectedConductor) {
-      setFormData({
-        ...formData,
-        conductorId: "",
-        conductorName: "",
-        conductorMobile: "",
-      });
-      return;
-    }
-
-    setFormData({
-      ...formData,
-      conductorId: selectedConductor.id,
-      conductorName: selectedConductor.name,
-      conductorMobile: selectedConductor.mobile,
-    });
-  };
-
-  const selectedVehicles = vehicles.filter((item) =>
-    selectedIds.includes(item.id)
-  );
-
+  const selectedVehicles = vehicles.filter((item) => selectedIds.includes(item._id));
   const selectedSingle = selectedVehicles.length === 1 ? selectedVehicles[0] : null;
 
-  const handleSearch = () => {
-    if (!vehicleNameFilter.trim()) {
-  alert("Enter vehicle name to search");
-  return;
-}
-
-   const filters = {
-  vehicleNameFilter,
-  driverNameFilter,
-};
-
-    setAppliedFilters(filters);
-    setIsSearched(true);
-    setSelectedIds([]);
-
-    const result = vehicles.filter((item) => {
-      const schoolMatch = item.schoolId === schoolId;
-
-      const vehicleMatch = item.vehicleName
-  ? item.vehicleName
-      .toLowerCase()
-      .includes(
-        filters.vehicleNameFilter.toLowerCase()
-      )
-  : false;
-
-      const driverMatch = filters.driverNameFilter
-        ? item.driverName
-            ?.toLowerCase()
-            .includes(filters.driverNameFilter.toLowerCase())
-        : true;
-
-      return schoolMatch && vehicleMatch && driverMatch;
-    });
-
-    if (result.length === 0) {
-      alert("No vehicle found");
-    }
-  };
-
-  const filteredVehicles = (isSearched
-    ? vehicles.filter((item) => {
-        const schoolMatch = item.schoolId === schoolId;
-
-        const vehicleMatch = appliedFilters.vehicleNoFilter
-          ? item.vehicleNo
-            ? item.vehicleNo
-                .toLowerCase()
-                .includes(appliedFilters.vehicleNoFilter.toLowerCase())
-            : false
-          : true;
-
-        const driverMatch = appliedFilters.driverNameFilter
-          ? item.driverName
-              ?.toLowerCase()
-              .includes(appliedFilters.driverNameFilter.toLowerCase())
-          : true;
-
-        return schoolMatch && vehicleMatch && driverMatch;
-      })
-    : vehicles.filter((item) => item.schoolId === schoolId)
-  ).sort((a, b) =>
-    String(a.vehicleName || "").localeCompare(String(b.vehicleName || ""))
+  const filteredVehicles = useMemo(
+    () =>
+      vehicles.filter(
+        (item) =>
+          (!appliedFilters.vehicleName ||
+            String(item.vehicleName || "").toLowerCase().includes(appliedFilters.vehicleName.toLowerCase())) &&
+          (!appliedFilters.driverName ||
+            String(item.driverName || "").toLowerCase().includes(appliedFilters.driverName.toLowerCase()))
+      ),
+    [vehicles, appliedFilters]
   );
 
-  const handleSave = () => {
-    if (!formData.vehicleName || !formData.totalSeats) {
+  const handleSearch = () => {
+    setAppliedFilters({ vehicleName: vehicleNameFilter.trim(), driverName: driverNameFilter.trim() });
+    setSelectedIds([]);
+  };
+
+  // Documents shown in the upload popup: saved ones that are not removed, plus the new uploads
+  const formDocuments = [
+    ...savedDocuments
+      .filter((doc) => !removedTypes.includes(doc.documentType) && !newDocuments.some((n) => n.documentType === doc.documentType))
+      .map((doc) => ({ documentType: doc.documentType, fileName: doc.fileName })),
+    ...newDocuments.map((doc) => ({ documentType: doc.documentType, fileName: doc.fileName })),
+  ];
+
+  const handleSave = async () => {
+    if (!formData.vehicleName.trim() || !formData.totalSeats) {
       alert("Vehicle name and total seats are required");
       return;
     }
@@ -254,72 +166,36 @@ function VehicleManagement() {
       return;
     }
 
-    const duplicateVehicleName =
-  vehicles.find(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.vehicleName
-        .trim()
-        .toLowerCase() ===
-        formData.vehicleName
-          .trim()
-          .toLowerCase() &&
-      item.id !== editId
-  );
+    const payload = {
+      vehicleName: formData.vehicleName,
+      vehicleNo: formData.vehicleNo,
+      madeYear: formData.madeYear,
+      totalSeats: Number(formData.totalSeats),
+      driverId: formData.driverId,
+      conductorId: formData.conductorId,
+      newDocuments,
+      removeDocumentTypes: removedTypes,
+    };
 
-if (duplicateVehicleName) {
+    try {
+      setSaving(true);
 
-  alert(
-    "Vehicle name already exists"
-  );
-
-  return;
-}
-
-    if (formData.vehicleNo.trim()) {
-      const duplicateVehicle = vehicles.find(
-        (item) =>
-          item.schoolId === schoolId &&
-          item.vehicleNo &&
-          item.vehicleNo.trim().toLowerCase() ===
-            formData.vehicleNo.trim().toLowerCase() &&
-          item.id !== editId
-      );
-
-      if (duplicateVehicle) {
-        alert("Vehicle number already exists");
-        return;
+      if (editId) {
+        await transportService.updateVehicle(editId, payload);
+        alert("Vehicle updated successfully");
+      } else {
+        await transportService.createVehicle(payload);
+        alert("Vehicle added successfully");
       }
+
+      resetForm();
+      setShowForm(false);
+      await loadVehicles();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save vehicle");
+    } finally {
+      setSaving(false);
     }
-
-    if (editId) {
-      setVehicles(
-        vehicles.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-                schoolId,
-              }
-            : item
-        )
-      );
-
-      alert("Vehicle updated successfully");
-    } else {
-      const newVehicle = {
-        id: Date.now(),
-        schoolId,
-        ...formData,
-      };
-
-      setVehicles([...vehicles, newVehicle]);
-
-      alert("Vehicle added successfully");
-    }
-
-    resetForm();
-    setShowForm(false);
   };
 
   const handleEdit = () => {
@@ -339,104 +215,80 @@ if (duplicateVehicleName) {
       conductorId: selectedSingle.conductorId || "",
       conductorName: selectedSingle.conductorName || "",
       conductorMobile: selectedSingle.conductorMobile || "",
-      documents: selectedSingle.documents || [],
-      isAssigned: selectedSingle.isAssigned || false,
     });
-
-    setEditId(selectedSingle.id);
+    setSavedDocuments(selectedSingle.documents || []);
+    setNewDocuments([]);
+    setRemovedTypes([]);
+    setEditId(selectedSingle._id);
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
       alert("Select vehicle");
       return;
     }
 
-    const assignedVehicle = selectedVehicles.some((item) => item.isAssigned);
-
-    if (assignedVehicle) {
+    if (selectedVehicles.some((item) => item.isAssigned)) {
       alert("Assigned vehicle cannot be deleted");
       return;
     }
 
-    const ok = window.confirm("Delete selected vehicle?");
-    if (!ok) return;
+    if (!window.confirm("Delete selected vehicle?")) return;
 
-    setVehicles(vehicles.filter((item) => !selectedIds.includes(item.id)));
-    setSelectedIds([]);
+    try {
+      setSaving(true);
+      await Promise.all(selectedIds.map((id) => transportService.deleteVehicle(id)));
+      setSelectedIds([]);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete vehicle");
+    } finally {
+      setSaving(false);
+      await loadVehicles();
+    }
   };
 
-  const handleOpenUploadPopup = () => {
-    setUploadData({
-      documentType: "",
-      file: null,
-    });
-    setShowUploadPopup(true);
-  };
-
-  const handleUploadDocument = () => {
+  const handleUploadDocument = async () => {
     if (!uploadData.documentType || !uploadData.file) {
       alert("Select document type and file");
       return;
     }
 
-    const allowedTypes = [
-      "application/pdf",
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-    ];
-
-    if (!allowedTypes.includes(uploadData.file.type)) {
+    if (!ALLOWED_FILE_TYPES.includes(uploadData.file.type)) {
       alert("Only PDF, JPG, JPEG and PNG files are allowed");
       return;
     }
 
-    const newDocument = {
-      id: Date.now(),
-      documentType: uploadData.documentType,
-      fileName: uploadData.file.name,
-      file: uploadData.file,
-      fileUrl: URL.createObjectURL(uploadData.file),
-    };
+    if (uploadData.file.size > MAX_DOCUMENT_BYTES) {
+      alert("File must be smaller than 6 MB");
+      return;
+    }
 
-    const existingIndex =
-  (formData.documents || []).findIndex(
-    (doc) =>
-      doc.documentType ===
-      uploadData.documentType
-  );
+    try {
+      const fileUrl = await readFileAsDataUrl(uploadData.file);
 
-let updatedDocuments =
-  [...(formData.documents || [])];
+      setNewDocuments((prev) => [
+        ...prev.filter((doc) => doc.documentType !== uploadData.documentType),
+        { documentType: uploadData.documentType, fileName: uploadData.file.name, fileUrl },
+      ]);
+      setRemovedTypes((prev) => prev.filter((type) => type !== uploadData.documentType));
+      setUploadData({ documentType: "", file: null });
+      setShowUploadPopup(false);
+      alert("Document added. It is saved with the vehicle.");
+    } catch {
+      alert("Failed to read file");
+    }
+  };
 
-if (existingIndex >= 0) {
+  const handleRemoveDocument = () => {
+    if (!uploadData.documentType) {
+      alert("Select document type");
+      return;
+    }
 
-  updatedDocuments[
-    existingIndex
-  ] = newDocument;
-
-} else {
-
-  updatedDocuments.push(
-    newDocument
-  );
-
-}
-
-setFormData({
-  ...formData,
-  documents: updatedDocuments,
-});
-
-    setUploadData({
-      documentType: "",
-      file: null,
-    });
-
-    setShowUploadPopup(false);
-    alert("Document uploaded successfully");
+    setNewDocuments((prev) => prev.filter((doc) => doc.documentType !== uploadData.documentType));
+    setRemovedTypes((prev) => (prev.includes(uploadData.documentType) ? prev : [...prev, uploadData.documentType]));
+    alert("Document removed. The change is saved with the vehicle.");
   };
 
   const openDownloadPopup = (vehicle) => {
@@ -445,45 +297,34 @@ setFormData({
     setShowDownloadPopup(true);
   };
 
-  const handleDocumentSelection = (documentId) => {
-    setSelectedDocumentIds((prev) =>
-      prev.includes(documentId)
-        ? prev.filter((id) => id !== documentId)
-        : [...prev, documentId]
-    );
-  };
-
-  const handleSelectAllDocuments = (checked) => {
-    if (!downloadVehicle?.documents) return;
-
-    if (checked) {
-      setSelectedDocumentIds(downloadVehicle.documents.map((doc) => doc.id));
-    } else {
-      setSelectedDocumentIds([]);
-    }
-  };
-
-  const handleDownloadDocuments = () => {
+  const handleDownloadDocuments = async () => {
     if (selectedDocumentIds.length === 0) {
       alert("Select document");
       return;
     }
 
-    const selectedDocs = (downloadVehicle?.documents || []).filter((doc) =>
-      selectedDocumentIds.includes(doc.id)
-    );
+    try {
+      setSaving(true);
 
-    selectedDocs.forEach((doc) => {
-      const link = document.createElement("a");
-      link.href = doc.fileUrl;
-      link.download = doc.fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(doc.fileUrl);
-    });
+      for (const docId of selectedDocumentIds) {
+        const res = await transportService.getVehicleDocument(downloadVehicle._id, docId);
+        const file = res.data?.data;
+        if (file?.fileUrl) downloadDataUrl(file.fileUrl, file.fileName);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to download document");
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const driverOptions = drivers.some((item) => item._id === formData.driverId) || !formData.driverId
+    ? drivers
+    : [...drivers, { _id: formData.driverId, name: formData.driverName, mobile: formData.driverMobile }];
+
+  const conductorOptions = conductors.some((item) => item._id === formData.conductorId) || !formData.conductorId
+    ? conductors
+    : [...conductors, { _id: formData.conductorId, name: formData.conductorName, mobile: formData.conductorMobile }];
 
   return (
     <div className="vehicle-page">
@@ -495,7 +336,7 @@ setFormData({
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/transport-System";
+              navigate("/transport-system");
             }
           }}
         >
@@ -555,11 +396,11 @@ setFormData({
                   + Add Vehicle
                 </AppButton>
 
-                <AppButton type="primary" onClick={handleEdit}>
+                <AppButton type="primary" onClick={handleEdit} disabled={saving}>
                   Edit
                 </AppButton>
 
-                <AppButton type="delete" onClick={handleDelete}>
+                <AppButton type="delete" onClick={handleDelete} disabled={saving}>
                   Delete
                 </AppButton>
               </div>
@@ -572,17 +413,8 @@ setFormData({
                     <th>
                       <input
                         type="checkbox"
-                        checked={
-                          filteredVehicles.length > 0 &&
-                          selectedIds.length === filteredVehicles.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(filteredVehicles.map((item) => item.id));
-                          } else {
-                            setSelectedIds([]);
-                          }
-                        }}
+                        checked={filteredVehicles.length > 0 && selectedIds.length === filteredVehicles.length}
+                        onChange={(e) => setSelectedIds(e.target.checked ? filteredVehicles.map((item) => item._id) : [])}
                       />
                     </th>
                     <th>Vehicle Name</th>
@@ -590,37 +422,42 @@ setFormData({
                     <th>Driver Name</th>
                     <th>Driver Mobile</th>
                     <th>No of Seats</th>
+                    <th>Students</th>
                     <th>Download</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {vehicles.filter((item) => item.schoolId === schoolId).length === 0 ? (
+                  {loading ? (
                     <tr>
-                      <td colSpan="7" className="empty-row">
+                      <td colSpan="8" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={8} />
+                      </td>
+                    </tr>
+                  ) : vehicles.length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="empty-row">
                         No vehicles created yet. Please create a vehicle.
                       </td>
                     </tr>
                   ) : filteredVehicles.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="empty-row">
+                      <td colSpan="8" className="empty-row">
                         No vehicle found
                       </td>
                     </tr>
                   ) : (
                     filteredVehicles.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
@@ -629,12 +466,9 @@ setFormData({
                         <td>{item.driverName || "-"}</td>
                         <td>{item.driverMobile || "-"}</td>
                         <td>{item.totalSeats || "-"}</td>
+                        <td>{item.studentCount}</td>
                         <td>
-                          <button
-                            type="button"
-                            className="download-icon-btn"
-                            onClick={() => openDownloadPopup(item)}
-                          >
+                          <button type="button" className="download-icon-btn" onClick={() => openDownloadPopup(item)}>
                             ⬇️
                           </button>
                         </td>
@@ -675,12 +509,7 @@ setFormData({
 
             <div className="form-group">
               <label>Made Year</label>
-              <input
-  type="date"
-  name="madeYear"
-  value={formData.madeYear}
-  onChange={handleChange}
-/>
+              <input type="date" name="madeYear" value={formData.madeYear} onChange={handleChange} />
             </div>
 
             <div className="form-group">
@@ -697,15 +526,13 @@ setFormData({
 
             <div className="form-group">
               <label>Driver Name</label>
-              <select value={formData.driverId} onChange={handleDriverChange}>
-                <option value="">Select Driver</option>
-                {driverEmployees
-                  .filter((item) => item.position === "Driver")
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
+              <select value={formData.driverId} onChange={handleCrewChange("driver", driverOptions)}>
+                <option value="">{driverOptions.length === 0 ? "No driver in staff" : "Select Driver"}</option>
+                {driverOptions.map((item) => (
+                  <option key={item._id} value={item._id}>
+                    {item.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -716,15 +543,13 @@ setFormData({
 
             <div className="form-group">
               <label>Conductor Name</label>
-              <select value={formData.conductorId} onChange={handleConductorChange}>
-                <option value="">Select Conductor</option>
-                {conductorEmployees
-                  .filter((item) => item.position === "Conductor")
-                  .map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
+              <select value={formData.conductorId} onChange={handleCrewChange("conductor", conductorOptions)}>
+                <option value="">{conductorOptions.length === 0 ? "No conductor in staff" : "Select Conductor"}</option>
+                {conductorOptions.map((item) => (
+                  <option key={item._id} value={item._id}>
+                    {item.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -732,20 +557,26 @@ setFormData({
               <label>Conductor Mobile</label>
               <div className="vehicle-upload-inline">
                 <input type="text" value={formData.conductorMobile} readOnly />
-                <button
-                  type="button"
-                  className="upload-icon-btn"
-                  onClick={handleOpenUploadPopup}
-                >
+                <button type="button" className="upload-icon-btn" onClick={() => setShowUploadPopup(true)}>
                   ⬆️
                 </button>
               </div>
             </div>
           </div>
 
+          {(drivers.length === 0 || conductors.length === 0) && (
+            <p className="empty-row">
+              Drivers and conductors come from Staff Management. Add staff with a Driver / Conductor position to select them.
+            </p>
+          )}
+
+          {formDocuments.length > 0 && (
+            <p className="empty-row">Documents: {formDocuments.map((doc) => doc.documentType).join(", ")}</p>
+          )}
+
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -766,11 +597,7 @@ setFormData({
           <div className="view-popup">
             <div className="popup-head">
               <h2>Upload Vehicle Document</h2>
-              <button
-                type="button"
-                className="popup-close-btn"
-                onClick={() => setShowUploadPopup(false)}
-              >
+              <button type="button" className="popup-close-btn" onClick={() => setShowUploadPopup(false)}>
                 ×
               </button>
             </div>
@@ -779,89 +606,47 @@ setFormData({
               <label>Document Type</label>
               <select
                 value={uploadData.documentType}
-                onChange={(e) =>
-                  setUploadData({
-                    ...uploadData,
-                    documentType: e.target.value,
-                  })
-                }
+                onChange={(e) => setUploadData({ ...uploadData, documentType: e.target.value })}
               >
                 <option value="">Select Document</option>
-                {documentTypes.map((item) => (
+                {DOCUMENT_TYPES.map((item) => (
                   <option key={item} value={item}>
                     {item}
+                    {formDocuments.some((doc) => doc.documentType === item) ? " (uploaded)" : ""}
                   </option>
                 ))}
               </select>
             </div>
 
-           <div className="form-group">
-  <label>Choose File / Camera</label>
-  <input
-    type="file"
-    accept=".pdf,.jpg,.jpeg,.png"
-    capture="environment"
-    onChange={(e) =>
-      setUploadData({
-        ...uploadData,
-        file: e.target.files?.[0] || null,
-      })
-    }
-  />
-</div>
+            <div className="form-group">
+              <label>Choose File / Camera</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                capture="environment"
+                onChange={(e) => setUploadData({ ...uploadData, file: e.target.files?.[0] || null })}
+              />
+            </div>
 
-<div className="form-actions">
+            <div className="form-actions">
+              <AppButton type="primary" onClick={handleUploadDocument}>
+                Upload
+              </AppButton>
 
-  <AppButton
-    type="primary"
-    onClick={handleUploadDocument}
-  >
-    Upload
-  </AppButton>
-
-  <AppButton
-    type="delete"
-    onClick={() => {
-
-      if (!uploadData.documentType) {
-        alert("Select document type");
-        return;
-      }
-
-      setFormData({
-        ...formData,
-        documents:
-          (formData.documents || []).filter(
-            (doc) =>
-              doc.documentType !==
-              uploadData.documentType
-          ),
-      });
-
-      alert(
-        "Document deleted successfully"
-      );
-
-    }}
-  >
-    Delete
-  </AppButton>
-
-</div>
+              <AppButton type="delete" onClick={handleRemoveDocument}>
+                Delete
+              </AppButton>
+            </div>
           </div>
         </div>
       )}
 
-      {showDownloadPopup && (
+      {showDownloadPopup && downloadVehicle && (
         <div className="popup-overlay">
           <div className="view-popup">
             <div className="popup-head">
               <h2>Download Documents</h2>
-              <button
-                type="button"
-                className="popup-close-btn"
-                onClick={() => setShowDownloadPopup(false)}
-              >
+              <button type="button" className="popup-close-btn" onClick={() => setShowDownloadPopup(false)}>
                 ×
               </button>
             </div>
@@ -874,12 +659,11 @@ setFormData({
                       <input
                         type="checkbox"
                         checked={
-                          downloadVehicle?.documents?.length > 0 &&
-                          selectedDocumentIds.length ===
-                            downloadVehicle.documents.length
+                          downloadVehicle.documents.length > 0 &&
+                          selectedDocumentIds.length === downloadVehicle.documents.length
                         }
                         onChange={(e) =>
-                          handleSelectAllDocuments(e.target.checked)
+                          setSelectedDocumentIds(e.target.checked ? downloadVehicle.documents.map((doc) => doc._id) : [])
                         }
                       />
                     </th>
@@ -889,8 +673,7 @@ setFormData({
                 </thead>
 
                 <tbody>
-                  {!downloadVehicle?.documents ||
-                  downloadVehicle.documents.length === 0 ? (
+                  {downloadVehicle.documents.length === 0 ? (
                     <tr>
                       <td colSpan="3" className="empty-row">
                         No document uploaded
@@ -898,12 +681,16 @@ setFormData({
                     </tr>
                   ) : (
                     downloadVehicle.documents.map((doc) => (
-                      <tr key={doc.id}>
+                      <tr key={doc._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedDocumentIds.includes(doc.id)}
-                            onChange={() => handleDocumentSelection(doc.id)}
+                            checked={selectedDocumentIds.includes(doc._id)}
+                            onChange={() =>
+                              setSelectedDocumentIds((prev) =>
+                                prev.includes(doc._id) ? prev.filter((id) => id !== doc._id) : [...prev, doc._id]
+                              )
+                            }
                           />
                         </td>
                         <td>{doc.documentType}</td>
@@ -916,8 +703,8 @@ setFormData({
             </div>
 
             <div className="form-actions">
-              <AppButton type="primary" onClick={handleDownloadDocuments}>
-                Download
+              <AppButton type="primary" onClick={handleDownloadDocuments} disabled={saving}>
+                {saving ? "Downloading..." : "Download"}
               </AppButton>
             </div>
           </div>

@@ -607,6 +607,21 @@ export const financeService = {
 
 // 🚌 Transport Endpoints (routes feed the Transport Fee in Fee Manager)
 export const transportService = {
+  getMeta: () => api.get("/api/transport/meta"),
+  getStaffOptions: () => api.get("/api/transport/staff-options"),
+
+  getVehicles: () => api.get("/api/transport/vehicles"),
+  createVehicle: (data) => api.post("/api/transport/vehicles", data),
+  updateVehicle: (id, data) => api.put(`/api/transport/vehicles/${id}`, data),
+  deleteVehicle: (id) => api.delete(`/api/transport/vehicles/${id}`),
+  getVehicleDocument: (id, docId) => api.get(`/api/transport/vehicles/${id}/documents/${docId}`),
+
+  getAllocations: (params) => api.get("/api/transport/allocations", { params }),
+  bulkAllocate: (data) => api.post("/api/transport/allocations/bulk", data),
+  removeAllocation: (data) => api.post("/api/transport/allocations/remove", data),
+
+  getReports: () => api.get("/api/transport/reports"),
+
   getRoutes: () => api.get("/api/transport/routes"),
   createRoute: (data) => api.post("/api/transport/routes", data),
   updateRoute: (id, data) => api.put(`/api/transport/routes/${id}`, data),
