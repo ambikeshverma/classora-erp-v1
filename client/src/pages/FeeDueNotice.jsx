@@ -1,84 +1,22 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import "./feeDueNotice.css";
 import AppButton from "../components/AppButton";
+import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
+import { feeService } from "../services/api";
+
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 function FeeDueNotice() {
-  const currentSession = "2026-2027";
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const defaultFeeScheme = {
-    id: 1,
-    schemeName: "Monthly Scheme",
-    paymentType: "Monthly",
-  };
-
-  const periodOptionsByType = {
-    Monthly: [
-      "APR", "MAY", "JUN", "JUL", "AUG", "SEP",
-      "OCT", "NOV", "DEC", "JAN", "FEB", "MAR",
-    ],
-    Quarterly: ["Quarter 1", "Quarter 2", "Quarter 3", "Quarter 4"],
-    Installment: ["Installment 1", "Installment 2", "Installment 3"],
-    Annual: ["Annual Fee"],
-  };
-
-  const classOptions = [
-    "All",
-    "Class 1",
-    "Class 2",
-    "Class 3",
-    "Class 4",
-    "Class 5",
-    "Class 6",
-  ];
-
-  const demoStudents = [
-    {
-      id: 1,
-      srNo: "SR001",
-      studentName: "Rahul Kumar",
-      fatherName: "Sunil Kumar",
-      className: "Class 6",
-      sectionName: "A",
-      mobile: "9876543210",
-      previousBalance: 500,
-      currentBalance: 2500,
-      paid: 1000,
-    },
-    {
-      id: 2,
-      srNo: "SR002",
-      studentName: "Priya Singh",
-      fatherName: "Dinesh Singh",
-      className: "Class 6",
-      sectionName: "B",
-      mobile: "9876543211",
-      previousBalance: 0,
-      currentBalance: 2500,
-      paid: 500,
-    },
-    {
-      id: 3,
-      srNo: "SR003",
-      studentName: "Aman Verma",
-      fatherName: "Rakesh Verma",
-      className: "Class 5",
-      sectionName: "A",
-      mobile: "9876543212",
-      previousBalance: 800,
-      currentBalance: 2200,
-      paid: 0,
-    },
-  ];
-
-  const [selectedPeriod, setSelectedPeriod] = useState(
-    periodOptionsByType[defaultFeeScheme.paymentType][0]
-  );
-
+  const [selectedPeriod, setSelectedPeriod] = useState("");
   const [selectedClass, setSelectedClass] = useState("All");
   const [includePreviousBalance, setIncludePreviousBalance] = useState(true);
   const [minimumBalance, setMinimumBalance] = useState("");
 
-  const [noticeTitle, setNoticeTitle] = useState("Monthly Fee Reminder");
+  const [noticeTitle, setNoticeTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [lateFee, setLateFee] = useState("");
   const [customMessage, setCustomMessage] = useState("");
@@ -87,32 +25,66 @@ function FeeDueNotice() {
   const [selectedDueIds, setSelectedDueIds] = useState([]);
   const [viewStudentMessage, setViewStudentMessage] = useState(null);
 
-  const periodOptions =
-    periodOptionsByType[defaultFeeScheme.paymentType] || [];
+  useEffect(() => {
+    let active = true;
 
+    feeService
+      .getDues()
+      .then((res) => {
+        if (active) setData(res.data?.data || null);
+      })
+      .catch((err) => {
+        if (active) setError(err.response?.data?.message || "Failed to load fee dues");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const periods = useMemo(() => data?.periods || [], [data]);
+  const periodOptions = useMemo(() => periods.map((item) => item.key), [periods]);
+  const selectedPeriodKey = selectedPeriod || periodOptions[0] || "";
+  const currentSession = data?.session || "";
+  const schoolInfo = data?.schoolInfo || {};
+
+  const classOptions = useMemo(
+    () => ["All", ...new Set((data?.dues || []).map((item) => item.className).filter(Boolean))].sort((a, b) =>
+      a === "All" ? -1 : b === "All" ? 1 : a.localeCompare(b)
+    ),
+    [data]
+  );
+
+  // Previous balance = dues of periods before the selected one; current = dues of the selected period
   const filteredStudents = useMemo(() => {
-    return demoStudents
+    const periodIndex = periodOptions.indexOf(selectedPeriodKey);
+
+    return (data?.dues || [])
       .map((student) => {
         const previous = includePreviousBalance
-          ? Number(student.previousBalance || 0)
+          ? round2(
+              periodOptions
+                .slice(0, Math.max(periodIndex, 0))
+                .reduce((sum, key) => sum + Number(student.periodDue?.[key] || 0), 0)
+            )
           : 0;
 
-        const current = Number(student.currentBalance || 0);
-        const paid = Number(student.paid || 0);
-
-        const balance = Math.max(previous + current - paid, 0);
+        const current = round2(student.periodDue?.[selectedPeriodKey] || 0);
 
         return {
           ...student,
+          id: student.studentId,
+          sectionName: student.section,
+          currentBalance: current,
           calculatedPreviousBalance: previous,
-          calculatedBalance: balance,
+          calculatedBalance: round2(previous + current),
         };
       })
       .filter((student) => {
-        const classMatch =
-          selectedClass === "All"
-            ? true
-            : student.className === selectedClass;
+        const classMatch = selectedClass === "All" ? true : student.className === selectedClass;
 
         const balanceMatch = minimumBalance
           ? student.calculatedBalance >= Number(minimumBalance)
@@ -120,37 +92,15 @@ function FeeDueNotice() {
 
         return classMatch && balanceMatch;
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, includePreviousBalance, minimumBalance]);
+  }, [data, periodOptions, selectedPeriodKey, selectedClass, includePreviousBalance, minimumBalance]);
 
-  const totalDueAmount = filteredStudents.reduce(
-    (sum, student) => sum + student.calculatedBalance,
+  const totalDueAmount = filteredStudents.reduce((sum, student) => sum + student.calculatedBalance, 0);
+  const totalPreviousBalance = filteredStudents.reduce(
+    (sum, student) => sum + Number(student.calculatedPreviousBalance || 0),
     0
   );
-const totalPreviousBalance = filteredStudents.reduce(
-  (sum, student) =>
-    sum +
-    Number(
-      student.calculatedPreviousBalance || 0
-    ),
-  0
-);
-
-const totalCurrentBalance = filteredStudents.reduce(
-  (sum, student) =>
-    sum +
-    Number(
-      student.currentBalance || 0
-    ),
-  0
-);
-
-const totalPaid = filteredStudents.reduce(
-  (sum, student) =>
-    sum +
-    Number(student.paid || 0),
-  0
-);
+  const totalCurrentBalance = filteredStudents.reduce((sum, student) => sum + Number(student.currentBalance || 0), 0);
+  const totalPaid = filteredStudents.reduce((sum, student) => sum + Number(student.paid || 0), 0);
   const generateStudentMessage = (student) => {
     if (customMessage.trim()) {
       return customMessage;
@@ -164,7 +114,7 @@ const totalPaid = filteredStudents.reduce(
 
     return `Dear ${student.studentName},
 
-Your ${student.className} ${selectedPeriod} fee of ₹${student.calculatedBalance} is pending.
+Your ${student.className} ${selectedPeriodKey} fee of ₹${student.calculatedBalance} is pending.
 
 Please pay the fee before ${dueDateText}.${lateFeeText}
 
@@ -172,7 +122,7 @@ Thank you.`;
   };
 
   const handleSendNotice = () => {
-    if (!selectedPeriod) {
+    if (!selectedPeriodKey) {
       alert("Select fee period");
       return;
     }
@@ -215,19 +165,34 @@ Thank you.`;
         </div>
       </div>
 
-      {!showReport && (
+      {!showReport && loading && (
+        <>
+          <SkeletonStats count={2} />
+          <div className="common-card">
+            <SkeletonTable rows={6} columns={9} />
+          </div>
+        </>
+      )}
+
+      {!showReport && !loading && !data && (
+        <div className="common-card">
+          <div className="empty-row">{error || "Fee dues are not available"}</div>
+        </div>
+      )}
+
+      {!showReport && !loading && data && (
         <>
           <div className="common-card">
             <div className="fee-filter-grid">
               <div className="form-group">
                 <label>Fee Scheme</label>
-                <input type="text" value={defaultFeeScheme.schemeName} readOnly />
+                <input type="text" value={`${data.schemeType} Scheme`} readOnly />
               </div>
 
               <div className="form-group">
                 <label>Select Period</label>
                 <select
-                  value={selectedPeriod}
+                  value={selectedPeriodKey}
                   onChange={(e) => setSelectedPeriod(e.target.value)}
                 >
                   {periodOptions.map((item) => (
@@ -322,6 +287,7 @@ Thank you.`;
 
                 <input
                   type="text"
+                  placeholder="Fee Reminder"
                   value={noticeTitle}
                   onChange={(e) => setNoticeTitle(e.target.value)}
                 />
@@ -465,16 +431,16 @@ Thank you.`;
       {showReport && (
         <div className="print-report-layout">
           <div className="print-report-header">
-            <h1>CHANDRA SHEKHAR AZAD INTER COLLEGE</h1>
-            <p>Rasauli, Barabanki</p>
+            <h1>{schoolInfo.schoolName}</h1>
+            <p>{schoolInfo.address}</p>
             <p>Fee Due Notice Report</p>
           </div>
 
           <div className="report-filter-line">
   <div className="report-filter-info">
     <span>Session: {currentSession}</span>
-    <span>Fee Scheme: {defaultFeeScheme.schemeName}</span>
-    <span>Period: {selectedPeriod}</span>
+    <span>Fee Scheme: {data?.schemeType} Scheme</span>
+    <span>Period: {selectedPeriodKey}</span>
     <span>Class: {selectedClass}</span>
   </div>
 

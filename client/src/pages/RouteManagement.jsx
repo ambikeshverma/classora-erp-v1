@@ -1,12 +1,14 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import "./routeManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { transportService } from "../services/api";
 
 function RouteManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-
   const [showForm, setShowForm] = useState(false);
   const [routes, setRoutes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
   const [routeNameFilter, setRouteNameFilter] = useState("");
@@ -53,8 +55,24 @@ function RouteManagement() {
     });
   };
 
+  const loadRoutes = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await transportService.getRoutes();
+      setRoutes(res.data?.data || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load routes");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRoutes();
+  }, [loadRoutes]);
+
   const selectedRoutes = routes.filter((item) =>
-    selectedIds.includes(item.id)
+    selectedIds.includes(item._id)
   );
 
   const selectedSingle =
@@ -75,8 +93,6 @@ function RouteManagement() {
     setAppliedFilters(filters);
 
     const result = routes.filter((item) => {
-      const schoolMatch = item.schoolId === schoolId;
-
       const routeNameMatch = item.routeName
         .toLowerCase()
         .includes(filters.routeNameFilter.toLowerCase());
@@ -94,7 +110,6 @@ function RouteManagement() {
         : true;
 
       return (
-        schoolMatch &&
         routeNameMatch &&
         startPointMatch &&
         endPointMatch
@@ -110,8 +125,6 @@ function RouteManagement() {
   };
 
   const filteredRoutes = routes.filter((item) => {
-    const schoolMatch = item.schoolId === schoolId;
-
     const routeNameMatch = appliedFilters.routeNameFilter
       ? item.routeName
           .toLowerCase()
@@ -131,7 +144,6 @@ function RouteManagement() {
       : true;
 
     return (
-  schoolMatch &&
   routeNameMatch &&
   startPointMatch &&
   endPointMatch
@@ -143,7 +155,7 @@ function RouteManagement() {
   )
 );
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.routeName || !formData.monthlyFee) {
       alert("Route name and monthly fee are required");
       return;
@@ -164,10 +176,9 @@ function RouteManagement() {
 
     const duplicateRoute = routes.find(
       (item) =>
-        item.schoolId === schoolId &&
         item.routeName.trim().toLowerCase() ===
           formData.routeName.trim().toLowerCase() &&
-        item.id !== editId
+        item._id !== editId
     );
 
     if (duplicateRoute) {
@@ -175,35 +186,34 @@ function RouteManagement() {
       return;
     }
 
-    if (editId) {
-      setRoutes(
-        routes.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                ...formData,
-                schoolId,
-              }
-            : item
-        )
-      );
+    const payload = {
+      routeName: formData.routeName,
+      startPoint: formData.startPoint,
+      endPoint: formData.endPoint,
+      distance: formData.distance,
+      monthlyFee: formData.monthlyFee,
+    };
 
-      alert("Route updated successfully");
-    } else {
-      const newRoute = {
-        id: Date.now(),
-        schoolId,
-        ...formData,
-      };
+    try {
+      setSaving(true);
 
-      setRoutes([...routes, newRoute]);
+      if (editId) {
+        await transportService.updateRoute(editId, payload);
+        alert("Route updated successfully");
+      } else {
+        await transportService.createRoute(payload);
+        alert("Route added successfully");
+      }
 
-      alert("Route added successfully");
+      await loadRoutes();
+      resetForm();
+      setShowForm(false);
+      setIsSearched(true);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save route");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
-    setIsSearched(true);
   };
 
   const handleEdit = () => {
@@ -221,11 +231,11 @@ function RouteManagement() {
       isAssigned: selectedSingle.isAssigned || false,
     });
 
-    setEditId(selectedSingle.id);
+    setEditId(selectedSingle._id);
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
       alert("Select route");
       return;
@@ -245,11 +255,19 @@ function RouteManagement() {
     const ok = window.confirm("Delete selected route?");
     if (!ok) return;
 
-    setRoutes(
-      routes.filter((item) => !selectedIds.includes(item.id))
-    );
+    try {
+      setSaving(true);
+      await Promise.all(
+        selectedIds.map((id) => transportService.deleteRoute(id))
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete route");
+    } finally {
+      setSaving(false);
+    }
 
     setSelectedIds([]);
+    await loadRoutes();
   };
 
   return (
@@ -370,7 +388,7 @@ function RouteManagement() {
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedIds(
-                              filteredRoutes.map((item) => item.id)
+                              filteredRoutes.map((item) => item._id)
                             );
                           } else {
                             setSelectedIds([]);
@@ -388,7 +406,13 @@ function RouteManagement() {
                 </thead>
 
                 <tbody>
-  {routes.length === 0 ? (
+  {loading ? (
+    <tr>
+      <td colSpan="6">
+        <SkeletonTable rows={4} columns={6} />
+      </td>
+    </tr>
+  ) : routes.length === 0 ? (
     <tr>
       <td
         colSpan="6"
@@ -406,20 +430,20 @@ function RouteManagement() {
                     </tr>
                   ) : (
                     filteredRoutes.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(
-                              item.id
+                              item._id
                             )}
                             onChange={() => {
                               setSelectedIds((prev) =>
-                                prev.includes(item.id)
+                                prev.includes(item._id)
                                   ? prev.filter(
-                                      (id) => id !== item.id
+                                      (id) => id !== item._id
                                     )
-                                  : [...prev, item.id]
+                                  : [...prev, item._id]
                               );
                             }}
                           />
@@ -512,8 +536,11 @@ function RouteManagement() {
             <AppButton
   type="primary"
   onClick={handleSave}
+  disabled={saving}
 >
-  {editId
+  {saving
+    ? "Saving..."
+    : editId
     ? "Update"
     : "Save"}
 </AppButton>

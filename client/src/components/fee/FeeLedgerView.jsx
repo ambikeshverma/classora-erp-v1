@@ -1,105 +1,100 @@
-import React from "react";
+import React, { useMemo } from "react";
 import "./FeeLedgerView.css";
 import AppButton from "../AppButton";
+import { formatDate } from "../../utils/feeUtils";
 
 function FeeLedgerView({
   student = {},
-  studentProfile = {},
-  session = {},
-  route = {},
+  profile = {},
+  session = "",
   receipts = [],
-  feeHeads = [],
-  monthOptions = [],
-  feeRows = [],
-  totals = {},
+  periods = [],
+  rows = [],
   onClose,
   onPrint,
 }) {
+  // Fee heads in the order they first appear in the student's fee rows
+  const feeHeads = useMemo(() => [...new Set(rows.map((row) => row.feeHeadName))], [rows]);
+
+  const cellFor = (head, periodKey) => {
+    const matches = rows.filter((row) => row.feeHeadName === head && row.periodKey === periodKey);
+    return {
+      fee: matches.reduce((sum, row) => sum + row.fee - row.concession, 0),
+      paid: matches.reduce((sum, row) => sum + row.paid, 0),
+      balance: matches.reduce((sum, row) => sum + row.balance, 0),
+    };
+  };
+
+  const sumCells = (cells) =>
+    cells.reduce(
+      (acc, cell) => ({
+        fee: acc.fee + cell.fee,
+        paid: acc.paid + cell.paid,
+        balance: acc.balance + cell.balance,
+      }),
+      { fee: 0, paid: 0, balance: 0 }
+    );
+
+  const grandTotal = sumCells(rows.map((row) => ({ fee: row.fee - row.concession, paid: row.paid, balance: row.balance })));
+
   return (
     <div className="popup-overlay">
       <div className="fee-ledger-popup">
-
         <div className="popup-head">
-          <h2>
-            Fee Ledger - {student.studentName}
-          </h2>
+          <h2>Fee Ledger - {student.studentName}</h2>
 
-          <button
-            className="popup-close-btn"
-            onClick={onClose}
-          >
+          <button className="popup-close-btn" onClick={onClose}>
             ×
           </button>
         </div>
 
-        {/* Student Information */}
-
         <div className="ledger-student-info">
-
           <p>
-            <strong>Session :</strong>{" "}
-            {session.sessionName}
+            <strong>Session :</strong> {session}
           </p>
 
           <p>
-            <strong>Class :</strong>{" "}
-            {studentProfile.className} -
-            {studentProfile.sectionName}
+            <strong>Class :</strong> {[profile.className, profile.section].filter(Boolean).join(" - ") || "-"}
           </p>
 
           <p>
-            <strong>Admission No :</strong>{" "}
-            {student.admissionNo}
+            <strong>Admission No :</strong> {student.admissionNo || "-"}
           </p>
 
           <p>
-            <strong>SR No :</strong>{" "}
-            {student.srNo}
+            <strong>SR No :</strong> {student.srNo || "-"}
           </p>
 
           <p>
-            <strong>Father Name :</strong>{" "}
-            {student.fatherName}
+            <strong>Father Name :</strong> {student.fatherName || "-"}
           </p>
 
           <p>
-            <strong>Route :</strong>{" "}
-            {route?.routeName || "-"}
+            <strong>Route :</strong> {profile.routeName || "-"}
           </p>
-
         </div>
 
-        {/* Receipt List */}
-
-        <h3 className="ledger-section-title">
-          Fee Receipts
-        </h3>
+        <h3 className="ledger-section-title">Fee Receipts</h3>
 
         <div className="table-wrap ledger-table-wrap">
-
           <table>
             <thead>
               <tr>
                 <th>S.No</th>
                 <th>Receipt No</th>
                 <th>Class</th>
-                <th>Installments</th>
+                <th>Fee Period</th>
                 <th>Paid On</th>
                 <th>Paid Amount</th>
                 <th>Remarks</th>
                 <th>Deposit By</th>
-                <th>Deposit On</th>
               </tr>
             </thead>
 
             <tbody>
-
               {receipts.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan="9"
-                    className="empty-row"
-                  >
+                  <td colSpan="8" className="empty-row">
                     No receipt found
                   </td>
                 </tr>
@@ -107,85 +102,40 @@ function FeeLedgerView({
                 receipts.map((receipt, index) => (
                   <tr key={receipt.id}>
                     <td>{index + 1}</td>
-
                     <td>{receipt.receiptNo}</td>
-
-                    <td>
-                      {studentProfile.className}{" "}
-                      {studentProfile.sectionName}
-                    </td>
-
-                    <td>
-                      {receipt.months?.join(", ")}
-                    </td>
-
-                    <td>
-                      {receipt.depositDate}
-                    </td>
-
-                    <td>
-                      ₹{receipt.paidAmount}
-                    </td>
-
-                    <td>
-                      {receipt.remarks || "-"}
-                    </td>
-
-                    <td>
-                      {receipt.collectedByName}
-                    </td>
-
-                    <td>
-                      {receipt.depositDate}
-                    </td>
+                    <td>{[profile.className, profile.section].filter(Boolean).join(" ") || "-"}</td>
+                    <td>{receipt.periods?.join(", ") || "-"}</td>
+                    <td>{formatDate(receipt.depositDate)}</td>
+                    <td>₹{receipt.paidAmount}</td>
+                    <td>{receipt.remarks || "-"}</td>
+                    <td>{receipt.collectedByName || "-"}</td>
                   </tr>
                 ))
               )}
-
             </tbody>
           </table>
-
         </div>
 
-        {/* Fee Schedule */}
-
-        <h3 className="ledger-section-title">
-          Fee Schedule
-        </h3>
+        <h3 className="ledger-section-title">Fee Schedule</h3>
 
         <div className="ledger-schedule-wrap">
-
           <table className="ledger-schedule-table">
-
             <thead>
-
               <tr>
+                <th rowSpan="2">Fee Head</th>
 
-                <th rowSpan="2">
-                  Fee Head
-                </th>
-
-                {monthOptions.map((month) => (
-                  <th
-                    key={month.name}
-                    colSpan="3"
-                  >
-                    {month.short}
+                {periods.map((period) => (
+                  <th key={period.key} colSpan="3">
+                    {period.short}
                   </th>
                 ))}
 
-                <th colSpan="3">
-                  Total
-                </th>
-
+                <th colSpan="3">Total</th>
               </tr>
 
               <tr>
-
-                {monthOptions.map((month) => (
-                  <React.Fragment
-                    key={month.name}
-                  >
+                {periods.map((period) => (
+                  <React.Fragment key={period.key}>
                     <th>Fee</th>
                     <th>Paid</th>
                     <th>Bal</th>
@@ -195,176 +145,74 @@ function FeeLedgerView({
                 <th>Fee</th>
                 <th>Paid</th>
                 <th>Bal</th>
-
               </tr>
-
             </thead>
 
             <tbody>
-
-              {feeHeads
-                .filter((head) =>
-                  feeRows.some(
-                    (row) =>
-                      row.feeHeadId === head.id
-                  )
-                )
-                .map((head) => {
-                  let totalFee = 0;
-                  let totalPaid = 0;
-                  let totalBalance = 0;
-
-                  return (
-                    <tr key={head.id}>
-
-                      <td>
-                        {head.headName}
-                      </td>
-
-                      {monthOptions.map(
-                        (month) => {
-                          const row =
-                            feeRows.find(
-                              (item) =>
-                                item.monthName ===
-                                  month.name &&
-                                item.feeHeadId ===
-                                  head.id
-                            );
-
-                          const fee =
-                            row?.fee || 0;
-
-                          const paid =
-                            row?.paid || 0;
-
-                          const balance =
-                            row?.balance || 0;
-
-                          totalFee += fee;
-                          totalPaid += paid;
-                          totalBalance +=
-                            balance;
-
-                          return (
-                            <React.Fragment
-                              key={month.name}
-                            >
-                              <td>{fee}</td>
-
-                              <td className="green-text">
-                                {paid}
-                              </td>
-
-                              <td className="red-text">
-                                {balance}
-                              </td>
-                            </React.Fragment>
-                          );
-                        }
-                      )}
-
-                      <td>{totalFee}</td>
-
-                      <td className="green-text">
-                        {totalPaid}
-                      </td>
-
-                      <td className="red-text">
-                        {totalBalance}
-                      </td>
-
-                    </tr>
-                  );
-                })}
-
-              <tr className="total-row">
-
-                <td>Total</td>
-
-                {monthOptions.map(
-                  (month) => {
-                    const monthRows =
-                      feeRows.filter(
-                        (row) =>
-                          row.monthName ===
-                          month.name
-                      );
-
-                    const fee =
-                      monthRows.reduce(
-                        (sum, row) =>
-                          sum + row.fee,
-                        0
-                      );
-
-                    const paid =
-                      monthRows.reduce(
-                        (sum, row) =>
-                          sum + row.paid,
-                        0
-                      );
-
-                    const balance =
-                      monthRows.reduce(
-                        (sum, row) =>
-                          sum +
-                          row.balance,
-                        0
-                      );
+              {feeHeads.length === 0 ? (
+                <tr>
+                  <td colSpan={periods.length * 3 + 4} className="empty-row">
+                    No fee schedule available for this session
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {feeHeads.map((head) => {
+                    const cells = periods.map((period) => cellFor(head, period.key));
+                    const total = sumCells(cells);
 
                     return (
-                      <React.Fragment
-                        key={month.name}
-                      >
-                        <td>{fee}</td>
-                        <td>{paid}</td>
-                        <td>{balance}</td>
-                      </React.Fragment>
+                      <tr key={head}>
+                        <td>{head}</td>
+
+                        {cells.map((cell, index) => (
+                          <React.Fragment key={periods[index].key}>
+                            <td>{cell.fee}</td>
+                            <td className="green-text">{cell.paid}</td>
+                            <td className="red-text">{cell.balance}</td>
+                          </React.Fragment>
+                        ))}
+
+                        <td>{total.fee}</td>
+                        <td className="green-text">{total.paid}</td>
+                        <td className="red-text">{total.balance}</td>
+                      </tr>
                     );
-                  }
-                )}
+                  })}
 
-                <td>
-                  {totals.totalFee}
-                </td>
+                  <tr className="total-row">
+                    <td>Total</td>
 
-                <td>
-                  {totals.totalPaid}
-                </td>
+                    {periods.map((period) => {
+                      const total = sumCells(feeHeads.map((head) => cellFor(head, period.key)));
+                      return (
+                        <React.Fragment key={period.key}>
+                          <td>{total.fee}</td>
+                          <td>{total.paid}</td>
+                          <td>{total.balance}</td>
+                        </React.Fragment>
+                      );
+                    })}
 
-                <td>
-                  {totals.outstandingBalance}
-                </td>
-
-              </tr>
-
+                    <td>{grandTotal.fee}</td>
+                    <td>{grandTotal.paid}</td>
+                    <td>{grandTotal.balance}</td>
+                  </tr>
+                </>
+              )}
             </tbody>
-
           </table>
-
         </div>
 
-        {/* Footer Buttons */}
-
         <div className="ledger-footer-actions">
-
-          <AppButton
-            type="primary"
-            onClick={onPrint}
-          >
+          <AppButton type="primary" onClick={onPrint}>
             Print Ledger
           </AppButton>
 
-          <AppButton
-            type="secondary"
-            onClick={onClose}
-          >
+          <AppButton type="secondary" onClick={onClose}>
             Close
           </AppButton>
-
         </div>
-
       </div>
     </div>
   );

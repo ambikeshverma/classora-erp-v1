@@ -533,5 +533,39 @@ export const attendanceService = {
   getReportsData: (params) => api.get("/api/attendance/reports-data", { params }),
 };
 
+// 💰 Fee Manager Endpoints
+export const feeService = {
+  getMeta: () => api.get("/api/fee-manager/meta"),
+  searchStudents: (q) => api.get("/api/fee-manager/students/search", { params: { q } }),
+  getDashboard: (studentId, session) =>
+    api.get(`/api/fee-manager/students/${studentId}/dashboard`, { params: session ? { session } : {} }),
+  getStudentProfile: (studentId) => api.get(`/api/fee-manager/students/${studentId}/profile`),
+
+  addManualFee: (studentId, data) => api.post(`/api/fee-manager/students/${studentId}/manual-fees`, data),
+  deleteManualFee: (id) => api.delete(`/api/fee-manager/manual-fees/${id}`),
+
+  allocateTransport: (studentId, data) => api.put(`/api/fee-manager/students/${studentId}/transport`, data),
+  removeTransport: (studentId, session) =>
+    api.delete(`/api/fee-manager/students/${studentId}/transport`, { params: { session } }),
+  setTransportPeriod: (studentId, data) =>
+    api.patch(`/api/fee-manager/students/${studentId}/transport/periods`, data),
+
+  createReceipt: (data) => api.post("/api/fee-manager/receipts", data),
+  getReceipts: (params) => api.get("/api/fee-manager/receipts", { params }),
+  getReceipt: (id) => api.get(`/api/fee-manager/receipts/${id}`),
+  cancelReceipt: (id, reason) => api.patch(`/api/fee-manager/receipts/${id}/cancel`, { reason }),
+
+  getReports: (params) => api.get("/api/fee-manager/reports", { params }),
+  getDues: (params) => api.get("/api/fee-manager/dues", { params }),
+};
+
+// 🚌 Transport Endpoints (routes feed the Transport Fee in Fee Manager)
+export const transportService = {
+  getRoutes: () => api.get("/api/transport/routes"),
+  createRoute: (data) => api.post("/api/transport/routes", data),
+  updateRoute: (id, data) => api.put(`/api/transport/routes/${id}`, data),
+  deleteRoute: (id) => api.delete(`/api/transport/routes/${id}`),
+};
+
 export default api;
 

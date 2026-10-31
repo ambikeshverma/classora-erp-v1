@@ -126,6 +126,8 @@ const admissionSchema = new mongoose.Schema(
 
 // Indexes
 admissionSchema.index({ schoolId: 1, srNo: 1 }, { unique: true });
+// Speeds up Fee Manager student lookups and session-wide dues reports
+admissionSchema.index({ schoolId: 1, status: 1, session: 1 });
 
 // Aadhar is unique per school ONLY when provided and non-empty
 admissionSchema.index(

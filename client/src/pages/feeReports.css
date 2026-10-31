@@ -1,0 +1,63 @@
+.ffr-page {
+  padding: 16px;
+  background: #f4f7fb;
+  box-sizing: border-box;
+}
+
+.ffr-header,
+.ffr-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.ffr-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  margin-bottom: 14px;
+}
+
+.ffr-header h1 {
+  margin: 0;
+  font-size: 24px;
+  color: #111827;
+}
+
+.ffr-header p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.ffr-card {
+  padding: 18px;
+}
+
+.ffr-session-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 20px 0;
+  background: #f4f7fb;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.ffr-session-bar select {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+}
+
+@media print {
+  .ffr-session-bar {
+    display: none !important;
+  }
+}

@@ -80,6 +80,8 @@ import BulkAttendanceEntry from "./pages/BulkAttendanceEntry";
 import AttendanceReports from "./pages/attendance/AttendanceReports";
 
 import FeeCollection from "./pages/FeeCollection";
+import FeeReceipts from "./pages/FeeReceipts";
+import FeeReports from "./pages/fee/FeeReports";
 
 import RouteManagement from "./pages/RouteManagement";
 import VehicleManagement from "./pages/VehicleManagement";
@@ -638,12 +640,7 @@ function App() {
           path="/fee-receipt"
           element={
             <ProtectedRoute moduleKey="fee_manager" subModuleKey="fee_receipt">
-              <SubModulePlaceholder
-                title="Fee Receipt"
-                moduleName="Fee Manager"
-                icon="🧾"
-                backRoute="/fee-manager"
-              />
+              <FeeReceipts />
             </ProtectedRoute>
           }
         />
@@ -651,12 +648,7 @@ function App() {
           path="/fee-analytics-reports"
           element={
             <ProtectedRoute moduleKey="fee_manager" subModuleKey="fee_analytics_reports">
-              <SubModulePlaceholder
-                title="Analytics and Reports"
-                moduleName="Fee Manager"
-                icon="📊"
-                backRoute="/fee-manager"
-              />
+              <FeeReports />
             </ProtectedRoute>
           }
         />

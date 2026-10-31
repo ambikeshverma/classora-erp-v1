@@ -1,0 +1,100 @@
+.fee-profile-popup {
+  max-width: 860px;
+}
+
+.fee-profile-body {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 24px;
+}
+
+.fee-profile-skeleton-lines {
+  flex: 1;
+}
+
+.fee-profile-empty {
+  text-align: center;
+}
+
+.fee-profile-content {
+  padding: 22px;
+}
+
+.fee-profile-top {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.fee-profile-top h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.fee-profile-top p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.fee-profile-photo {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-size: 34px;
+}
+
+.fee-profile-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fee-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.fee-profile-field {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.fee-profile-field span {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+}
+
+.fee-profile-field strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 14px;
+  color: #111827;
+  word-break: break-word;
+}
+
+@media (max-width: 760px) {
+  .fee-profile-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .fee-profile-grid {
+    grid-template-columns: 1fr;
+  }
+}
