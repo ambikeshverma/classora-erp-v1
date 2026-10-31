@@ -274,6 +274,30 @@ export const hrService = {
   updateLeave: (id, data) => api.put(`/api/hr/leaves/${id}`, data),
   deleteLeave: (id) => api.delete(`/api/hr/leaves/${id}`),
   updateLeaveStatus: (id, status) => api.patch(`/api/hr/leaves/${id}/status`, { status }),
+
+  // Departments, positions and working staff in one call
+  getMeta: () => api.get("/api/hr/meta"),
+
+  // Staff documents
+  uploadStaffDocument: (id, data) => api.post(`/api/hr/staff/${id}/documents`, data),
+  getStaffDocument: (id, docId) => api.get(`/api/hr/staff/${id}/documents/${docId}`),
+  deleteStaffDocument: (id, docId) => api.delete(`/api/hr/staff/${id}/documents/${docId}`),
+
+  // Salary structure
+  getSalaryStructures: () => api.get("/api/hr/salary-structures"),
+  createSalaryStructure: (data) => api.post("/api/hr/salary-structures", data),
+  updateSalaryStructure: (id, data) => api.put(`/api/hr/salary-structures/${id}`, data),
+  deleteSalaryStructure: (id) => api.delete(`/api/hr/salary-structures/${id}`),
+
+  // Monthly salary
+  getSalaries: (params) => api.get("/api/hr/salaries", { params }),
+  getSalary: (id) => api.get(`/api/hr/salaries/${id}`),
+  generateSalary: (data) => api.post("/api/hr/salaries/generate", data),
+  paySalary: (id, data) => api.post(`/api/hr/salaries/${id}/pay`, data),
+  deleteSalary: (id) => api.delete(`/api/hr/salaries/${id}`),
+
+  // Reports
+  getReports: () => api.get("/api/hr/reports"),
 };
 
 // 🔐 User Control Endpoints

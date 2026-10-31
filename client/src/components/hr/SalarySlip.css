@@ -1,0 +1,164 @@
+.salary-slip-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 1000;
+}
+
+.salary-slip-box {
+  width: 100%;
+  max-width: 820px;
+  max-height: 94vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.salary-slip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.salary-slip-sheet {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 22px;
+  color: #111827;
+}
+
+.salary-slip-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 12px;
+}
+
+.salary-slip-header img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.salary-slip-header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.salary-slip-header p {
+  margin: 3px 0 0;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.salary-slip-title {
+  text-align: center;
+  margin: 16px 0;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+
+.salary-slip-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 24px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.salary-slip-info p {
+  margin: 0;
+}
+
+.salary-slip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.salary-slip-table td,
+.salary-slip-table th {
+  border: 1px solid #d1d5db;
+  padding: 9px 12px;
+  text-align: left;
+}
+
+.salary-slip-table td:last-child,
+.salary-slip-table th:last-child {
+  text-align: right;
+}
+
+.salary-slip-table th {
+  background: #f3f4f6;
+}
+
+.salary-slip-total td {
+  font-weight: 800;
+  background: #f9fafb;
+}
+
+.salary-slip-subtitle {
+  margin: 18px 0 8px;
+  font-size: 15px;
+}
+
+.salary-slip-empty {
+  text-align: center !important;
+  color: #6b7280;
+}
+
+.salary-slip-footer {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+@media (max-width: 600px) {
+  .salary-slip-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .salary-slip-sheet,
+  .salary-slip-sheet * {
+    visibility: visible;
+  }
+
+  .salary-slip-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .salary-slip-box {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .salary-slip-actions {
+    display: none;
+  }
+
+  .salary-slip-sheet {
+    border: none;
+  }
+}

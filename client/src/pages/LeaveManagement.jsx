@@ -1,89 +1,48 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./leaveManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { hrService } from "../services/api";
+
+const LEAVE_TYPES = [
+  "Paid Leave",
+  "Casual Leave",
+  "Sick Leave",
+  "Unpaid Leave",
+  "Emergency Leave",
+  "Maternity Leave",
+  "Paternity Leave",
+  "Other",
+];
+
+const EMPTY_FILTERS = { departmentId: "", positionId: "", employeeId: "" };
+const EMPTY_FORM = { employeeId: "", leaveType: "", fromDate: "", toDate: "", reason: "" };
+
+const idOf = (value) => String(value?._id || value || "");
+
+const calculateDays = (fromDate, toDate) => {
+  if (!fromDate || !toDate) return 0;
+
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+  if (to < from) return 0;
+
+  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+};
+
+const formatDate = (value) => (value ? String(value).split("-").reverse().join("-") : "-");
 
 function LeaveManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const leaveTypes = [
-    "Paid Leave",
-    "Casual Leave",
-    "Sick Leave",
-    "Unpaid Leave",
-    "Emergency Leave",
-    "Maternity Leave",
-    "Paternity Leave",
-    "Other",
-  ];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const departments = [
-    { id: 1, schoolId: "SCH001", departmentId: 1 },
-    { id: 2, schoolId: "SCH001", departmentId: 1 },
-    { id: 3, schoolId: "SCH001", departmentId: 1 },
-  ];
-
-  const positions = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      departmentId: 1,
-      positionId: 1,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      departmentId: 1,
-      positionId: 1,
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      departmentId: 1,
-      positionId: 1,
-    },
-    {
-      id: 4,
-      schoolId: "SCH001",
-      department: "Transport",
-      positionName: "Driver",
-    },
-  ];
-
-  const staffList = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      department: "Teaching",
-      position: "Teacher",
-      mobile: "9876543210",
-      lastWorkingDate: "",
-      isActive: true,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0002",
-      employeeName: "Rahul Verma",
-      department: "Accounts",
-      position: "Accountant",
-      mobile: "9876543211",
-      lastWorkingDate: "",
-      isActive: true,
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0003",
-      employeeName: "Old Staff",
-      department: "Teaching",
-      position: "Teacher",
-      mobile: "9876543212",
-      lastWorkingDate: "2026-04-30",
-      isActive: false,
-    },
-  ];
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [leaves, setLeaves] = useState([]);
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -91,138 +50,69 @@ function LeaveManagement() {
   const [selectedLeaveIds, setSelectedLeaveIds] = useState([]);
   const [selectedRequestIds, setSelectedRequestIds] = useState([]);
 
-  const [filterData, setFilterData] = useState({
-    department: "",
-    position: "",
-    employeeId: "",
-  });
+  const [filterData, setFilterData] = useState(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    department: "",
-    position: "",
-    employeeId: "",
-  });
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [metaRes, leaveRes] = await Promise.all([hrService.getMeta(), hrService.getLeaves()]);
 
-  const emptyForm = {
-    employeeId: "",
-    leaveType: "",
-    fromDate: "",
-    toDate: "",
-    reason: "",
-  };
+      const meta = metaRes.data?.data || {};
+      setDepartments(meta.departments || []);
+      setPositions(meta.positions || []);
+      setStaffList(meta.staff || []);
+      setLeaves(leaveRes.data?.data || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load leave data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [formData, setFormData] = useState(emptyForm);
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
-  const [approvedLeaves, setApprovedLeaves] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeId: 1,
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      department: "Teaching",
-      position: "Teacher",
-      leaveType: "Sick Leave",
-      fromDate: "2026-05-10",
-      toDate: "2026-05-11",
-      days: 2,
-      reason: "Health issue",
-      source: "Manual",
-    },
-  ]);
-
-  const [pendingRequests, setPendingRequests] = useState([
-    {
-      id: 101,
-      schoolId: "SCH001",
-      employeeId: 1,
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      department: "Teaching",
-      position: "Teacher",
-      leaveType: "Casual Leave",
-      fromDate: "2026-05-20",
-      toDate: "2026-05-20",
-      days: 1,
-      reason: "Personal work",
-      source: "Class Teacher Dashboard",
-    },
-  ]);
-
-  const schoolDepartments = departments.filter(
-    (item) => item.schoolId === schoolId
-  );
-
-  const activeStaff = staffList.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.isActive &&
-      !item.lastWorkingDate
+  const departmentName = useCallback(
+    (id) => departments.find((item) => idOf(item) === idOf(id))?.departmentName || "",
+    [departments]
   );
 
   const filterPositions = positions.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!filterData.department || item.department === filterData.department)
+    (item) => !filterData.departmentId || idOf(item.departmentId) === filterData.departmentId
   );
 
-  const filterEmployees = activeStaff.filter(
+  const filterEmployees = staffList.filter(
     (item) =>
-      (!filterData.department || item.department === filterData.department) &&
-      (!filterData.position || item.position === filterData.position)
+      (!filterData.departmentId || idOf(item.departmentId) === filterData.departmentId) &&
+      (!filterData.positionId || idOf(item.positionId) === filterData.positionId)
   );
 
-  
+  const pendingRequests = useMemo(() => leaves.filter((item) => item.status === "Pending"), [leaves]);
 
-  const filteredApprovedLeaves = approvedLeaves.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!appliedFilters.department ||
-        item.department === appliedFilters.department) &&
-      (!appliedFilters.position ||
-        item.position === appliedFilters.position) &&
-      (!appliedFilters.employeeId ||
-        item.employeeId === Number(appliedFilters.employeeId))
-  );
+  const filteredApprovedLeaves = useMemo(() => {
+    const positionName = positions.find((item) => idOf(item) === appliedFilters.positionId)?.positionName;
+    const deptName = departmentName(appliedFilters.departmentId);
 
-  const calculateDays = (fromDate, toDate) => {
-    if (!fromDate || !toDate) return 0;
-
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-
-    if (to < from) return 0;
-
-    const diffTime = to.getTime() - from.getTime();
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-  };
+    return leaves.filter(
+      (item) =>
+        item.status === "Approved" &&
+        (!appliedFilters.departmentId || item.department === deptName) &&
+        (!appliedFilters.positionId || item.position === positionName) &&
+        (!appliedFilters.employeeId || idOf(item.staffId) === appliedFilters.employeeId)
+    );
+  }, [leaves, positions, appliedFilters, departmentName]);
 
   const resetForm = () => {
-    setFormData(emptyForm);
+    setFormData(EMPTY_FORM);
     setEditId(null);
   };
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === "employeeId") {
-      const selectedEmployee = activeStaff.find(
-        (staff) => staff.id === Number(value)
-      );
-
-      setFormData({
-        ...formData,
-        employeeId: value,
-        department: selectedEmployee?.department || "",
-        position: selectedEmployee?.position || "",
-      });
-
-      return;
-    }
-
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSearch = () => {
@@ -230,79 +120,48 @@ function LeaveManagement() {
     setSelectedLeaveIds([]);
   };
 
-  const handleSave = () => {
-    if (
-      !formData.employeeId ||
-      !formData.leaveType ||
-      !formData.fromDate ||
-      !formData.toDate
-    ) {
+  const handleSave = async () => {
+    if (!formData.employeeId || !formData.leaveType || !formData.fromDate || !formData.toDate) {
       alert("Please fill all required fields");
       return;
     }
 
-    const days = calculateDays(formData.fromDate, formData.toDate);
-
-    if (days <= 0) {
+    if (calculateDays(formData.fromDate, formData.toDate) <= 0) {
       alert("To Date cannot be before From Date");
       return;
     }
 
-    const selectedEmployee = activeStaff.find(
-      (staff) => staff.id === Number(formData.employeeId)
-    );
+    try {
+      setSaving(true);
 
-    if (!selectedEmployee) {
-      alert("Employee not found");
-      return;
+      if (editId) {
+        await hrService.updateLeave(editId, {
+          leaveType: formData.leaveType,
+          fromDate: formData.fromDate,
+          toDate: formData.toDate,
+          reason: formData.reason,
+        });
+        alert("Leave updated successfully");
+      } else {
+        await hrService.createLeave({
+          staffId: formData.employeeId,
+          leaveType: formData.leaveType,
+          fromDate: formData.fromDate,
+          toDate: formData.toDate,
+          reason: formData.reason,
+          status: "Approved",
+        });
+        alert("Leave added successfully");
+      }
+
+      resetForm();
+      setShowForm(false);
+      await loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save leave");
+    } finally {
+      setSaving(false);
     }
-
-    if (editId) {
-      setApprovedLeaves(
-        approvedLeaves.map((item) =>
-          item.id === editId
-            ? {
-                ...item,
-                employeeId: selectedEmployee.id,
-                employeeCode: selectedEmployee.employeeCode,
-                employeeName: selectedEmployee.employeeName,
-                department: selectedEmployee.department,
-                position: selectedEmployee.position,
-                leaveType: formData.leaveType,
-                fromDate: formData.fromDate,
-                toDate: formData.toDate,
-                days,
-                reason: formData.reason,
-              }
-            : item
-        )
-      );
-
-      alert("Leave updated successfully");
-    } else {
-      const newLeave = {
-        id: Date.now(),
-        schoolId,
-        employeeId: selectedEmployee.id,
-        employeeCode: selectedEmployee.employeeCode,
-        employeeName: selectedEmployee.employeeName,
-        department: selectedEmployee.department,
-        position: selectedEmployee.position,
-        leaveType: formData.leaveType,
-        fromDate: formData.fromDate,
-        toDate: formData.toDate,
-        days,
-        reason: formData.reason,
-        source: "Manual",
-      };
-
-      setApprovedLeaves([...approvedLeaves, newLeave]);
-
-      alert("Leave added successfully");
-    }
-
-    resetForm();
-    setShowForm(false);
   };
 
   const handleEdit = () => {
@@ -311,41 +170,53 @@ function LeaveManagement() {
       return;
     }
 
-    const selected = approvedLeaves.find(
-      (item) => item.id === selectedLeaveIds[0]
-    );
-
+    const selected = leaves.find((item) => item._id === selectedLeaveIds[0]);
     if (!selected) return;
 
-    setEditId(selected.id);
-
+    setEditId(selected._id);
     setFormData({
-      employeeId: String(selected.employeeId),
+      employeeId: idOf(selected.staffId),
       leaveType: selected.leaveType,
       fromDate: selected.fromDate,
       toDate: selected.toDate,
-      reason: selected.reason,
+      reason: selected.reason || "",
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (selectedLeaveIds.length === 0) {
       alert("Select leave");
       return;
     }
 
-    const ok = window.confirm("Delete selected leave?");
-    if (!ok) return;
+    if (!window.confirm("Delete selected leave?")) return;
 
-    setApprovedLeaves(
-      approvedLeaves.filter((item) => !selectedLeaveIds.includes(item.id))
-    );
+    try {
+      setSaving(true);
+      await Promise.all(selectedLeaveIds.map((id) => hrService.deleteLeave(id)));
+      setSelectedLeaveIds([]);
+      alert("Leave deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete leave");
+    } finally {
+      setSaving(false);
+      await loadData();
+    }
+  };
 
-    setSelectedLeaveIds([]);
-
-    alert("Leave deleted successfully");
+  const reviewRequests = async (status) => {
+    try {
+      setSaving(true);
+      await Promise.all(selectedRequestIds.map((id) => hrService.updateLeaveStatus(id, status)));
+      setSelectedRequestIds([]);
+      alert(status === "Approved" ? "Leave request accepted successfully" : "Leave request rejected");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to update leave request");
+    } finally {
+      setSaving(false);
+      await loadData();
+    }
   };
 
   const handleAcceptRequest = () => {
@@ -354,25 +225,7 @@ function LeaveManagement() {
       return;
     }
 
-    const acceptedRequests = pendingRequests.filter((item) =>
-      selectedRequestIds.includes(item.id)
-    );
-
-    const convertedLeaves = acceptedRequests.map((item) => ({
-      ...item,
-      id: Date.now() + Math.random(),
-      source: "Approved Request",
-    }));
-
-    setApprovedLeaves([...approvedLeaves, ...convertedLeaves]);
-
-    setPendingRequests(
-      pendingRequests.filter((item) => !selectedRequestIds.includes(item.id))
-    );
-
-    setSelectedRequestIds([]);
-
-    alert("Leave request accepted successfully");
+    reviewRequests("Approved");
   };
 
   const handleRejectRequest = () => {
@@ -381,16 +234,9 @@ function LeaveManagement() {
       return;
     }
 
-    const ok = window.confirm("Reject selected leave request?");
-    if (!ok) return;
+    if (!window.confirm("Reject selected leave request?")) return;
 
-    setPendingRequests(
-      pendingRequests.filter((item) => !selectedRequestIds.includes(item.id))
-    );
-
-    setSelectedRequestIds([]);
-
-    alert("Leave request rejected");
+    reviewRequests("Rejected");
   };
 
   return (
@@ -403,7 +249,7 @@ function LeaveManagement() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/staff-control";
+              navigate("/staff-control");
             }
           }}
         >
@@ -424,20 +270,15 @@ function LeaveManagement() {
                 <label>Department</label>
 
                 <select
-                  value={filterData.department}
+                  value={filterData.departmentId}
                   onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      department: e.target.value,
-                      position: "",
-                      employeeId: "",
-                    })
+                    setFilterData({ departmentId: e.target.value, positionId: "", employeeId: "" })
                   }
                 >
                   <option value="">All Department</option>
 
-                  {schoolDepartments.map((item) => (
-                    <option key={item.id} value={item.departmentName}>
+                  {departments.map((item) => (
+                    <option key={item._id} value={item._id}>
                       {item.departmentName}
                     </option>
                   ))}
@@ -448,19 +289,13 @@ function LeaveManagement() {
                 <label>Position</label>
 
                 <select
-                  value={filterData.position}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      position: e.target.value,
-                      employeeId: "",
-                    })
-                  }
+                  value={filterData.positionId}
+                  onChange={(e) => setFilterData({ ...filterData, positionId: e.target.value, employeeId: "" })}
                 >
                   <option value="">All Position</option>
 
                   {filterPositions.map((item) => (
-                    <option key={item.id} value={item.positionName}>
+                    <option key={item._id} value={item._id}>
                       {item.positionName}
                     </option>
                   ))}
@@ -472,17 +307,12 @@ function LeaveManagement() {
 
                 <select
                   value={filterData.employeeId}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      employeeId: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setFilterData({ ...filterData, employeeId: e.target.value })}
                 >
                   <option value="">All Employee</option>
 
                   {filterEmployees.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
+                    <option key={staff._id} value={staff._id}>
                       {staff.employeeName}
                     </option>
                   ))}
@@ -506,22 +336,17 @@ function LeaveManagement() {
               </AppButton>
             </div>
           </div>
+
           <div className="common-card">
             <div className="list-header">
               <h2>Pending Leave Requests</h2>
 
               <div className="list-action-buttons">
-                <AppButton
-                  type="primary"
-                  onClick={handleAcceptRequest}
-                >
+                <AppButton type="primary" onClick={handleAcceptRequest} disabled={saving}>
                   Accept
                 </AppButton>
 
-                <AppButton
-                  type="delete"
-                  onClick={handleRejectRequest}
-                >
+                <AppButton type="delete" onClick={handleRejectRequest} disabled={saving}>
                   Reject
                 </AppButton>
               </div>
@@ -534,19 +359,10 @@ function LeaveManagement() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={
-                          pendingRequests.length > 0 &&
-                          selectedRequestIds.length === pendingRequests.length
+                        checked={pendingRequests.length > 0 && selectedRequestIds.length === pendingRequests.length}
+                        onChange={(e) =>
+                          setSelectedRequestIds(e.target.checked ? pendingRequests.map((item) => item._id) : [])
                         }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedRequestIds(
-                              pendingRequests.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedRequestIds([]);
-                          }
-                        }}
                       />
                     </th>
 
@@ -562,7 +378,13 @@ function LeaveManagement() {
                 </thead>
 
                 <tbody>
-                  {pendingRequests.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="9" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={3} columns={9} />
+                      </td>
+                    </tr>
+                  ) : pendingRequests.length === 0 ? (
                     <tr>
                       <td colSpan="9" className="empty-row">
                         No pending leave request
@@ -570,18 +392,16 @@ function LeaveManagement() {
                     </tr>
                   ) : (
                     pendingRequests.map((item, index) => (
-                      <tr key={item.id}>
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedRequestIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedRequestIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedRequestIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
@@ -589,10 +409,10 @@ function LeaveManagement() {
                         <td>{item.employeeName}</td>
                         <td>{item.department}</td>
                         <td>{item.leaveType}</td>
-                        <td>{item.fromDate}</td>
-                        <td>{item.toDate}</td>
-                        <td>{item.days}</td>
-                        <td>{item.reason}</td>
+                        <td>{formatDate(item.fromDate)}</td>
+                        <td>{formatDate(item.toDate)}</td>
+                        <td>{calculateDays(item.fromDate, item.toDate)}</td>
+                        <td>{item.reason || "-"}</td>
                       </tr>
                     ))
                   )}
@@ -606,11 +426,11 @@ function LeaveManagement() {
               <h2>Approved Leave List</h2>
 
               <div className="list-action-buttons">
-                <AppButton type="primary" onClick={handleEdit}>
+                <AppButton type="primary" onClick={handleEdit} disabled={saving}>
                   Edit
                 </AppButton>
 
-                <AppButton type="delete" onClick={handleDelete}>
+                <AppButton type="delete" onClick={handleDelete} disabled={saving}>
                   Delete
                 </AppButton>
               </div>
@@ -625,18 +445,11 @@ function LeaveManagement() {
                         type="checkbox"
                         checked={
                           filteredApprovedLeaves.length > 0 &&
-                          selectedLeaveIds.length ===
-                            filteredApprovedLeaves.length
+                          selectedLeaveIds.length === filteredApprovedLeaves.length
                         }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedLeaveIds(
-                              filteredApprovedLeaves.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedLeaveIds([]);
-                          }
-                        }}
+                        onChange={(e) =>
+                          setSelectedLeaveIds(e.target.checked ? filteredApprovedLeaves.map((item) => item._id) : [])
+                        }
                       />
                     </th>
 
@@ -652,7 +465,13 @@ function LeaveManagement() {
                 </thead>
 
                 <tbody>
-                  {filteredApprovedLeaves.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="9" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={9} />
+                      </td>
+                    </tr>
+                  ) : filteredApprovedLeaves.length === 0 ? (
                     <tr>
                       <td colSpan="9" className="empty-row">
                         No approved leave found
@@ -660,18 +479,16 @@ function LeaveManagement() {
                     </tr>
                   ) : (
                     filteredApprovedLeaves.map((item, index) => (
-                      <tr key={item.id}>
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedLeaveIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedLeaveIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedLeaveIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
@@ -680,9 +497,9 @@ function LeaveManagement() {
                         <td>{item.employeeName}</td>
                         <td>{item.department}</td>
                         <td>{item.leaveType}</td>
-                        <td>{item.fromDate}</td>
-                        <td>{item.toDate}</td>
-                        <td>{item.days}</td>
+                        <td>{formatDate(item.fromDate)}</td>
+                        <td>{formatDate(item.toDate)}</td>
+                        <td>{calculateDays(item.fromDate, item.toDate)}</td>
                       </tr>
                     ))
                   )}
@@ -692,6 +509,7 @@ function LeaveManagement() {
           </div>
         </>
       )}
+
       {showForm && (
         <div className="common-card">
           <div className="leave-form-grid">
@@ -702,11 +520,12 @@ function LeaveManagement() {
                 name="employeeId"
                 value={formData.employeeId}
                 onChange={handleFormChange}
+                disabled={Boolean(editId)}
               >
                 <option value="">Select Employee</option>
 
-                {activeStaff.map((staff) => (
-                  <option key={staff.id} value={staff.id}>
+                {staffList.map((staff) => (
+                  <option key={staff._id} value={staff._id}>
                     {staff.employeeName} - {staff.employeeCode}
                   </option>
                 ))}
@@ -716,14 +535,10 @@ function LeaveManagement() {
             <div className="form-group">
               <label>Leave Type *</label>
 
-              <select
-                name="leaveType"
-                value={formData.leaveType}
-                onChange={handleFormChange}
-              >
+              <select name="leaveType" value={formData.leaveType} onChange={handleFormChange}>
                 <option value="">Select Leave Type</option>
 
-                {leaveTypes.map((type) => (
+                {LEAVE_TYPES.map((type) => (
                   <option key={type} value={type}>
                     {type}
                   </option>
@@ -734,48 +549,31 @@ function LeaveManagement() {
             <div className="form-group">
               <label>From Date *</label>
 
-              <input
-                type="date"
-                name="fromDate"
-                value={formData.fromDate}
-                onChange={handleFormChange}
-              />
+              <input type="date" name="fromDate" value={formData.fromDate} onChange={handleFormChange} />
             </div>
 
             <div className="form-group">
               <label>To Date *</label>
 
-              <input
-                type="date"
-                name="toDate"
-                value={formData.toDate}
-                onChange={handleFormChange}
-              />
+              <input type="date" name="toDate" value={formData.toDate} onChange={handleFormChange} />
             </div>
 
             <div className="form-group">
               <label>Days</label>
 
-              <input
-                value={calculateDays(formData.fromDate, formData.toDate)}
-                readOnly
-              />
+              <input value={calculateDays(formData.fromDate, formData.toDate)} readOnly />
             </div>
 
             <div className="form-group full-width">
               <label>Reason</label>
 
-              <textarea
-                name="reason"
-                value={formData.reason}
-                onChange={handleFormChange}
-              ></textarea>
+              <textarea name="reason" value={formData.reason} onChange={handleFormChange}></textarea>
             </div>
           </div>
 
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSave}>
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton

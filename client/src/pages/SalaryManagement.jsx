@@ -1,739 +1,306 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./salaryManagement.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import SalarySlip from "../components/hr/SalarySlip";
+import { hrService } from "../services/api";
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+const PAYMENT_MODES = ["Cash", "Bank Transfer", "UPI", "Cheque"];
+
+const EMPTY_FILTERS = { departmentId: "", positionId: "", employeeId: "", month: "", year: "" };
+const EMPTY_STRUCTURE_FORM = { employeeId: "", monthlySalary: "", effectiveFrom: "" };
+const EMPTY_GENERATE_FORM = { employeeId: "", month: "", year: "", otherDeduction: "" };
+const EMPTY_PAYMENT_FORM = {
+  paymentAmount: "",
+  paymentDate: "",
+  paymentMode: "",
+  remarks: "",
+  bankName: "",
+  transactionNumber: "",
+  transactionDate: "",
+  upiAppName: "",
+  transactionId: "",
+  chequeNumber: "",
+  issueDate: "",
+};
+
+const idOf = (value) => String(value?._id || value || "");
+
+const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+const formatMonth = (value) => {
+  if (!value) return "-";
+  const [year, month] = value.split("-");
+  return `${MONTHS[Number(month) - 1] || month} ${year}`;
+};
 
 function SalaryManagement() {
+  const navigate = useNavigate();
 
-  const schoolId =
-    localStorage.getItem("schoolId") ||
-    "SCH001";
+  const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const departments = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      departmentName: "Teaching",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      departmentName: "Accounts",
-    },
-  ];
+  const [departments, setDepartments] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [staffList, setStaffList] = useState([]);
+  const [salaryStructures, setSalaryStructures] = useState([]);
+  const [salaryRecords, setSalaryRecords] = useState([]);
 
-  const positions = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      department: "Teaching",
-      positionName: "Teacher",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      department: "Teaching",
-      positionName: "Coordinator",
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      department: "Accounts",
-      positionName: "Accountant",
-    },
-  ];
+  const [showSalaryStructureForm, setShowSalaryStructureForm] = useState(false);
+  const [showGenerateSalaryForm, setShowGenerateSalaryForm] = useState(false);
+  const [editStructureId, setEditStructureId] = useState(null);
 
-  const staffList = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0001",
-      employeeName: "Amit Kumar",
-      department: "Teaching",
-      position: "Teacher",
-      isActive: true,
-      lastWorkingDate: "",
-    },
+  const [selectedStructureIds, setSelectedStructureIds] = useState([]);
+  const [selectedSalaryIds, setSelectedSalaryIds] = useState([]);
 
-    {
-      id: 2,
-      schoolId: "SCH001",
-      employeeCode: "SCH001-EMP-0002",
-      employeeName: "Rahul Verma",
-      department: "Accounts",
-      position: "Accountant",
-      isActive: true,
-      lastWorkingDate: "",
-    },
-  ];
+  const [filterData, setFilterData] = useState(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
 
-  const leaveRecords = [
-    {
-      employeeId: 1,
-      month: "May",
-      year: "2026",
-      leaveType: "Sick Leave",
-      days: 2,
-    },
+  const [salaryStructureForm, setSalaryStructureForm] = useState(EMPTY_STRUCTURE_FORM);
+  const [generateSalaryForm, setGenerateSalaryForm] = useState(EMPTY_GENERATE_FORM);
 
-    {
-      employeeId: 1,
-      month: "May",
-      year: "2026",
-      leaveType: "Paid Leave",
-      days: 1,
-    },
-  ];
+  const [showPaymentPopup, setShowPaymentPopup] = useState(false);
+  const [paymentSalary, setPaymentSalary] = useState(null);
+  const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT_FORM);
 
-  const [showSalaryStructureForm,
-    setShowSalaryStructureForm] =
-    useState(false);
+  const [slip, setSlip] = useState(null);
 
-  const [showGenerateSalaryForm,
-    setShowGenerateSalaryForm] =
-    useState(false);
+  const years = useMemo(() => {
+    const current = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, index) => String(current - index));
+  }, []);
 
-  const [selectedStructureIds,
-    setSelectedStructureIds] =
-    useState([]);
+  const loadSetup = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [metaRes, structureRes] = await Promise.all([hrService.getMeta(), hrService.getSalaryStructures()]);
 
-  const [selectedSalaryIds,
-    setSelectedSalaryIds] =
-    useState([]);
+      const meta = metaRes.data?.data || {};
+      setDepartments(meta.departments || []);
+      setPositions(meta.positions || []);
+      setStaffList(meta.staff || []);
+      setSalaryStructures(structureRes.data?.data || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load salary data");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const [salaryStructures,
-    setSalaryStructures] =
-    useState([
-      {
-        id: 1,
-        schoolId: "SCH001",
-        employeeId: 1,
-        employeeCode: "SCH001-EMP-0001",
-        employeeName: "Amit Kumar",
-        monthlySalary: 30000,
-        effectiveFrom: "2026-07",
-      },
-    ]);
+  const loadSalaries = useCallback(async () => {
+    try {
+      setListLoading(true);
 
-  const [salaryRecords,
-    setSalaryRecords] =
-    useState([]);
+      const params = {};
+      if (appliedFilters.departmentId) params.departmentId = appliedFilters.departmentId;
+      if (appliedFilters.positionId) params.positionId = appliedFilters.positionId;
+      if (appliedFilters.employeeId) params.staffId = appliedFilters.employeeId;
+      if (appliedFilters.month) params.month = appliedFilters.month;
+      if (appliedFilters.year) params.year = appliedFilters.year;
 
-  const [filterData,
-    setFilterData] =
-    useState({
-      department: "",
-      position: "",
-      employeeId: "",
-      month: "",
-      year: "",
-    });
+      const res = await hrService.getSalaries(params);
+      setSalaryRecords(res.data?.data || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load salary records");
+    } finally {
+      setListLoading(false);
+    }
+  }, [appliedFilters]);
 
-  const [appliedFilters,
-    setAppliedFilters] =
-    useState({
-      department: "",
-      position: "",
-      employeeId: "",
-      month: "",
-      year: "",
-    });
+  useEffect(() => {
+    loadSetup();
+  }, [loadSetup]);
 
-  const [salaryStructureForm,
-    setSalaryStructureForm] =
-    useState({
-      employeeId: "",
-      monthlySalary: "",
-      effectiveFrom: "",
-    });
+  useEffect(() => {
+    loadSalaries();
+  }, [loadSalaries]);
 
-  const [generateSalaryForm,
-    setGenerateSalaryForm] =
-    useState({
-      employeeId: "",
-      month: "",
-      year: "",
-      otherDeduction: "",
-    });
+  const filterPositions = positions.filter(
+    (item) => !filterData.departmentId || idOf(item.departmentId) === filterData.departmentId
+  );
 
-  const activeStaff =
-    staffList.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.isActive &&
-        !item.lastWorkingDate
-    );
-
-  const schoolDepartments =
-    departments.filter(
-      (item) =>
-        item.schoolId === schoolId
-    );
-
-  const filterPositions =
-    positions.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        (
-          !filterData.department ||
-          item.department ===
-            filterData.department
-        )
-    );
-
-  const filterEmployees =
-    activeStaff.filter(
-      (item) =>
-        (
-          !filterData.department ||
-          item.department ===
-            filterData.department
-        ) &&
-        (
-          !filterData.position ||
-          item.position ===
-            filterData.position
-        )
-    );
-
-  const filteredSalaryRecords =
-    salaryRecords.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        (
-          !appliedFilters.department ||
-          item.department ===
-            appliedFilters.department
-        ) &&
-        (
-          !appliedFilters.position ||
-          item.position ===
-            appliedFilters.position
-        ) &&
-        (
-          !appliedFilters.employeeId ||
-          item.employeeId ===
-            Number(
-              appliedFilters.employeeId
-            )
-        ) &&
-        (
-          !appliedFilters.month ||
-          item.month ===
-            appliedFilters.month
-        ) &&
-        (
-          !appliedFilters.year ||
-          item.year ===
-            appliedFilters.year
-        )
-    );
+  const filterEmployees = staffList.filter(
+    (item) =>
+      (!filterData.departmentId || idOf(item.departmentId) === filterData.departmentId) &&
+      (!filterData.positionId || idOf(item.positionId) === filterData.positionId)
+  );
 
   const handleSearch = () => {
     setAppliedFilters(filterData);
     setSelectedSalaryIds([]);
   };
 
-  const resetSalaryStructureForm =
-    () => {
-      setSalaryStructureForm({
-        employeeId: "",
-        monthlySalary: "",
-        effectiveFrom: "",
-      });
-    };
+  const resetSalaryStructureForm = () => {
+    setSalaryStructureForm(EMPTY_STRUCTURE_FORM);
+    setEditStructureId(null);
+  };
 
-  const resetGenerateSalaryForm =
-    () => {
-      setGenerateSalaryForm({
-        employeeId: "",
-        month: "",
-        year: "",
-        otherDeduction: "",
-      });
-    };
+  const resetGenerateSalaryForm = () => setGenerateSalaryForm(EMPTY_GENERATE_FORM);
 
-  const handleSaveSalaryStructure =
-    () => {
+  const resetPaymentForm = () => setPaymentForm(EMPTY_PAYMENT_FORM);
 
-      if (
-        !salaryStructureForm.employeeId ||
-        !salaryStructureForm.monthlySalary ||
-        !salaryStructureForm.effectiveFrom
-      ) {
+  const closePaymentPopup = () => {
+    setShowPaymentPopup(false);
+    setPaymentSalary(null);
+    resetPaymentForm();
+  };
 
-        alert(
-          "Please fill all required fields"
-        );
-
-        return;
-      }
-
-      const selectedEmployee =
-        activeStaff.find(
-          (staff) =>
-            staff.id ===
-            Number(
-              salaryStructureForm.employeeId
-            )
-        );
-
-      const existing =
-        salaryStructures.find(
-          (item) =>
-            item.employeeId ===
-            selectedEmployee.id
-        );
-
-      if (existing) {
-
-        alert(
-          "Salary structure already exists"
-        );
-
-        return;
-      }
-
-      const newStructure = {
-        id: Date.now(),
-        schoolId,
-        employeeId:
-          selectedEmployee.id,
-        employeeCode:
-          selectedEmployee.employeeCode,
-        employeeName:
-          selectedEmployee.employeeName,
-        monthlySalary:
-          Number(
-            salaryStructureForm.monthlySalary
-          ),
-        effectiveFrom:
-          salaryStructureForm.effectiveFrom,
-      };
-
-      setSalaryStructures([
-        ...salaryStructures,
-        newStructure,
-      ]);
-
-      alert(
-        "Salary structure added successfully"
-      );
-
-      resetSalaryStructureForm();
-
-      setShowSalaryStructureForm(
-        false
-      );
-    };
-    const handleEditSalaryStructure = () => {
-
-    if (selectedStructureIds.length !== 1) {
-
-      alert(
-        "Select one salary structure"
-      );
-
+  /* ---------------- Salary structure ---------------- */
+  const handleSaveSalaryStructure = async () => {
+    if (!salaryStructureForm.employeeId || !salaryStructureForm.monthlySalary || !salaryStructureForm.effectiveFrom) {
+      alert("Please fill all required fields");
       return;
     }
 
-    const selected =
-      salaryStructures.find(
-        (item) =>
-          item.id ===
-          selectedStructureIds[0]
-      );
+    if (Number(salaryStructureForm.monthlySalary) <= 0) {
+      alert("Monthly salary must be greater than zero");
+      return;
+    }
 
+    try {
+      setSaving(true);
+
+      if (editStructureId) {
+        await hrService.updateSalaryStructure(editStructureId, {
+          monthlySalary: Number(salaryStructureForm.monthlySalary),
+          effectiveFrom: salaryStructureForm.effectiveFrom,
+        });
+        alert("Salary structure updated successfully");
+      } else {
+        await hrService.createSalaryStructure({
+          staffId: salaryStructureForm.employeeId,
+          monthlySalary: Number(salaryStructureForm.monthlySalary),
+          effectiveFrom: salaryStructureForm.effectiveFrom,
+        });
+        alert("Salary structure added successfully");
+      }
+
+      resetSalaryStructureForm();
+      setShowSalaryStructureForm(false);
+      await loadSetup();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save salary structure");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditSalaryStructure = () => {
+    if (selectedStructureIds.length !== 1) {
+      alert("Select one salary structure");
+      return;
+    }
+
+    const selected = salaryStructures.find((item) => item._id === selectedStructureIds[0]);
     if (!selected) return;
 
+    setEditStructureId(selected._id);
     setSalaryStructureForm({
-      employeeId:
-        String(selected.employeeId),
-      monthlySalary:
-        selected.monthlySalary,
-      effectiveFrom:
-        selected.effectiveFrom,
+      employeeId: idOf(selected.staffId),
+      monthlySalary: selected.monthlySalary,
+      effectiveFrom: selected.effectiveFrom,
     });
-
     setShowSalaryStructureForm(true);
   };
 
-  const handleDeleteSalaryStructure =
-    () => {
+  const handleDeleteSalaryStructure = async () => {
+    if (selectedStructureIds.length === 0) {
+      alert("Select salary structure");
+      return;
+    }
 
-      if (
-        selectedStructureIds.length === 0
-      ) {
+    if (!window.confirm("Delete selected salary structure?")) return;
 
-        alert(
-          "Select salary structure"
-        );
-
-        return;
-      }
-
-      const ok = window.confirm(
-        "Delete selected salary structure?"
-      );
-
-      if (!ok) return;
-
-      setSalaryStructures(
-        salaryStructures.filter(
-          (item) =>
-            !selectedStructureIds.includes(
-              item.id
-            )
-        )
-      );
-
+    try {
+      setSaving(true);
+      await Promise.all(selectedStructureIds.map((id) => hrService.deleteSalaryStructure(id)));
       setSelectedStructureIds([]);
-
-      alert(
-        "Salary structure deleted successfully"
-      );
-    };
-
-  const getSalaryStructure = (
-    employeeId,
-    month,
-    year
-  ) => {
-
-    return salaryStructures.find(
-      (item) =>
-        item.employeeId ===
-          Number(employeeId) &&
-        item.schoolId === schoolId
-    );
+      alert("Salary structure deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete salary structure");
+    } finally {
+      setSaving(false);
+      await loadSetup();
+    }
   };
 
-  const getLeaveSummary = (
-    employeeId,
-    month,
-    year
-  ) => {
+  /* ---------------- Generate salary ---------------- */
+  const handleGenerateSalary = async () => {
+    if (!generateSalaryForm.employeeId || !generateSalaryForm.month || !generateSalaryForm.year) {
+      alert("Please fill all required fields");
+      return;
+    }
 
-    const employeeLeaves =
-      leaveRecords.filter(
-        (leave) =>
-          leave.employeeId ===
-            Number(employeeId) &&
-          leave.month === month &&
-          leave.year === year
-      );
+    try {
+      setSaving(true);
+      await hrService.generateSalary({
+        staffId: generateSalaryForm.employeeId,
+        month: generateSalaryForm.month,
+        year: generateSalaryForm.year,
+        otherDeduction: Number(generateSalaryForm.otherDeduction || 0),
+      });
 
-    const totalLeave =
-      employeeLeaves.reduce(
-        (sum, item) =>
-          sum + item.days,
-        0
-      );
-
-    const paidLeave =
-      employeeLeaves
-        .filter(
-          (item) =>
-            item.leaveType ===
-            "Paid Leave"
-        )
-        .reduce(
-          (sum, item) =>
-            sum + item.days,
-          0
-        );
-
-    const deductibleLeave =
-      totalLeave - paidLeave;
-
-    return {
-      totalLeave,
-      paidLeave,
-      deductibleLeave,
-    };
+      alert("Salary generated successfully");
+      resetGenerateSalaryForm();
+      setShowGenerateSalaryForm(false);
+      await loadSalaries();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to generate salary");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const getMonthDays = (
-    month,
-    year
-  ) => {
-
-    const monthIndex = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ].indexOf(month);
-
-    return new Date(
-      Number(year),
-      monthIndex + 1,
-      0
-    ).getDate();
-  };
-
-  const calculateSalary = (
-    employeeId,
-    month,
-    year,
-    otherDeduction
-  ) => {
-
-    const structure =
-      getSalaryStructure(
-        employeeId,
-        month,
-        year
-      );
-
-    if (!structure) {
+  /* ---------------- Payment ---------------- */
+  const selectedSalary = () => {
+    if (selectedSalaryIds.length !== 1) {
+      alert("Select one salary record");
       return null;
     }
 
-    const leaveSummary =
-      getLeaveSummary(
-        employeeId,
-        month,
-        year
-      );
-
-    const monthDays =
-      getMonthDays(month, year);
-
-    const oneDaySalary =
-      structure.monthlySalary /
-      monthDays;
-
-    const leaveDeduction =
-      oneDaySalary *
-      leaveSummary.deductibleLeave;
-
-    const grossSalary =
-      structure.monthlySalary;
-
-    const netSalary =
-      grossSalary -
-      leaveDeduction -
-      Number(otherDeduction || 0);
-
-    return {
-      grossSalary,
-      totalLeave:
-        leaveSummary.totalLeave,
-      paidLeave:
-        leaveSummary.paidLeave,
-      deductibleLeave:
-        leaveSummary.deductibleLeave,
-      leaveDeduction:
-        Number(
-          leaveDeduction.toFixed(2)
-        ),
-      netSalary:
-        Number(netSalary.toFixed(2)),
-    };
-  };
-
-  const handleGenerateSalary = () => {
-
-    if (
-      !generateSalaryForm.employeeId ||
-      !generateSalaryForm.month ||
-      !generateSalaryForm.year
-    ) {
-
-      alert(
-        "Please fill all required fields"
-      );
-
-      return;
-    }
-
-    const selectedEmployee =
-      activeStaff.find(
-        (staff) =>
-          staff.id ===
-          Number(
-            generateSalaryForm.employeeId
-          )
-      );
-
-    if (!selectedEmployee) {
-
-      alert("Employee not found");
-
-      return;
-    }
-
-    const alreadyGenerated =
-      salaryRecords.some(
-        (item) =>
-          item.employeeId ===
-            selectedEmployee.id &&
-          item.month ===
-            generateSalaryForm.month &&
-          item.year ===
-            generateSalaryForm.year
-      );
-
-    if (alreadyGenerated) {
-
-      alert(
-        "Salary already generated for this month"
-      );
-
-      return;
-    }
-
-    const salary =
-      calculateSalary(
-        generateSalaryForm.employeeId,
-        generateSalaryForm.month,
-        generateSalaryForm.year,
-        generateSalaryForm.otherDeduction
-      );
-
-    if (!salary) {
-
-      alert(
-        "Salary structure not found for selected employee"
-      );
-
-      return;
-    }
-
-    const newSalary = {
-      id: Date.now(),
-      schoolId,
-      employeeId:
-        selectedEmployee.id,
-      employeeCode:
-        selectedEmployee.employeeCode,
-      employeeName:
-        selectedEmployee.employeeName,
-      department:
-        selectedEmployee.department,
-      position:
-        selectedEmployee.position,
-      month:
-        generateSalaryForm.month,
-      year:
-        generateSalaryForm.year,
-      grossSalary:
-        salary.grossSalary,
-      totalLeave:
-        salary.totalLeave,
-      paidLeave:
-        salary.paidLeave,
-      deductibleLeave:
-        salary.deductibleLeave,
-      leaveDeduction:
-        salary.leaveDeduction,
-      otherDeduction:
-        Number(
-          generateSalaryForm.otherDeduction ||
-            0
-        ),
-      netSalary:
-        salary.netSalary,
-      paidAmount: 0,
-      remainingAmount:
-        salary.netSalary,
-      paymentStatus:
-        "Unpaid",
-      paymentHistory: [],
-    };
-
-    setSalaryRecords([
-      ...salaryRecords,
-      newSalary,
-    ]);
-
-    alert(
-      "Salary generated successfully"
-    );
-
-    resetGenerateSalaryForm();
-
-    setShowGenerateSalaryForm(
-      false
-    );
-  };
-  const [showPaymentPopup, setShowPaymentPopup] =
-    useState(false);
-
-  const [paymentSalary, setPaymentSalary] =
-    useState(null);
-
-  const [paymentForm, setPaymentForm] =
-    useState({
-      paymentAmount: "",
-      paymentDate: "",
-      paymentMode: "",
-      remarks: "",
-      bankName: "",
-      transactionNumber: "",
-      transactionDate: "",
-      upiAppName: "",
-      transactionId: "",
-      chequeNumber: "",
-      issueDate: "",
-    });
-
-  const resetPaymentForm = () => {
-    setPaymentForm({
-      paymentAmount: "",
-      paymentDate: "",
-      paymentMode: "",
-      remarks: "",
-      bankName: "",
-      transactionNumber: "",
-      transactionDate: "",
-      upiAppName: "",
-      transactionId: "",
-      chequeNumber: "",
-      issueDate: "",
-    });
+    return salaryRecords.find((item) => item._id === selectedSalaryIds[0]) || null;
   };
 
   const handlePaySalaryOpen = () => {
-    if (selectedSalaryIds.length !== 1) {
-      alert("Select one salary record");
+    const selected = selectedSalary();
+    if (!selected) return;
+
+    if (selected.remainingAmount <= 0) {
+      alert("This salary is already fully paid");
       return;
     }
-
-    const selected = salaryRecords.find(
-      (item) =>
-        item.id === selectedSalaryIds[0]
-    );
-
-    if (!selected) return;
 
     setPaymentSalary(selected);
     resetPaymentForm();
     setShowPaymentPopup(true);
   };
 
-  const handleSavePayment = () => {
-    if (
-      !paymentForm.paymentAmount ||
-      !paymentForm.paymentDate ||
-      !paymentForm.paymentMode
-    ) {
+  const handleSavePayment = async () => {
+    if (!paymentForm.paymentAmount || !paymentForm.paymentDate || !paymentForm.paymentMode) {
       alert("Please fill required payment fields");
       return;
     }
 
-    const amount =
-      Number(paymentForm.paymentAmount);
+    const amount = Number(paymentForm.paymentAmount);
 
-    if (amount <= 0) {
+    if (!(amount > 0)) {
       alert("Enter valid payment amount");
       return;
     }
@@ -743,121 +310,77 @@ function SalaryManagement() {
       return;
     }
 
-    const totalPaid =
-      paymentSalary.paidAmount + amount;
+    try {
+      setSaving(true);
+      await hrService.paySalary(paymentSalary._id, { ...paymentForm, paymentAmount: amount });
 
-    const remaining =
-      paymentSalary.netSalary - totalPaid;
-
-    let status = "Unpaid";
-
-    if (totalPaid > 0 && totalPaid < paymentSalary.netSalary) {
-      status = "Partially Paid";
+      closePaymentPopup();
+      alert("Payment updated successfully");
+      await loadSalaries();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save payment");
+    } finally {
+      setSaving(false);
     }
-
-    if (totalPaid === paymentSalary.netSalary) {
-      status = "Paid";
-    }
-
-    const paymentEntry = {
-      id: Date.now(),
-      amount,
-      paymentDate: paymentForm.paymentDate,
-      paymentMode: paymentForm.paymentMode,
-      remarks: paymentForm.remarks,
-      bankName: paymentForm.bankName,
-      transactionNumber: paymentForm.transactionNumber,
-      transactionDate: paymentForm.transactionDate,
-      upiAppName: paymentForm.upiAppName,
-      transactionId: paymentForm.transactionId,
-      chequeNumber: paymentForm.chequeNumber,
-      issueDate: paymentForm.issueDate,
-    };
-
-    const updatedRecords =
-      salaryRecords.map((item) =>
-        item.id === paymentSalary.id
-          ? {
-              ...item,
-              paidAmount: totalPaid,
-              remainingAmount: remaining,
-              paymentStatus: status,
-              paymentHistory: [
-                ...item.paymentHistory,
-                paymentEntry,
-              ],
-            }
-          : item
-      );
-
-    setSalaryRecords(updatedRecords);
-    setShowPaymentPopup(false);
-    setPaymentSalary(null);
-    resetPaymentForm();
-
-    alert("Payment updated successfully");
   };
 
-  const handleDeleteSalary = () => {
+  const handleDeleteSalary = async () => {
     if (selectedSalaryIds.length === 0) {
       alert("Select salary record");
       return;
     }
 
-    const ok = window.confirm("Delete selected salary record?");
-    if (!ok) return;
+    if (!window.confirm("Delete selected salary record?")) return;
 
-    setSalaryRecords(
-      salaryRecords.filter(
-        (item) =>
-          !selectedSalaryIds.includes(item.id)
-      )
-    );
-
-    setSelectedSalaryIds([]);
-
-    alert("Salary record deleted");
-  };
-
-  const handleViewSlip = () => {
-    if (selectedSalaryIds.length !== 1) {
-      alert("Select one salary record");
-      return;
+    try {
+      setSaving(true);
+      await Promise.all(selectedSalaryIds.map((id) => hrService.deleteSalary(id)));
+      setSelectedSalaryIds([]);
+      alert("Salary record deleted");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete salary record");
+    } finally {
+      setSaving(false);
+      await loadSalaries();
     }
-
-    alert("Salary slip view will open");
   };
 
-  const handlePrintSalary = () => {
-    if (selectedSalaryIds.length !== 1) {
-      alert("Select one salary record");
-      return;
+  /* ---------------- Salary slip ---------------- */
+  const openSlip = async (autoPrint) => {
+    const selected = selectedSalary();
+    if (!selected) return;
+
+    try {
+      setSaving(true);
+      const res = await hrService.getSalary(selected._id);
+      setSlip({ data: res.data?.data, autoPrint });
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load salary slip");
+    } finally {
+      setSaving(false);
     }
-
-    alert("Salary slip print started");
   };
 
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
+  const updatePaymentForm = (name, value) => setPaymentForm({ ...paymentForm, [name]: value });
 
-  const years = [
-    "2026",
-    "2025",
-    "2024",
-    "2023",
-  ];
+  const renderPaymentField = (name, label, type = "text") => (
+    <div className="form-group">
+      <label>{label}</label>
+
+      <input type={type} value={paymentForm[name]} onChange={(e) => updatePaymentForm(name, e.target.value)} />
+    </div>
+  );
+
+  const renderEmployeeOptions = () =>
+    staffList.map((staff) => (
+      <option key={staff._id} value={staff._id}>
+        {staff.employeeName} - {staff.employeeCode}
+      </option>
+    ));
+
+  const noEmployeeNote = !loading && staffList.length === 0 && (
+    <p className="empty-row">No working staff available. Add staff in Staff Management first.</p>
+  );
 
   return (
     <div className="salary-management-page">
@@ -872,7 +395,7 @@ function SalaryManagement() {
               resetGenerateSalaryForm();
               setShowGenerateSalaryForm(false);
             } else {
-              window.location.href = "/staff-control";
+              navigate("/staff-control");
             }
           }}
         >
@@ -882,7 +405,9 @@ function SalaryManagement() {
         <div>
           <h1>
             {showSalaryStructureForm
-              ? "Add Salary Structure"
+              ? editStructureId
+                ? "Edit Salary Structure"
+                : "Add Salary Structure"
               : showGenerateSalaryForm
               ? "Generate Salary"
               : "Salary Management"}
@@ -891,6 +416,7 @@ function SalaryManagement() {
           <p>Manage staff salary and payroll</p>
         </div>
       </div>
+
       {!showSalaryStructureForm && !showGenerateSalaryForm && (
         <>
           <div className="common-card">
@@ -898,26 +424,15 @@ function SalaryManagement() {
               <h2>Salary Structure</h2>
 
               <div className="list-action-buttons">
-                <AppButton
-                  type="primary"
-                  onClick={() =>
-                    setShowSalaryStructureForm(true)
-                  }
-                >
+                <AppButton type="primary" onClick={() => setShowSalaryStructureForm(true)}>
                   + Add Salary Structure
                 </AppButton>
 
-                <AppButton
-                  type="primary"
-                  onClick={handleEditSalaryStructure}
-                >
+                <AppButton type="primary" onClick={handleEditSalaryStructure} disabled={saving}>
                   Edit
                 </AppButton>
 
-                <AppButton
-                  type="delete"
-                  onClick={handleDeleteSalaryStructure}
-                >
+                <AppButton type="delete" onClick={handleDeleteSalaryStructure} disabled={saving}>
                   Delete
                 </AppButton>
               </div>
@@ -930,20 +445,10 @@ function SalaryManagement() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={
-                          salaryStructures.length > 0 &&
-                          selectedStructureIds.length ===
-                            salaryStructures.length
+                        checked={salaryStructures.length > 0 && selectedStructureIds.length === salaryStructures.length}
+                        onChange={(e) =>
+                          setSelectedStructureIds(e.target.checked ? salaryStructures.map((item) => item._id) : [])
                         }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedStructureIds(
-                              salaryStructures.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedStructureIds([]);
-                          }
-                        }}
                       />
                     </th>
 
@@ -956,7 +461,13 @@ function SalaryManagement() {
                 </thead>
 
                 <tbody>
-                  {salaryStructures.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="6" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={3} columns={6} />
+                      </td>
+                    </tr>
+                  ) : salaryStructures.length === 0 ? (
                     <tr>
                       <td colSpan="6" className="empty-row">
                         No salary structure found
@@ -964,26 +475,24 @@ function SalaryManagement() {
                     </tr>
                   ) : (
                     salaryStructures.map((item, index) => (
-                      <tr key={item.id}>
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedStructureIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedStructureIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedStructureIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
                         <td>{index + 1}</td>
                         <td>{item.employeeCode}</td>
                         <td>{item.employeeName}</td>
-                        <td>₹{item.monthlySalary}</td>
-                        <td>{item.effectiveFrom}</td>
+                        <td>{money(item.monthlySalary)}</td>
+                        <td>{formatMonth(item.effectiveFrom)}</td>
                       </tr>
                     ))
                   )}
@@ -998,20 +507,15 @@ function SalaryManagement() {
                 <label>Department</label>
 
                 <select
-                  value={filterData.department}
+                  value={filterData.departmentId}
                   onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      department: e.target.value,
-                      position: "",
-                      employeeId: "",
-                    })
+                    setFilterData({ ...filterData, departmentId: e.target.value, positionId: "", employeeId: "" })
                   }
                 >
                   <option value="">All Department</option>
 
-                  {schoolDepartments.map((item) => (
-                    <option key={item.id} value={item.departmentName}>
+                  {departments.map((item) => (
+                    <option key={item._id} value={item._id}>
                       {item.departmentName}
                     </option>
                   ))}
@@ -1022,19 +526,13 @@ function SalaryManagement() {
                 <label>Position</label>
 
                 <select
-                  value={filterData.position}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      position: e.target.value,
-                      employeeId: "",
-                    })
-                  }
+                  value={filterData.positionId}
+                  onChange={(e) => setFilterData({ ...filterData, positionId: e.target.value, employeeId: "" })}
                 >
                   <option value="">All Position</option>
 
                   {filterPositions.map((item) => (
-                    <option key={item.id} value={item.positionName}>
+                    <option key={item._id} value={item._id}>
                       {item.positionName}
                     </option>
                   ))}
@@ -1046,17 +544,12 @@ function SalaryManagement() {
 
                 <select
                   value={filterData.employeeId}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      employeeId: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setFilterData({ ...filterData, employeeId: e.target.value })}
                 >
                   <option value="">All Employee</option>
 
                   {filterEmployees.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
+                    <option key={staff._id} value={staff._id}>
                       {staff.employeeName}
                     </option>
                   ))}
@@ -1066,18 +559,10 @@ function SalaryManagement() {
               <div className="form-group">
                 <label>Month</label>
 
-                <select
-                  value={filterData.month}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      month: e.target.value,
-                    })
-                  }
-                >
+                <select value={filterData.month} onChange={(e) => setFilterData({ ...filterData, month: e.target.value })}>
                   <option value="">All Month</option>
 
-                  {months.map((month) => (
+                  {MONTHS.map((month) => (
                     <option key={month} value={month}>
                       {month}
                     </option>
@@ -1088,15 +573,7 @@ function SalaryManagement() {
               <div className="form-group">
                 <label>Year</label>
 
-                <select
-                  value={filterData.year}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      year: e.target.value,
-                    })
-                  }
-                >
+                <select value={filterData.year} onChange={(e) => setFilterData({ ...filterData, year: e.target.value })}>
                   <option value="">All Year</option>
 
                   {years.map((year) => (
@@ -1113,39 +590,32 @@ function SalaryManagement() {
                 Search
               </AppButton>
 
-              <AppButton
-                type="primary"
-                onClick={() =>
-                  setShowGenerateSalaryForm(true)
-                }
-              >
+              <AppButton type="primary" onClick={() => setShowGenerateSalaryForm(true)}>
                 + Generate Salary
               </AppButton>
             </div>
           </div>
+
           <div className="common-card">
             <div className="list-header">
               <h2>Monthly Salary List</h2>
 
               <div className="list-action-buttons">
-               <AppButton type="primary" onClick={handleViewSlip}>
-  View Salary Slip
-</AppButton>
+                <AppButton type="primary" onClick={() => openSlip(false)} disabled={saving}>
+                  View Salary Slip
+                </AppButton>
 
-<AppButton type="primary" onClick={handlePaySalaryOpen}>
-  Pay Salary
-</AppButton>
+                <AppButton type="primary" onClick={handlePaySalaryOpen} disabled={saving}>
+                  Pay Salary
+                </AppButton>
 
-<AppButton type="primary" onClick={handlePrintSalary}>
-  Print
-</AppButton>
+                <AppButton type="primary" onClick={() => openSlip(true)} disabled={saving}>
+                  Print
+                </AppButton>
 
-<AppButton
-  type="delete"
-  onClick={handleDeleteSalary}
->
-  Delete
-</AppButton>
+                <AppButton type="delete" onClick={handleDeleteSalary} disabled={saving}>
+                  Delete
+                </AppButton>
               </div>
             </div>
 
@@ -1156,20 +626,10 @@ function SalaryManagement() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={
-                          filteredSalaryRecords.length > 0 &&
-                          selectedSalaryIds.length ===
-                            filteredSalaryRecords.length
+                        checked={salaryRecords.length > 0 && selectedSalaryIds.length === salaryRecords.length}
+                        onChange={(e) =>
+                          setSelectedSalaryIds(e.target.checked ? salaryRecords.map((item) => item._id) : [])
                         }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedSalaryIds(
-                              filteredSalaryRecords.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedSalaryIds([]);
-                          }
-                        }}
                       />
                     </th>
 
@@ -1186,45 +646,45 @@ function SalaryManagement() {
                 </thead>
 
                 <tbody>
-                  {filteredSalaryRecords.length === 0 ? (
+                  {listLoading ? (
+                    <tr>
+                      <td colSpan="10" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={10} />
+                      </td>
+                    </tr>
+                  ) : salaryRecords.length === 0 ? (
                     <tr>
                       <td colSpan="10" className="empty-row">
                         No salary record found
                       </td>
                     </tr>
                   ) : (
-                    filteredSalaryRecords.map((item, index) => (
-                      <tr key={item.id}>
+                    salaryRecords.map((item, index) => (
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedSalaryIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedSalaryIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedSalaryIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
                         <td>{index + 1}</td>
                         <td>{item.employeeCode}</td>
                         <td>{item.employeeName}</td>
-                        <td>{item.department}</td>
+                        <td>{item.department || "-"}</td>
                         <td>
                           {item.month} {item.year}
                         </td>
-                        <td>₹{item.grossSalary}</td>
-                        <td>₹{item.leaveDeduction}</td>
-                        <td>₹{item.netSalary}</td>
+                        <td>{money(item.grossSalary)}</td>
+                        <td>{money(item.leaveDeduction)}</td>
+                        <td>{money(item.netSalary)}</td>
                         <td>
-                          <span
-                            className={`salary-status salary-${item.paymentStatus
-                              .toLowerCase()
-                              .replaceAll(" ", "-")}`}
-                          >
+                          <span className={`salary-status salary-${item.paymentStatus.toLowerCase().replaceAll(" ", "-")}`}>
                             {item.paymentStatus}
                           </span>
                         </td>
@@ -1246,20 +706,20 @@ function SalaryManagement() {
 
               <select
                 value={salaryStructureForm.employeeId}
-                onChange={(e) =>
-                  setSalaryStructureForm({
-                    ...salaryStructureForm,
-                    employeeId: e.target.value,
-                  })
-                }
+                disabled={Boolean(editStructureId)}
+                onChange={(e) => setSalaryStructureForm({ ...salaryStructureForm, employeeId: e.target.value })}
               >
                 <option value="">Select Employee</option>
 
-                {activeStaff.map((staff) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.employeeName} - {staff.employeeCode}
-                  </option>
-                ))}
+                {editStructureId
+                  ? salaryStructures
+                      .filter((item) => idOf(item.staffId) === salaryStructureForm.employeeId)
+                      .map((item) => (
+                        <option key={item._id} value={idOf(item.staffId)}>
+                          {item.employeeName} - {item.employeeCode}
+                        </option>
+                      ))
+                  : renderEmployeeOptions()}
               </select>
             </div>
 
@@ -1268,13 +728,9 @@ function SalaryManagement() {
 
               <input
                 type="number"
+                min="0"
                 value={salaryStructureForm.monthlySalary}
-                onChange={(e) =>
-                  setSalaryStructureForm({
-                    ...salaryStructureForm,
-                    monthlySalary: e.target.value,
-                  })
-                }
+                onChange={(e) => setSalaryStructureForm({ ...salaryStructureForm, monthlySalary: e.target.value })}
                 placeholder="Enter monthly salary"
               />
             </div>
@@ -1285,19 +741,16 @@ function SalaryManagement() {
               <input
                 type="month"
                 value={salaryStructureForm.effectiveFrom}
-                onChange={(e) =>
-                  setSalaryStructureForm({
-                    ...salaryStructureForm,
-                    effectiveFrom: e.target.value,
-                  })
-                }
+                onChange={(e) => setSalaryStructureForm({ ...salaryStructureForm, effectiveFrom: e.target.value })}
               />
             </div>
           </div>
 
+          {noEmployeeNote}
+
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleSaveSalaryStructure}>
-              Save
+            <AppButton type="primary" onClick={handleSaveSalaryStructure} disabled={saving}>
+              {saving ? "Saving..." : editStructureId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -1312,6 +765,7 @@ function SalaryManagement() {
           </div>
         </div>
       )}
+
       {showGenerateSalaryForm && (
         <div className="common-card">
           <div className="salary-form-grid">
@@ -1320,20 +774,10 @@ function SalaryManagement() {
 
               <select
                 value={generateSalaryForm.employeeId}
-                onChange={(e) =>
-                  setGenerateSalaryForm({
-                    ...generateSalaryForm,
-                    employeeId: e.target.value,
-                  })
-                }
+                onChange={(e) => setGenerateSalaryForm({ ...generateSalaryForm, employeeId: e.target.value })}
               >
                 <option value="">Select Employee</option>
-
-                {activeStaff.map((staff) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.employeeName} - {staff.employeeCode}
-                  </option>
-                ))}
+                {renderEmployeeOptions()}
               </select>
             </div>
 
@@ -1342,16 +786,11 @@ function SalaryManagement() {
 
               <select
                 value={generateSalaryForm.month}
-                onChange={(e) =>
-                  setGenerateSalaryForm({
-                    ...generateSalaryForm,
-                    month: e.target.value,
-                  })
-                }
+                onChange={(e) => setGenerateSalaryForm({ ...generateSalaryForm, month: e.target.value })}
               >
                 <option value="">Select Month</option>
 
-                {months.map((month) => (
+                {MONTHS.map((month) => (
                   <option key={month} value={month}>
                     {month}
                   </option>
@@ -1364,12 +803,7 @@ function SalaryManagement() {
 
               <select
                 value={generateSalaryForm.year}
-                onChange={(e) =>
-                  setGenerateSalaryForm({
-                    ...generateSalaryForm,
-                    year: e.target.value,
-                  })
-                }
+                onChange={(e) => setGenerateSalaryForm({ ...generateSalaryForm, year: e.target.value })}
               >
                 <option value="">Select Year</option>
 
@@ -1386,21 +820,19 @@ function SalaryManagement() {
 
               <input
                 type="number"
+                min="0"
                 value={generateSalaryForm.otherDeduction}
-                onChange={(e) =>
-                  setGenerateSalaryForm({
-                    ...generateSalaryForm,
-                    otherDeduction: e.target.value,
-                  })
-                }
+                onChange={(e) => setGenerateSalaryForm({ ...generateSalaryForm, otherDeduction: e.target.value })}
                 placeholder="Enter other deduction"
               />
             </div>
           </div>
 
+          {noEmployeeNote}
+
           <div className="form-actions">
-            <AppButton type="primary" onClick={handleGenerateSalary}>
-              Generate
+            <AppButton type="primary" onClick={handleGenerateSalary} disabled={saving}>
+              {saving ? "Generating..." : "Generate"}
             </AppButton>
 
             <AppButton
@@ -1415,264 +847,95 @@ function SalaryManagement() {
           </div>
         </div>
       )}
+
       {showPaymentPopup && paymentSalary && (
         <div className="popup-overlay">
           <div className="view-popup">
             <div className="popup-head">
               <h2>Pay Salary</h2>
 
-              <button
-                className="popup-close-btn"
-                onClick={() => {
-                  setShowPaymentPopup(false);
-                  setPaymentSalary(null);
-                  resetPaymentForm();
-                }}
-              >
+              <button className="popup-close-btn" onClick={closePaymentPopup}>
                 ×
               </button>
             </div>
 
             <div className="payment-summary-grid">
               <p>
-                <strong>Net Salary:</strong> ₹{paymentSalary.netSalary}
+                <strong>Net Salary:</strong> {money(paymentSalary.netSalary)}
               </p>
 
               <p>
-                <strong>Already Paid:</strong> ₹{paymentSalary.paidAmount}
+                <strong>Already Paid:</strong> {money(paymentSalary.paidAmount)}
               </p>
 
               <p>
-                <strong>Remaining:</strong> ₹{paymentSalary.remainingAmount}
+                <strong>Remaining:</strong> {money(paymentSalary.remainingAmount)}
               </p>
             </div>
 
             <div className="salary-form-grid">
-              <div className="form-group">
-                <label>Payment Amount *</label>
-
-                <input
-                  type="number"
-                  value={paymentForm.paymentAmount}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentAmount: e.target.value,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Payment Date *</label>
-
-                <input
-                  type="date"
-                  value={paymentForm.paymentDate}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
+              {renderPaymentField("paymentAmount", "Payment Amount *", "number")}
+              {renderPaymentField("paymentDate", "Payment Date *", "date")}
 
               <div className="form-group">
                 <label>Payment Mode *</label>
 
-                <select
-                  value={paymentForm.paymentMode}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      paymentMode: e.target.value,
-                    })
-                  }
-                >
+                <select value={paymentForm.paymentMode} onChange={(e) => updatePaymentForm("paymentMode", e.target.value)}>
                   <option value="">Select Payment Mode</option>
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="UPI">UPI</option>
-                  <option value="Cheque">Cheque</option>
+
+                  {PAYMENT_MODES.map((mode) => (
+                    <option key={mode} value={mode}>
+                      {mode}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               {paymentForm.paymentMode === "Bank Transfer" && (
                 <>
-                  <div className="form-group">
-                    <label>Bank Name</label>
-
-                    <input
-                      value={paymentForm.bankName}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          bankName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Transaction Number</label>
-
-                    <input
-                      value={paymentForm.transactionNumber}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          transactionNumber: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Transaction Date</label>
-
-                    <input
-                      type="date"
-                      value={paymentForm.transactionDate}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          transactionDate: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  {renderPaymentField("bankName", "Bank Name")}
+                  {renderPaymentField("transactionNumber", "Transaction Number")}
+                  {renderPaymentField("transactionDate", "Transaction Date", "date")}
                 </>
               )}
 
               {paymentForm.paymentMode === "UPI" && (
                 <>
-                  <div className="form-group">
-                    <label>UPI App Name</label>
-
-                    <input
-                      value={paymentForm.upiAppName}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          upiAppName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Transaction ID</label>
-
-                    <input
-                      value={paymentForm.transactionId}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          transactionId: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Transaction Date</label>
-
-                    <input
-                      type="date"
-                      value={paymentForm.transactionDate}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          transactionDate: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  {renderPaymentField("upiAppName", "UPI App Name")}
+                  {renderPaymentField("transactionId", "Transaction ID")}
+                  {renderPaymentField("transactionDate", "Transaction Date", "date")}
                 </>
               )}
 
               {paymentForm.paymentMode === "Cheque" && (
                 <>
-                  <div className="form-group">
-                    <label>Cheque Number</label>
-
-                    <input
-                      value={paymentForm.chequeNumber}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          chequeNumber: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Issue Date</label>
-
-                    <input
-                      type="date"
-                      value={paymentForm.issueDate}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          issueDate: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Bank Name</label>
-
-                    <input
-                      value={paymentForm.bankName}
-                      onChange={(e) =>
-                        setPaymentForm({
-                          ...paymentForm,
-                          bankName: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
+                  {renderPaymentField("chequeNumber", "Cheque Number")}
+                  {renderPaymentField("issueDate", "Issue Date", "date")}
+                  {renderPaymentField("bankName", "Bank Name")}
                 </>
               )}
 
               <div className="form-group full-width">
                 <label>Remarks</label>
 
-                <textarea
-                  value={paymentForm.remarks}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      remarks: e.target.value,
-                    })
-                  }
-                ></textarea>
+                <textarea value={paymentForm.remarks} onChange={(e) => updatePaymentForm("remarks", e.target.value)}></textarea>
               </div>
             </div>
 
             <div className="form-actions">
-              <AppButton type="primary" onClick={handleSavePayment}>
-                Save Payment
+              <AppButton type="primary" onClick={handleSavePayment} disabled={saving}>
+                {saving ? "Saving..." : "Save Payment"}
               </AppButton>
 
-              <AppButton
-                type="secondary"
-                onClick={() => {
-                  setShowPaymentPopup(false);
-                  setPaymentSalary(null);
-                  resetPaymentForm();
-                }}
-              >
+              <AppButton type="secondary" onClick={closePaymentPopup}>
                 Cancel
               </AppButton>
             </div>
           </div>
         </div>
       )}
+
+      {slip && <SalarySlip salary={slip.data} autoPrint={slip.autoPrint} onClose={() => setSlip(null)} />}
     </div>
   );
 }

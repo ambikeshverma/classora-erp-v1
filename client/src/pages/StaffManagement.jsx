@@ -4,11 +4,23 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { hrService } from "../services/api";
 
-function StaffManagement() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
-  const uploadedBy = localStorage.getItem("userName") || "School Admin";
+const MAX_PHOTO_BYTES = 1024 * 1024;
+const MAX_DOCUMENT_BYTES = 6 * 1024 * 1024;
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+const formatDocumentDate = (value) => (value ? String(value).slice(0, 10).split("-").reverse().join("-") : "-");
+
+function StaffManagement() {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [photoChanged, setPhotoChanged] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [positions, setPositions] = useState([]);
   const [staffList, setStaffList] = useState([]);
@@ -149,17 +161,10 @@ function StaffManagement() {
   );
 
 
-  // eslint-disable-next-line no-unused-vars
-  const generateEmployeeCode = () => {
-    const count =
-      staffList.filter((item) => item.schoolId === schoolId).length + 1;
-
-    return `${schoolId}-EMP-${String(count).padStart(4, "0")}`;
-  };
-
   const resetForm = () => {
     setFormData(emptyForm);
     setEditId(null);
+    setPhotoChanged(false);
   };
 
   const handleFormChange = (e) => {
@@ -172,15 +177,24 @@ function StaffManagement() {
     });
   };
 
-  const handlePhotoChange = (e) => {
+  const handlePhotoChange = async (e) => {
     const file = e.target.files[0];
 
     if (!file) return;
 
-    setFormData({
-      ...formData,
-      employeePhoto: URL.createObjectURL(file),
-    });
+    if (file.size > MAX_PHOTO_BYTES) {
+      alert("Photo must be smaller than 1 MB");
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      setFormData((prev) => ({ ...prev, employeePhoto: dataUrl }));
+      setPhotoChanged(true);
+    } catch {
+      alert("Failed to read photo");
+    }
   };
 
   const validateForm = () => {
@@ -229,40 +243,22 @@ if (
   return false;
 }
 
-const duplicateEmail = staffList.some(
-  (item) =>
-    item.schoolId === schoolId &&
-    item.email.toLowerCase() ===
-      formData.email.toLowerCase() &&
-    item.id !== editId
-);
-
-if (duplicateEmail) {
-  alert("Email already exists");
-  return false;
-}
-
-    const duplicateMobile = staffList.some(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.mobile === formData.mobile &&
-        item.id !== editId
-    );
-
-    if (duplicateMobile) {
-      alert("Mobile number already exists");
-      return false;
-    }
-
+    // Duplicate mobile / email are checked on the server for the whole school
     return true;
   };
 
   const handleSave = async () => {
     if (!validateForm()) return;
 
+    // The photo is only sent when a new one was chosen so an existing photo is never wiped
+    const payload = { ...formData };
+    if (!photoChanged) delete payload.employeePhoto;
+
     try {
+      setSaving(true);
+
       if (editId) {
-        const res = await hrService.updateStaff(editId, formData);
+        const res = await hrService.updateStaff(editId, payload);
         if (res.data?.success) {
           alert("Staff updated successfully");
           setStaffList((prev) =>
@@ -270,7 +266,7 @@ if (duplicateEmail) {
           );
         }
       } else {
-        const res = await hrService.createStaff(formData);
+        const res = await hrService.createStaff(payload);
         if (res.data?.success) {
           alert("Staff added successfully");
           setStaffList((prev) => [...prev, res.data.data]);
@@ -281,6 +277,8 @@ if (duplicateEmail) {
       setShowForm(false);
     } catch (err) {
       alert(err.response?.data?.message || "Failed to save staff");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -330,18 +328,26 @@ if (duplicateEmail) {
     }
   };
 
-  const handleProfileOpen = () => {
+  const handleProfileOpen = async () => {
     if (selectedIds.length !== 1) {
       alert("Select one staff");
       return;
     }
 
-    const selected = staffList.find((item) => (item._id || item.id) === selectedIds[0]);
-    if (!selected) return;
+    try {
+      setSaving(true);
+      // Photo is not part of the list response, so the full record is loaded here
+      const res = await hrService.getStaffById(selectedIds[0]);
+      if (!res.data?.data) return;
 
-    setProfileData(selected);
-    setActiveProfileTab("Profile");
-    setShowProfile(true);
+      setProfileData(res.data.data);
+      setActiveProfileTab("Profile");
+      setShowProfile(true);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load staff profile");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const uploadedDocumentNames =
@@ -350,115 +356,96 @@ if (duplicateEmail) {
   const availableDocumentTypes = missingOnly
     ? documentTypes.filter((doc) => !uploadedDocumentNames.includes(doc))
     : documentTypes;
-    const handleUploadDocument = () => {
+  const profileStaffId = profileData?._id || profileData?.id;
+
+  const handleUploadDocument = async () => {
     if (!documentForm.documentName || !documentForm.file) {
       alert("Select document type and file");
       return;
     }
 
-    const newDoc = {
-      id: Date.now(),
-      documentName: documentForm.documentName,
-      fileName: documentForm.file.name,
-      uploadDate: new Date().toISOString().split("T")[0],
-      uploadedBy,
-    };
+    if (documentForm.file.size > MAX_DOCUMENT_BYTES) {
+      alert("File must be smaller than 6 MB");
+      return;
+    }
 
-    const updatedStaff = staffList.map((item) =>
-      item.id === profileData.id
-        ? {
-            ...item,
-            documents: [
-              ...(item.documents || []).filter(
-                (doc) =>
-                  doc.documentName !==
-                  documentForm.documentName
-              ),
-              newDoc,
-            ],
-          }
-        : item
-    );
+    try {
+      setSaving(true);
+      const fileUrl = await readFileAsDataUrl(documentForm.file);
 
-    setStaffList(updatedStaff);
+      const res = await hrService.uploadStaffDocument(profileStaffId, {
+        documentName: documentForm.documentName,
+        fileName: documentForm.file.name,
+        fileUrl,
+      });
 
-    const updatedProfile =
-      updatedStaff.find(
-        (item) =>
-          item.id === profileData.id
-      );
+      setProfileData((prev) => ({ ...prev, documents: res.data?.data || [] }));
+      setDocumentForm({ documentName: "", file: null });
+      setMissingOnly(false);
+      setShowUploadPopup(false);
 
-    setProfileData(updatedProfile);
-
-    setDocumentForm({
-      documentName: "",
-      file: null,
-    });
-
-    setMissingOnly(false);
-    setShowUploadPopup(false);
-
-    alert(
-      "Document uploaded successfully"
-    );
+      alert("Document uploaded successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to upload document");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDownloadDocument = () => {
-    if (
-      selectedDocumentIds.length !== 1
-    ) {
+  const handleDownloadDocument = async () => {
+    if (selectedDocumentIds.length !== 1) {
       alert("Select one document");
       return;
     }
 
-    alert("Document download started");
+    try {
+      setSaving(true);
+      const res = await hrService.getStaffDocument(profileStaffId, selectedDocumentIds[0]);
+      const file = res.data?.data;
+      if (!file?.fileUrl) {
+        alert("Document file not found");
+        return;
+      }
+
+      const link = document.createElement("a");
+      link.href = file.fileUrl;
+      link.download = file.fileName || "document";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to download document");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteDocument = () => {
-    if (
-      selectedDocumentIds.length === 0
-    ) {
+  const handleDeleteDocument = async () => {
+    if (selectedDocumentIds.length === 0) {
       alert("Select document");
       return;
     }
 
-    const ok = window.confirm(
-      "Delete selected document?"
-    );
+    if (!window.confirm("Delete selected document?")) return;
 
-    if (!ok) return;
+    try {
+      setSaving(true);
 
-    const updatedStaff = staffList.map(
-      (item) =>
-        item.id === profileData.id
-          ? {
-              ...item,
-              documents:
-                item.documents.filter(
-                  (doc) =>
-                    !selectedDocumentIds.includes(
-                      doc.id
-                    )
-                ),
-            }
-          : item
-    );
+      let remaining = profileData.documents;
+      for (const docId of selectedDocumentIds) {
+        const res = await hrService.deleteStaffDocument(profileStaffId, docId);
+        remaining = res.data?.data || remaining;
+      }
 
-    setStaffList(updatedStaff);
+      setProfileData((prev) => ({ ...prev, documents: remaining }));
+      setSelectedDocumentIds([]);
 
-    const updatedProfile =
-      updatedStaff.find(
-        (item) =>
-          item.id === profileData.id
-      );
-
-    setProfileData(updatedProfile);
-
-    setSelectedDocumentIds([]);
-
-    alert(
-      "Document deleted successfully"
-    );
+      alert("Document deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete document");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1400,8 +1387,9 @@ if (duplicateEmail) {
             <AppButton
               type="primary"
               onClick={handleSave}
+              disabled={saving}
             >
-              {editId ? "Update" : "Save"}
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton
@@ -1443,19 +1431,9 @@ if (duplicateEmail) {
               </p>
 
              <p>
-  {
-    schoolDepartments.find(
-      (dept) =>
-        dept.id === profileData.departmentId
-    )?.departmentName || "-"
-  }
+  {profileData.departmentId?.departmentName || "-"}
   {" - "}
-  {
-    positions.find(
-      (pos) =>
-        pos.id === profileData.positionId
-    )?.positionName || "-"
-  }
+  {profileData.positionId?.positionName || "-"}
 </p>
             </div>
 
@@ -1592,7 +1570,7 @@ if (duplicateEmail) {
                             if (e.target.checked) {
                               setSelectedDocumentIds(
                                 profileData.documents.map(
-                                  (doc) => doc.id
+                                  (doc) => doc._id
                                 )
                               );
                             } else {
@@ -1633,22 +1611,22 @@ if (duplicateEmail) {
                       profileData.documents.map(
                         (doc, index) => (
 
-                          <tr key={doc.id}>
+                          <tr key={doc._id}>
 
                             <td>
                               <input
                                 type="checkbox"
                                 checked={selectedDocumentIds.includes(
-                                  doc.id
+                                  doc._id
                                 )}
                                 onChange={() => {
                                   setSelectedDocumentIds(
                                     (prev) =>
-                                      prev.includes(doc.id)
+                                      prev.includes(doc._id)
                                         ? prev.filter(
-                                            (id) => id !== doc.id
+                                            (id) => id !== doc._id
                                           )
-                                        : [...prev, doc.id]
+                                        : [...prev, doc._id]
                                   );
                                 }}
                               />
@@ -1663,7 +1641,7 @@ if (duplicateEmail) {
                             </td>
 
                             <td>
-                              {doc.uploadDate}
+                              {formatDocumentDate(doc.uploadedAt)}
                             </td>
 
                             <td>

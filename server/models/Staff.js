@@ -70,6 +70,11 @@ const staffSchema = new mongoose.Schema(
     branchName: { type: String, default: "" },
     accountNumber: { type: String, default: "" },
     ifscCode: { type: String, default: "" },
+    schoolEmployeeCode: { type: String, default: "", trim: true },
+    biometricId: { type: String, default: "", trim: true },
+    employeePhoto: { type: String, default: "" },
+    resignationNoticeDate: { type: String, default: "" },
+    lastWorkingDate: { type: String, default: "" },
     isActive: {
       type: Boolean,
       default: true,
@@ -78,7 +83,9 @@ const staffSchema = new mongoose.Schema(
     documents: [
       {
         documentName: { type: String, required: true },
+        fileName: { type: String, default: "" },
         fileUrl: { type: String, default: "" },
+        uploadedBy: { type: String, default: "" },
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
