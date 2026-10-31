@@ -11,6 +11,7 @@ const SubjectTeacherAssignment = require("../models/SubjectTeacherAssignment");
 const StaffLeave = require("../models/StaffLeave");
 const SalaryStructure = require("../models/SalaryStructure");
 const SalaryRecord = require("../models/SalaryRecord");
+const { postSystemEntry } = require("../utils/financeLedger");
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -1128,7 +1129,7 @@ router.post("/salaries/:id/pay", async (req, res) => {
     if (!PAYMENT_MODES.includes(paymentMode)) return fail(res, 400, "Invalid payment mode");
 
     const record = await SalaryRecord.findOne({ _id: req.params.id, campusId: req.campusId })
-      .select("netSalary paidAmount")
+      .select("netSalary paidAmount employeeName employeeCode month year")
       .lean();
     if (!record) return fail(res, 404, "Salary record not found");
 
@@ -1139,6 +1140,7 @@ router.post("/salaries/:id/pay", async (req, res) => {
     const status = totalPaid >= record.netSalary ? "Paid" : "Partially Paid";
 
     const text = (key) => String(req.body[key] || "").trim();
+    const paymentId = new mongoose.Types.ObjectId();
 
     // paidAmount in the filter guards against two payments being saved at the same moment
     const updated = await SalaryRecord.findOneAndUpdate(
@@ -1151,6 +1153,7 @@ router.post("/salaries/:id/pay", async (req, res) => {
         },
         $push: {
           payments: {
+            _id: paymentId,
             amount,
             paymentDate,
             paymentMode,
@@ -1172,6 +1175,24 @@ router.post("/salaries/:id/pay", async (req, res) => {
       .lean();
 
     if (!updated) return fail(res, 409, "Salary was updated by someone else. Please refresh and try again.");
+
+    // Salary paid out shows up as expense in Finance Manager
+    await postSystemEntry(req, {
+      type: "EXPENSE",
+      source: "SALARY",
+      sourceId: paymentId,
+      groupName: "Salary Expense",
+      headName: "Staff Salary",
+      date: paymentDate,
+      amount,
+      partyRef: record.employeeCode,
+      partyName: record.employeeName,
+      paymentMode,
+      bankName: text("bankName"),
+      transactionNo: text("transactionNumber") || text("transactionId") || text("chequeNumber"),
+      transactionDate: text("transactionDate") || text("issueDate"),
+      description: `Salary ${record.month} ${record.year} - ${record.employeeName}`,
+    });
 
     res.status(200).json({ success: true, message: "Payment updated successfully", data: updated });
   } catch (error) {

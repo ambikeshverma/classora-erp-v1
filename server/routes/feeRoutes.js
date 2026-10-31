@@ -13,6 +13,8 @@ const FeeCounter = require("../models/FeeCounter");
 const TransportRoute = require("../models/TransportRoute");
 const StudentTransport = require("../models/StudentTransport");
 
+const { postSystemEntry, cancelSystemEntry } = require("../utils/financeLedger");
+
 const {
   TRANSPORT_HEAD,
   round2,
@@ -577,6 +579,22 @@ router.post("/receipts", async (req, res) => {
       collectedById: by.id,
     });
 
+    // Collected fee shows up as income in Finance Manager
+    await postSystemEntry(req, {
+      type: "INCOME",
+      source: "FEE_COLLECTION",
+      sourceId: receipt._id,
+      groupName: "Fees Income",
+      headName: "Fee Collection",
+      date: depositDate,
+      amount: total,
+      partyRef: `Receipt ${receipt.receiptNo}`,
+      partyName: admission.studentName,
+      paymentMode,
+      transactionNo: receipt.paymentRef,
+      description: `Fee receipt ${receipt.receiptNo} (${cleanSession})`,
+    });
+
     res.status(201).json({ success: true, message: "Receipt saved successfully", data: receipt });
   } catch (error) {
     serverError(res, error);
@@ -667,6 +685,8 @@ router.patch("/receipts/:id/cancel", async (req, res) => {
       .lean();
 
     if (!receipt) return fail(res, 404, "Active receipt not found");
+
+    await cancelSystemEntry(req, "FEE_COLLECTION", receipt._id, `Fee receipt ${receipt.receiptNo} cancelled: ${reason}`);
 
     res.status(200).json({ success: true, message: "Receipt cancelled successfully", data: receipt });
   } catch (error) {

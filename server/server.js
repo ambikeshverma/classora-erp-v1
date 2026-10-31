@@ -80,6 +80,7 @@ app.use("/api/academic", schoolAuth, academicRoutes);
 app.use("/api/attendance", schoolAuth, attendanceRoutes);
 app.use("/api/fee-manager", feeRoutes);
 app.use("/api/transport", transportRoutes);
+app.use("/api/finance", require("./routes/financeRoutes"));
 
 // 404 Handler
 app.use((req, res) => {

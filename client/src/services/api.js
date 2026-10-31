@@ -583,6 +583,28 @@ export const feeService = {
   getDues: (params) => api.get("/api/fee-manager/dues", { params }),
 };
 
+// 📊 Finance Manager Endpoints
+export const financeService = {
+  getMeta: () => api.get("/api/finance/meta"),
+
+  getGroups: () => api.get("/api/finance/groups"),
+  createGroup: (data) => api.post("/api/finance/groups", data),
+  updateGroup: (id, data) => api.put(`/api/finance/groups/${id}`, data),
+  deleteGroup: (id) => api.delete(`/api/finance/groups/${id}`),
+
+  getHeads: () => api.get("/api/finance/heads"),
+  createHead: (data) => api.post("/api/finance/heads", data),
+  updateHead: (id, data) => api.put(`/api/finance/heads/${id}`, data),
+  deleteHead: (id) => api.delete(`/api/finance/heads/${id}`),
+
+  getEntries: (params) => api.get("/api/finance/entries", { params }),
+  getEntry: (id) => api.get(`/api/finance/entries/${id}`),
+  createEntry: (data) => api.post("/api/finance/entries", data),
+  cancelEntry: (id, reason) => api.patch(`/api/finance/entries/${id}/cancel`, { reason }),
+
+  getReports: (params) => api.get("/api/finance/reports", { params }),
+};
+
 // 🚌 Transport Endpoints (routes feed the Transport Fee in Fee Manager)
 export const transportService = {
   getRoutes: () => api.get("/api/transport/routes"),
