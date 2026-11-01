@@ -1146,3 +1146,62 @@ input:checked + .sa-slider:before {
   color: #0f2645;
   font-weight: 600;
 }
+
+/* ==========================================================
+   MOBILE LAYOUT — Schools page (cards, controls, modals)
+========================================================== */
+.sa-school-actions { flex-wrap: wrap; }
+.sa-school-details { min-width: 0; }
+.sa-school-details h4 { flex-wrap: wrap; word-break: break-word; }
+.sa-school-subtext span { min-width: 0; word-break: break-word; overflow-wrap: anywhere; }
+
+@media (max-width: 768px) {
+  .sa-control-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+  .sa-search-filter-group { flex-direction: column; align-items: stretch; gap: 12px; }
+  .sa-search-box { min-width: 0; max-width: none; width: 100%; flex: none; }
+  .sa-filter-tabs { width: 100%; box-sizing: border-box; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sa-filter-tab { flex: 1 0 auto; padding: 8px 12px; white-space: nowrap; }
+  .sa-primary-action-btn { width: 100%; justify-content: center; box-sizing: border-box; }
+
+  .sa-school-card { display: flex; flex-direction: column; align-items: stretch; gap: 14px; padding: 16px; }
+  .sa-school-primary-info { min-width: 0; width: 100%; flex: none; align-items: flex-start; gap: 12px; }
+  .sa-school-avatar { width: 44px; height: 44px; font-size: 18px; }
+  .sa-school-subtext { flex-direction: column; gap: 6px; }
+  .sa-school-subtext span { align-items: flex-start; }
+  .sa-school-subtext svg { margin-top: 2px; flex-shrink: 0; }
+
+  .sa-school-status-section {
+    width: 100%; gap: 10px; padding: 12px 0;
+    border-top: 1px solid var(--sa-card-border);
+    border-bottom: 1px solid var(--sa-card-border);
+  }
+  .sa-status-toggle-wrapper { margin-left: auto; }
+
+  .sa-school-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; }
+  .sa-school-actions .sa-btn-icon-label { justify-content: center; width: 100%; box-sizing: border-box; padding: 10px 8px; }
+  .sa-school-actions .manage-modules { grid-column: 1 / -1; }
+  .sa-school-actions .sa-btn-danger-icon { width: 100%; padding: 10px 8px; }
+
+  .sa-modal-backdrop { padding: 8px; align-items: flex-end; }
+  .sa-modal-card, .sa-modal-card.wide, .sa-modal-card.extra-wide {
+    width: 100%; max-width: 100%; max-height: 94vh; border-radius: 16px 16px 12px 12px;
+  }
+  .sa-modal-header { padding: 14px 16px; }
+  .sa-modal-body { padding: 16px; }
+  .sa-modal-footer { padding: 12px 16px; flex-wrap: wrap; gap: 8px; }
+  .sa-modal-footer button { flex: 1 1 120px; }
+  .sa-module-accordion-header { padding: 10px 12px; gap: 10px; flex-wrap: wrap; }
+  .sa-module-accordion-title { flex-wrap: wrap; }
+  .sa-submodules-container { padding: 12px; }
+  .sa-submodules-grid { grid-template-columns: 1fr; }
+  .sa-submodules-toolbar { flex-wrap: wrap; gap: 8px; }
+}
+
+@media (max-width: 480px) {
+  .sa-stat-card { padding: 14px; gap: 8px; }
+  .sa-stat-info h3 { font-size: 12px; }
+  .sa-school-card { padding: 14px; }
+  .sa-school-details h4 { font-size: 15px; }
+  .sa-status-label { min-width: 0; }
+  .sa-school-actions { grid-template-columns: 1fr; }
+}

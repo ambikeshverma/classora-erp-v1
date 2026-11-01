@@ -592,3 +592,40 @@
   .sa2-btn.sm { width: auto; }
   .sa2-btn.icon-only { width: 36px; }
 }
+
+/* ==========================================================
+   MOBILE REFINEMENTS — all Super Admin pages
+========================================================== */
+.sa2-list li { flex-wrap: wrap; }
+.sa2-list li > div:first-child { min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
+.sa2-modal-body { min-width: 0; }
+.sa2-card, .sa2-table-wrap { max-width: 100%; }
+
+@media (max-width: 820px) {
+  .sa2-crumbs { display: none; }
+  .sa2-topbar-title h1 { font-size: 16px; }
+  .sa2-modal-backdrop { padding: 8px; align-items: flex-end; }
+  .sa2-modal, .sa2-modal.wide { max-width: 100%; max-height: 94vh; border-radius: 16px 16px 12px 12px; }
+  .sa2-modal-head { padding: 12px 16px; }
+  .sa2-modal-body { padding: 16px; }
+  .sa2-modal-foot { padding: 12px 16px; flex-wrap: wrap; }
+  .sa2-modal-foot .sa2-btn { flex: 1 1 120px; }
+  .sa2-sub-grid { padding: 4px 14px 14px; }
+  .sa2-actions { justify-content: flex-start; }
+  .sa2-module-head { flex-wrap: wrap; }
+  .sa2-pagination { flex-wrap: wrap; }
+  .sa2-toolbar .sa2-select, .sa2-toolbar .sa2-input { max-width: none; }
+  .sa2-chips { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .sa2-chip { flex-shrink: 0; }
+  .sa2-toast { left: 12px; right: 12px; bottom: 12px; }
+  /* Schools list + module editor sit side by side on desktop only */
+  .sa2-grid[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 480px) {
+  /* keep small icon / inline buttons at natural size (full-width rule above is for text buttons) */
+  .sa2-btn.icon, .sa2-pagination .sa2-btn, .sa2-module-head .sa2-btn, .sa2-table .sa2-btn { width: auto; }
+  .sa2-table .sa2-actions .sa2-btn { flex: 0 0 auto; }
+  .sa2-kv { grid-template-columns: 1fr 1fr; }
+  .sa2-menu { right: -8px; min-width: 200px; max-width: calc(100vw - 24px); }
+}

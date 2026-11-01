@@ -721,7 +721,7 @@ const SuperAdminDashboard = ({ embedded = false }) => {
         <section className="sa-schools-container">
           {loading ? (
             <div style={{ padding: "8px 0" }}>
-              <SkeletonCard count={4} lines={3} theme="dark" />
+              <SkeletonCard count={4} lines={3} />
             </div>
           ) : filteredSchools.length === 0 ? (
             <div className="sa-empty-state">
@@ -1625,7 +1625,7 @@ const SuperAdminDashboard = ({ embedded = false }) => {
               </div>
               {noticeLoading ? (
                 <div style={{ padding: "8px 0" }}>
-                  <SkeletonList count={3} theme="dark" />
+                  <SkeletonList count={3} />
                 </div>
               ) : schoolNotices.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "20px", color: "#64748b", fontSize: "13px" }}>No notices sent yet.</div>
