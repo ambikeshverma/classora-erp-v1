@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
 import { feeService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 function FeeDueNotice() {
@@ -123,26 +124,26 @@ Thank you.`;
 
   const handleSendNotice = () => {
     if (!selectedPeriodKey) {
-      alert("Select fee period");
+      notifyAlert("Select fee period");
       return;
     }
 
     if (!dueDate) {
-      alert("Select due date");
+      notifyAlert("Select due date");
       return;
     }
 
     if (filteredStudents.length === 0) {
-      alert("No due student found");
+      notifyAlert("No due student found");
       return;
     }
 
-    alert("Fee due notice generated successfully for selected students");
+    notifyAlert("Fee due notice generated successfully for selected students");
   };
 
   const handlePrintReport = () => {
     if (filteredStudents.length === 0) {
-      alert("No data found for print");
+      notifyAlert("No data found for print");
       return;
     }
 
@@ -335,7 +336,7 @@ Thank you.`;
                   type="view"
                   onClick={() => {
                     if (selectedDueIds.length !== 1) {
-                      alert("Select one student");
+                      notifyAlert("Select one student");
                       return;
                     }
 

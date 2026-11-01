@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const Student = require("../models/Student");
 const auth = require("../middleware/auth");
+const { reserveStudentSlot } = require("../utils/studentLimit");
 
 // Add Student
 router.post("/add", auth, async (req, res) => {
@@ -10,6 +11,10 @@ router.post("/add", auth, async (req, res) => {
     if (!schoolId) {
       return res.status(400).json({ success: false, msg: "School ID could not be identified from token" });
     }
+
+    const slot = await reserveStudentSlot(schoolId);
+    if (!slot.ok) return res.status(403).json(slot.error);
+    res.on("finish", () => slot.release().catch(() => {}));
 
     const student = new Student({
       ...req.body,

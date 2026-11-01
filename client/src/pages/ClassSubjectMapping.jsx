@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { academicService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function ClassSubjectMapping() {
   const navigate = useNavigate();
 
@@ -57,7 +58,7 @@ function ClassSubjectMapping() {
   const openPopup = (clsName) => {
     const targetClass = clsName || selectedClass;
     if (!targetClass) {
-      alert("Please select a class");
+      notifyAlert("Please select a class");
       return;
     }
 
@@ -118,7 +119,7 @@ function ClassSubjectMapping() {
 
   const saveMapping = async () => {
     if (!selectedClass) {
-      alert("Please select a class");
+      notifyAlert("Please select a class");
       return;
     }
 
@@ -126,7 +127,7 @@ function ClassSubjectMapping() {
       selectedScholasticSubjects.length === 0 &&
       selectedCoScholasticSubjects.length === 0
     ) {
-      alert("Please select at least one subject to map to this class");
+      notifyAlert("Please select at least one subject to map to this class");
       return;
     }
 
@@ -141,7 +142,7 @@ function ClassSubjectMapping() {
 
       const res = await academicService.saveClassSubjectMapping(payload);
       if (res.data?.success) {
-        alert("Class Subject Mapping saved successfully");
+        notifyAlert("Class Subject Mapping saved successfully");
         const updatedDoc = res.data.data;
         setSavedMappings((prev) => {
           const index = prev.findIndex((m) => m.className === selectedClass);
@@ -155,7 +156,7 @@ function ClassSubjectMapping() {
         closePopup();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save class subject mapping");
+      notifyAlert(err.response?.data?.message || "Failed to save class subject mapping");
     }
   };
 
@@ -164,7 +165,7 @@ function ClassSubjectMapping() {
   =============================== */
   const handleEdit = () => {
     if (selectedRows.length !== 1) {
-      alert("Please select exactly one mapping to edit");
+      notifyAlert("Please select exactly one mapping to edit");
       return;
     }
 
@@ -179,11 +180,11 @@ function ClassSubjectMapping() {
 
   const handleDelete = async () => {
     if (selectedRows.length === 0) {
-      alert("Please select at least one mapping to delete");
+      notifyAlert("Please select at least one mapping to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedRows.length} selected mapping(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedRows.length} selected mapping(s)?`);
     if (!ok) return;
 
     try {
@@ -195,9 +196,9 @@ function ClassSubjectMapping() {
         prev.filter((m) => !selectedRows.includes(m._id || m.id))
       );
       setSelectedRows([]);
-      alert("Mapping(s) deleted successfully");
+      notifyAlert("Mapping(s) deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete mapping");
+      notifyAlert(err.response?.data?.message || "Failed to delete mapping");
     }
   };
 

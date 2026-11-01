@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function SiblingManagement() {
   const navigate = useNavigate();
 
@@ -75,7 +76,7 @@ function SiblingManagement() {
 
   const handleAddStudentToGroup = () => {
     if (!studentForm.studentId) {
-      alert("Please select a student");
+      notifyAlert("Please select a student");
       return;
     }
 
@@ -92,7 +93,7 @@ function SiblingManagement() {
     );
 
     if (alreadyAdded) {
-      alert("This student is already added in this group");
+      notifyAlert("This student is already added in this group");
       return;
     }
 
@@ -124,12 +125,12 @@ function SiblingManagement() {
 
   const handleSave = async () => {
     if (!formData.guardianName || !formData.guardianMobile) {
-      alert("Please enter Guardian Name and Guardian Mobile");
+      notifyAlert("Please enter Guardian Name and Guardian Mobile");
       return;
     }
 
     if (formData.students.length < 2) {
-      const proceed = window.confirm(
+      const proceed = await confirmDialog(
         "A sibling group usually has at least 2 students. Do you want to save with current selection?"
       );
       if (!proceed) return;
@@ -147,7 +148,7 @@ function SiblingManagement() {
       if (editId) {
         const res = await studentHubService.updateSiblingGroup(editId, payload);
         if (res.data?.success) {
-          alert("Sibling group updated successfully");
+          notifyAlert("Sibling group updated successfully");
           resetForm();
           setShowForm(false);
           loadData();
@@ -156,7 +157,7 @@ function SiblingManagement() {
       } else {
         const res = await studentHubService.createSiblingGroup(payload);
         if (res.data?.success) {
-          alert("Sibling group created successfully");
+          notifyAlert("Sibling group created successfully");
           resetForm();
           setShowForm(false);
           loadData();
@@ -164,7 +165,7 @@ function SiblingManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save sibling group");
+      notifyAlert(err.response?.data?.message || "Failed to save sibling group");
     } finally {
       setSaving(false);
     }
@@ -192,7 +193,7 @@ function SiblingManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Please select exactly one sibling group to edit");
+      notifyAlert("Please select exactly one sibling group to edit");
       return;
     }
 
@@ -207,22 +208,22 @@ function SiblingManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one sibling group to delete");
+      notifyAlert("Please select at least one sibling group to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected sibling group(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected sibling group(s)?`);
     if (!ok) return;
 
     try {
       for (const id of selectedIds) {
         await studentHubService.deleteSiblingGroup(id);
       }
-      alert("Sibling group(s) deleted successfully");
+      notifyAlert("Sibling group(s) deleted successfully");
       setSelectedIds([]);
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete sibling group");
+      notifyAlert(err.response?.data?.message || "Failed to delete sibling group");
     }
   };
 
@@ -288,7 +289,7 @@ function SiblingManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Please select one group to view");
+                      notifyAlert("Please select one group to view");
                       return;
                     }
                     setViewData(selectedSingle);

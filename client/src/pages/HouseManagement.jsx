@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function HouseManagement() {
   const navigate = useNavigate();
 
@@ -64,7 +65,7 @@ function HouseManagement() {
 
   const handleSave = async () => {
     if (!formData.houseName) {
-      alert("Please fill required fields (House Name)");
+      notifyAlert("Please fill required fields (House Name)");
       return;
     }
 
@@ -73,7 +74,7 @@ function HouseManagement() {
       if (editId) {
         const res = await studentHubService.updateHouse(editId, formData);
         if (res.data?.success) {
-          alert("House updated successfully");
+          notifyAlert("House updated successfully");
           resetForm();
           setShowForm(false);
           loadHouses();
@@ -82,7 +83,7 @@ function HouseManagement() {
       } else {
         const res = await studentHubService.createHouse(formData);
         if (res.data?.success) {
-          alert("House added successfully");
+          notifyAlert("House added successfully");
           resetForm();
           setShowForm(false);
           loadHouses();
@@ -90,7 +91,7 @@ function HouseManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save house");
+      notifyAlert(err.response?.data?.message || "Failed to save house");
     } finally {
       setSaving(false);
     }
@@ -113,7 +114,7 @@ function HouseManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Please select exactly one house to edit");
+      notifyAlert("Please select exactly one house to edit");
       return;
     }
 
@@ -130,22 +131,22 @@ function HouseManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one house to delete");
+      notifyAlert("Please select at least one house to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected house(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected house(s)?`);
     if (!ok) return;
 
     try {
       for (const id of selectedIds) {
         await studentHubService.deleteHouse(id);
       }
-      alert("House(s) deleted successfully");
+      notifyAlert("House(s) deleted successfully");
       setSelectedIds([]);
       loadHouses();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete house");
+      notifyAlert(err.response?.data?.message || "Failed to delete house");
     }
   };
 
@@ -201,7 +202,7 @@ function HouseManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Please select one house to view");
+                      notifyAlert("Please select one house to view");
                       return;
                     }
                     setViewData(selectedSingle);

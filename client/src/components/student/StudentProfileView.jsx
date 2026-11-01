@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import "./StudentProfileView.css";
 import AppButton from "../AppButton";
 
+import { notifyAlert, confirmDialog, promptDialog } from "../../utils/toast";
 function StudentProfileView({ studentId = 1, onClose }) {
   const schoolId = localStorage.getItem("schoolId") || "SCH001";
 
@@ -169,12 +170,12 @@ function StudentProfileView({ studentId = 1, onClose }) {
   const handleUpdate = () => {
     if (editPopup === "class") {
       if (!editForm.className || !editForm.feePlan) {
-        alert("Please select both Class and Fee Plan.");
+        notifyAlert("Please select both Class and Fee Plan.");
         return;
       }
 
       if (Number(student.feePaid || 0) > 0) {
-        alert("Class and fee plan cannot be changed because fee has already been collected.");
+        notifyAlert("Class and fee plan cannot be changed because fee has already been collected.");
         return;
       }
 
@@ -188,22 +189,22 @@ function StudentProfileView({ studentId = 1, onClose }) {
     }
 
     if (editPopup === "section" && !editForm.sectionName) {
-      alert("Please select section.");
+      notifyAlert("Please select section.");
       return;
     }
 
     if (editPopup === "medium" && !editForm.medium) {
-      alert("Please select medium.");
+      notifyAlert("Please select medium.");
       return;
     }
 
     if (editPopup === "feePlan" && !editForm.feePlan) {
-      alert("Please select fee plan.");
+      notifyAlert("Please select fee plan.");
       return;
     }
 
     if (editPopup === "concessionPlan" && !editForm.concessionPlan) {
-      alert("Please select concession plan.");
+      notifyAlert("Please select concession plan.");
       return;
     }
 
@@ -211,14 +212,14 @@ function StudentProfileView({ studentId = 1, onClose }) {
     setEditPopup(null);
   };
 
-  const markInactive = () => {
-    const reason = window.prompt("Enter inactive reason:");
+  const markInactive = async () => {
+    const reason = await promptDialog("Enter inactive reason:");
     if (!reason) return;
     updateStudent({ studentStatus: "Inactive", inactiveReason: reason });
   };
 
-  const deleteStudent = () => {
-    const ok = window.confirm(
+  const deleteStudent = async () => {
+    const ok = await confirmDialog(
       "This will remove student and related data from ERP. Continue?"
     );
     if (!ok) return;
@@ -296,8 +297,8 @@ function StudentProfileView({ studentId = 1, onClose }) {
               {openMenu && (
                 <div className="profile-action-dropdown">
                   <button onClick={() => setActiveTab("profile")}>View Profile</button>
-                  <button onClick={() => alert("Open Session Ledger")}>Open Session Ledger</button>
-                  <button onClick={() => alert("Open Deposit Fee")}>Deposit Fee</button>
+                  <button onClick={() => notifyAlert("Open Session Ledger")}>Open Session Ledger</button>
+                  <button onClick={() => notifyAlert("Open Deposit Fee")}>Deposit Fee</button>
                   <button onClick={markInactive}>Mark In-Active</button>
                   <button onClick={deleteStudent}>Delete Student</button>
                 </div>
@@ -746,21 +747,21 @@ function DocumentTab({ student, documentTypes, updateStudent }) {
   const missingCount = documentTypes.length - student.uploadedDocuments.length;
   const uploadedCount = student.uploadedDocuments.length;
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!documentType) {
-      alert("Select document type");
+      notifyAlert("Select document type");
       return;
     }
 
     if (!selectedFile) {
-      alert("Select file");
+      notifyAlert("Select file");
       return;
     }
 
     const alreadyUploaded = student.uploadedDocuments.includes(documentType);
 
     if (alreadyUploaded) {
-      const ok = window.confirm("Document already uploaded. Do you want to replace it?");
+      const ok = await confirmDialog("Document already uploaded. Do you want to replace it?");
       if (!ok) return;
     }
 
@@ -772,7 +773,7 @@ function DocumentTab({ student, documentTypes, updateStudent }) {
 
     setSelectedFile(null);
     setShowUploadPopup(false);
-    alert("Document uploaded successfully");
+    notifyAlert("Document uploaded successfully");
   };
 
   return (
@@ -799,7 +800,7 @@ function DocumentTab({ student, documentTypes, updateStudent }) {
           </label>
 
           <AppButton type="primary" onClick={() => setShowUploadPopup(true)}>Upload</AppButton>
-          <AppButton type="primary" onClick={() => alert("Document download started")}>Download</AppButton>
+          <AppButton type="primary" onClick={() => notifyAlert("Document download started")}>Download</AppButton>
         </div>
       </div>
 

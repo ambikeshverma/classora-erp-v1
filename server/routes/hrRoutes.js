@@ -48,7 +48,21 @@ const schoolAdminOnly = (req, res, next) => {
   next();
 };
 
-router.use(schoolAuth, schoolAuth.checkModule("hr_staff"), schoolAdminOnly);
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("hr_staff", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(departments|positions)/, method: "GET", sub: null },
+    { re: /^\/departments/, sub: "department_management" },
+    { re: /^\/positions/, sub: "position_management" },
+    { re: /^\/staff\b/, method: "GET", sub: ["staff_management", "leave_management", "salary_management"] },
+    { re: /^\/staff\b/, sub: "staff_management" },
+    { re: /^\/leaves/, sub: "leave_management" },
+    { re: /^\/(salary-structures|salaries)/, sub: "salary_management" },
+    { re: /^\/reports/, sub: "staff_reports" },
+  ]),
+  schoolAdminOnly
+);
 
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 

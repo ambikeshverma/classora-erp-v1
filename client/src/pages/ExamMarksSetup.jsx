@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { Skeleton, SkeletonTable } from "../components/Skeleton";
 import { examService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const EMPTY_FILTERS = { examId: "", className: "", sectionName: "", subjectName: "" };
 const EMPTY_FORM = { examId: "", className: "", sectionName: "", subjects: [] };
 
@@ -39,7 +40,7 @@ function ExamMarksSetup() {
       const res = await examService.getMarksSetups(params);
       setGroups(res.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load marks setups");
+      notifyAlert(err.response?.data?.message || "Failed to load marks setups");
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ function ExamMarksSetup() {
       setApplicable(res.data?.data?.applicable !== false);
       setFormData((prev) => ({ ...prev, subjects: res.data?.data?.subjects || [] }));
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load subjects");
+      notifyAlert(err.response?.data?.message || "Failed to load subjects");
       setFormData((prev) => ({ ...prev, subjects: [] }));
     } finally {
       setSubjectsLoading(false);
@@ -118,17 +119,17 @@ function ExamMarksSetup() {
 
   const handleSave = async () => {
     if (!formData.examId || !formData.className) {
-      alert("Please select exam and class");
+      notifyAlert("Please select exam and class");
       return;
     }
 
     if (formData.subjects.length === 0) {
-      alert("No subject mapped with selected class");
+      notifyAlert("No subject mapped with selected class");
       return;
     }
 
     if (formData.subjects.some((item) => !Number(item.maximumMarks))) {
-      alert("Please fill maximum marks for all subjects");
+      notifyAlert("Please fill maximum marks for all subjects");
       return;
     }
 
@@ -137,7 +138,7 @@ function ExamMarksSetup() {
         (item) => item.passingMarks !== "" && Number(item.passingMarks) > Number(item.maximumMarks)
       )
     ) {
-      alert("Passing marks cannot exceed maximum marks");
+      notifyAlert("Passing marks cannot exceed maximum marks");
       return;
     }
 
@@ -154,12 +155,12 @@ function ExamMarksSetup() {
         })),
       });
 
-      alert("Marks setup saved successfully");
+      notifyAlert("Marks setup saved successfully");
       resetForm();
       setShowForm(false);
       await loadGroups();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save marks setup");
+      notifyAlert(err.response?.data?.message || "Failed to save marks setup");
     } finally {
       setSaving(false);
     }
@@ -167,7 +168,7 @@ function ExamMarksSetup() {
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one setup");
+      notifyAlert("Select one setup");
       return;
     }
 
@@ -186,18 +187,18 @@ function ExamMarksSetup() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select setup");
+      notifyAlert("Select setup");
       return;
     }
 
     const selectedGroups = groups.filter((item) => selectedIds.includes(groupKeyOf(item)));
 
     if (selectedGroups.some((item) => item.marksEntryStarted || item.resultGenerated)) {
-      alert("Marks entry/result already exists. Setup cannot be deleted.");
+      notifyAlert("Marks entry/result already exists. Setup cannot be deleted.");
       return;
     }
 
-    if (!window.confirm("Delete selected marks setup?")) return;
+    if (!await confirmDialog("Delete selected marks setup?")) return;
 
     try {
       setSaving(true);
@@ -211,9 +212,9 @@ function ExamMarksSetup() {
         )
       );
       setSelectedIds([]);
-      alert("Marks setup deleted successfully");
+      notifyAlert("Marks setup deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete marks setup");
+      notifyAlert(err.response?.data?.message || "Failed to delete marks setup");
     } finally {
       setSaving(false);
       await loadGroups();

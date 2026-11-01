@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { hrService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const MAX_PHOTO_BYTES = 1024 * 1024;
 const MAX_DOCUMENT_BYTES = 6 * 1024 * 1024;
 
@@ -183,7 +184,7 @@ function StaffManagement() {
     if (!file) return;
 
     if (file.size > MAX_PHOTO_BYTES) {
-      alert("Photo must be smaller than 1 MB");
+      notifyAlert("Photo must be smaller than 1 MB");
       e.target.value = "";
       return;
     }
@@ -193,7 +194,7 @@ function StaffManagement() {
       setFormData((prev) => ({ ...prev, employeePhoto: dataUrl }));
       setPhotoChanged(true);
     } catch {
-      alert("Failed to read photo");
+      notifyAlert("Failed to read photo");
     }
   };
 
@@ -210,18 +211,18 @@ function StaffManagement() {
       !formData.localAddress.trim() ||
       !formData.state
     ) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return false;
     }
 
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
 
     if (!emailOk) {
-      alert("Enter valid email address");
+      notifyAlert("Enter valid email address");
       return false;
     }
     if (!/^[0-9]{10}$/.test(formData.mobile)) {
-  alert("Enter valid 10 digit mobile number");
+  notifyAlert("Enter valid 10 digit mobile number");
   return false;
 }
 
@@ -229,7 +230,7 @@ if (
   formData.aadhaar &&
   !/^[0-9]{12}$/.test(formData.aadhaar)
 ) {
-  alert("Enter valid Aadhaar number");
+  notifyAlert("Enter valid Aadhaar number");
   return false;
 }
 
@@ -239,7 +240,7 @@ if (
     formData.pan.toUpperCase()
   )
 ) {
-  alert("Enter valid PAN number");
+  notifyAlert("Enter valid PAN number");
   return false;
 }
 
@@ -260,7 +261,7 @@ if (
       if (editId) {
         const res = await hrService.updateStaff(editId, payload);
         if (res.data?.success) {
-          alert("Staff updated successfully");
+          notifyAlert("Staff updated successfully");
           setStaffList((prev) =>
             prev.map((item) => ((item._id || item.id) === editId ? res.data.data : item))
           );
@@ -268,7 +269,7 @@ if (
       } else {
         const res = await hrService.createStaff(payload);
         if (res.data?.success) {
-          alert("Staff added successfully");
+          notifyAlert("Staff added successfully");
           setStaffList((prev) => [...prev, res.data.data]);
         }
       }
@@ -276,7 +277,7 @@ if (
       resetForm();
       setShowForm(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save staff");
+      notifyAlert(err.response?.data?.message || "Failed to save staff");
     } finally {
       setSaving(false);
     }
@@ -289,7 +290,7 @@ if (
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one staff");
+      notifyAlert("Select one staff");
       return;
     }
 
@@ -309,11 +310,11 @@ if (
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select staff to delete");
+      notifyAlert("Select staff to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected staff member(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected staff member(s)?`);
     if (!ok) return;
 
     try {
@@ -322,15 +323,15 @@ if (
       }
       setStaffList((prev) => prev.filter((item) => !selectedIds.includes(item._id || item.id)));
       setSelectedIds([]);
-      alert("Staff deleted successfully");
+      notifyAlert("Staff deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete staff");
+      notifyAlert(err.response?.data?.message || "Failed to delete staff");
     }
   };
 
   const handleProfileOpen = async () => {
     if (selectedIds.length !== 1) {
-      alert("Select one staff");
+      notifyAlert("Select one staff");
       return;
     }
 
@@ -344,7 +345,7 @@ if (
       setActiveProfileTab("Profile");
       setShowProfile(true);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load staff profile");
+      notifyAlert(err.response?.data?.message || "Failed to load staff profile");
     } finally {
       setSaving(false);
     }
@@ -360,12 +361,12 @@ if (
 
   const handleUploadDocument = async () => {
     if (!documentForm.documentName || !documentForm.file) {
-      alert("Select document type and file");
+      notifyAlert("Select document type and file");
       return;
     }
 
     if (documentForm.file.size > MAX_DOCUMENT_BYTES) {
-      alert("File must be smaller than 6 MB");
+      notifyAlert("File must be smaller than 6 MB");
       return;
     }
 
@@ -384,9 +385,9 @@ if (
       setMissingOnly(false);
       setShowUploadPopup(false);
 
-      alert("Document uploaded successfully");
+      notifyAlert("Document uploaded successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to upload document");
+      notifyAlert(err.response?.data?.message || "Failed to upload document");
     } finally {
       setSaving(false);
     }
@@ -394,7 +395,7 @@ if (
 
   const handleDownloadDocument = async () => {
     if (selectedDocumentIds.length !== 1) {
-      alert("Select one document");
+      notifyAlert("Select one document");
       return;
     }
 
@@ -403,7 +404,7 @@ if (
       const res = await hrService.getStaffDocument(profileStaffId, selectedDocumentIds[0]);
       const file = res.data?.data;
       if (!file?.fileUrl) {
-        alert("Document file not found");
+        notifyAlert("Document file not found");
         return;
       }
 
@@ -414,7 +415,7 @@ if (
       link.click();
       document.body.removeChild(link);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to download document");
+      notifyAlert(err.response?.data?.message || "Failed to download document");
     } finally {
       setSaving(false);
     }
@@ -422,11 +423,11 @@ if (
 
   const handleDeleteDocument = async () => {
     if (selectedDocumentIds.length === 0) {
-      alert("Select document");
+      notifyAlert("Select document");
       return;
     }
 
-    if (!window.confirm("Delete selected document?")) return;
+    if (!await confirmDialog("Delete selected document?")) return;
 
     try {
       setSaving(true);
@@ -440,9 +441,9 @@ if (
       setProfileData((prev) => ({ ...prev, documents: remaining }));
       setSelectedDocumentIds([]);
 
-      alert("Document deleted successfully");
+      notifyAlert("Document deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete document");
+      notifyAlert(err.response?.data?.message || "Failed to delete document");
     } finally {
       setSaving(false);
     }

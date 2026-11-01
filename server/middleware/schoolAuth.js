@@ -101,5 +101,67 @@ const checkModule = (moduleKey) => {
   };
 };
 
+const disabled = (res, moduleKey, subModule) =>
+  res.status(403).json({
+    success: false,
+    isModuleDisabled: true,
+    module: moduleKey,
+    ...(subModule ? { subModule } : {}),
+    message: subModule
+      ? `The '${subModule}' feature is disabled for your school. Please contact Super Admin to enable it.`
+      : `The '${moduleKey}' module is disabled for your school. Please contact Super Admin to enable it.`,
+  });
+
+// Sub-module entitlement: an absent entry for the module means "not restricted" (legacy schools)
+const hasSubModule = (school, moduleKey, subKeys) => {
+  const map = school.enabledSubModules;
+  const list = map && typeof map.get === "function" ? map.get(moduleKey) : map?.[moduleKey];
+  if (!Array.isArray(list)) return true;
+  return subKeys.some((key) => list.includes(key));
+};
+
+/**
+ * Path-aware guard for a router that serves one module.
+ * rules: [{ re: /^\/vehicles/, method: "GET" (optional), sub: "vehicle_management" | [..] | null, open: true (optional) }]
+ * - The first matching rule wins. `sub: null` means "module must be enabled, any sub-module".
+ * - `open: true` lets any authenticated, active school through (read-only shared data).
+ * - Unmatched paths only require the module.
+ * Requires req.school (run after schoolAuth).
+ */
+const guardRoutes = (moduleKey, rules = []) => (req, res, next) => {
+  if (!req.school) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
+  }
+
+  const rule = rules.find((r) => (!r.method || r.method === req.method) && r.re.test(req.path));
+  if (rule?.open) return next();
+
+  if (!(req.school.enabledModules || []).includes(moduleKey)) {
+    return disabled(res, moduleKey);
+  }
+
+  const subs = rule?.sub ? (Array.isArray(rule.sub) ? rule.sub : [rule.sub]) : null;
+  if (subs && !hasSubModule(req.school, moduleKey, subs)) {
+    return disabled(res, moduleKey, subs[0]);
+  }
+
+  next();
+};
+
+// Shared endpoints: allowed when ANY of the given modules is enabled
+const checkAnyModule = (moduleKeys) => (req, res, next) => {
+  if (!req.school) {
+    return res.status(401).json({ success: false, message: "Authentication required" });
+  }
+  const enabled = req.school.enabledModules || [];
+  if (!moduleKeys.some((key) => enabled.includes(key))) {
+    return disabled(res, moduleKeys[0]);
+  }
+  next();
+};
+
 module.exports = schoolAuth;
 module.exports.checkModule = checkModule;
+module.exports.guardRoutes = guardRoutes;
+module.exports.checkAnyModule = checkAnyModule;
+module.exports.hasSubModule = hasSubModule;

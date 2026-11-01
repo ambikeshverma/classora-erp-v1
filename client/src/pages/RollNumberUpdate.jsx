@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function RollNumberUpdate() {
   const navigate = useNavigate();
   const currentSession = "2026-2027";
@@ -54,7 +55,7 @@ function RollNumberUpdate() {
 
   const handleSearch = async () => {
     if (!classFilter) {
-      alert("Please select a Class first");
+      notifyAlert("Please select a Class first");
       return;
     }
 
@@ -104,7 +105,7 @@ function RollNumberUpdate() {
         : students;
 
     if (targetStudents.length === 0) {
-      alert("No students to assign roll numbers to");
+      notifyAlert("No students to assign roll numbers to");
       return;
     }
 
@@ -118,12 +119,12 @@ function RollNumberUpdate() {
       setSaving(true);
       const res = await studentHubService.bulkUpdateRollNumbers(updates);
       if (res.data?.success) {
-        alert(res.data.message || "Roll numbers generated and saved successfully");
+        notifyAlert(res.data.message || "Roll numbers generated and saved successfully");
         setShowGeneratePopup(false);
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update roll numbers");
+      notifyAlert(err.response?.data?.message || "Failed to update roll numbers");
     } finally {
       setSaving(false);
     }
@@ -149,12 +150,12 @@ function RollNumberUpdate() {
       setSaving(true);
       const res = await studentHubService.bulkUpdateRollNumbers(updates);
       if (res.data?.success) {
-        alert(res.data.message || "Roll numbers updated successfully");
+        notifyAlert(res.data.message || "Roll numbers updated successfully");
         setShowManualPopup(false);
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update roll numbers");
+      notifyAlert(err.response?.data?.message || "Failed to update roll numbers");
     } finally {
       setSaving(false);
     }

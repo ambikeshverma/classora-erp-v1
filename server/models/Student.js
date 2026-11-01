@@ -77,4 +77,7 @@ const studentSchema = new mongoose.Schema({
   }
 });
 
+// Student counts and lookups are always per school (billing, limits, dashboards)
+studentSchema.index({ schoolId: 1, status: 1 });
+
 module.exports = mongoose.models.Student || mongoose.model("Student", studentSchema);

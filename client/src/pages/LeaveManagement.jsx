@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { hrService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const LEAVE_TYPES = [
   "Paid Leave",
   "Casual Leave",
@@ -65,7 +66,7 @@ function LeaveManagement() {
       setStaffList(meta.staff || []);
       setLeaves(leaveRes.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load leave data");
+      notifyAlert(err.response?.data?.message || "Failed to load leave data");
     } finally {
       setLoading(false);
     }
@@ -122,12 +123,12 @@ function LeaveManagement() {
 
   const handleSave = async () => {
     if (!formData.employeeId || !formData.leaveType || !formData.fromDate || !formData.toDate) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
     if (calculateDays(formData.fromDate, formData.toDate) <= 0) {
-      alert("To Date cannot be before From Date");
+      notifyAlert("To Date cannot be before From Date");
       return;
     }
 
@@ -141,7 +142,7 @@ function LeaveManagement() {
           toDate: formData.toDate,
           reason: formData.reason,
         });
-        alert("Leave updated successfully");
+        notifyAlert("Leave updated successfully");
       } else {
         await hrService.createLeave({
           staffId: formData.employeeId,
@@ -151,14 +152,14 @@ function LeaveManagement() {
           reason: formData.reason,
           status: "Approved",
         });
-        alert("Leave added successfully");
+        notifyAlert("Leave added successfully");
       }
 
       resetForm();
       setShowForm(false);
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save leave");
+      notifyAlert(err.response?.data?.message || "Failed to save leave");
     } finally {
       setSaving(false);
     }
@@ -166,7 +167,7 @@ function LeaveManagement() {
 
   const handleEdit = () => {
     if (selectedLeaveIds.length !== 1) {
-      alert("Select one leave");
+      notifyAlert("Select one leave");
       return;
     }
 
@@ -186,19 +187,19 @@ function LeaveManagement() {
 
   const handleDelete = async () => {
     if (selectedLeaveIds.length === 0) {
-      alert("Select leave");
+      notifyAlert("Select leave");
       return;
     }
 
-    if (!window.confirm("Delete selected leave?")) return;
+    if (!await confirmDialog("Delete selected leave?")) return;
 
     try {
       setSaving(true);
       await Promise.all(selectedLeaveIds.map((id) => hrService.deleteLeave(id)));
       setSelectedLeaveIds([]);
-      alert("Leave deleted successfully");
+      notifyAlert("Leave deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete leave");
+      notifyAlert(err.response?.data?.message || "Failed to delete leave");
     } finally {
       setSaving(false);
       await loadData();
@@ -210,9 +211,9 @@ function LeaveManagement() {
       setSaving(true);
       await Promise.all(selectedRequestIds.map((id) => hrService.updateLeaveStatus(id, status)));
       setSelectedRequestIds([]);
-      alert(status === "Approved" ? "Leave request accepted successfully" : "Leave request rejected");
+      notifyAlert(status === "Approved" ? "Leave request accepted successfully" : "Leave request rejected");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update leave request");
+      notifyAlert(err.response?.data?.message || "Failed to update leave request");
     } finally {
       setSaving(false);
       await loadData();
@@ -221,20 +222,20 @@ function LeaveManagement() {
 
   const handleAcceptRequest = () => {
     if (selectedRequestIds.length === 0) {
-      alert("Select leave request");
+      notifyAlert("Select leave request");
       return;
     }
 
     reviewRequests("Approved");
   };
 
-  const handleRejectRequest = () => {
+  const handleRejectRequest = async () => {
     if (selectedRequestIds.length === 0) {
-      alert("Select leave request");
+      notifyAlert("Select leave request");
       return;
     }
 
-    if (!window.confirm("Reject selected leave request?")) return;
+    if (!await confirmDialog("Reject selected leave request?")) return;
 
     reviewRequests("Rejected");
   };

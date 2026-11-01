@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { Skeleton } from "../components/Skeleton";
 import { reportCardService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function ReportCards() {
   const navigate = useNavigate();
 
@@ -44,7 +45,7 @@ function ReportCards() {
 
   const handleLoadExams = async () => {
     if (!filterData.className || !filterData.sectionName) {
-      alert("Please select class and section");
+      notifyAlert("Please select class and section");
       return;
     }
 
@@ -58,7 +59,7 @@ function ReportCards() {
       setExamsLoaded(true);
       setPreviewMode(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load exams");
+      notifyAlert(err.response?.data?.message || "Failed to load exams");
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,7 @@ function ReportCards() {
 
   const handlePreview = async () => {
     if (selectedExamIds.length === 0) {
-      alert("Please select at least one exam");
+      notifyAlert("Please select at least one exam");
       return;
     }
 
@@ -80,7 +81,7 @@ function ReportCards() {
       setPreview(res.data?.data || null);
       setPreviewMode(true);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load report cards");
+      notifyAlert(err.response?.data?.message || "Failed to load report cards");
     } finally {
       setLoading(false);
     }

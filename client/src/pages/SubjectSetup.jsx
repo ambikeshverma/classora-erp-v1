@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { masterService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function SubjectSetup() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -53,7 +54,7 @@ function SubjectSetup() {
 
   const handleSave = async () => {
     if (!subject.subjectName.trim() || !subject.subjectType) {
-      alert("Please fill Subject Name and Subject Type");
+      notifyAlert("Please fill Subject Name and Subject Type");
       return;
     }
 
@@ -66,7 +67,7 @@ function SubjectSetup() {
     );
 
     if (duplicateSubject) {
-      alert("Subject already exists");
+      notifyAlert("Subject already exists");
       return;
     }
 
@@ -78,7 +79,7 @@ function SubjectSetup() {
           subjectType: subject.subjectType,
         });
         if (res.data?.success) {
-          alert("Subject updated successfully");
+          notifyAlert("Subject updated successfully");
           setSubjects((prev) =>
             prev.map((s) => ((s._id || s.id) === editId ? res.data.data : s))
           );
@@ -90,7 +91,7 @@ function SubjectSetup() {
           subjectType: subject.subjectType,
         });
         if (res.data?.success) {
-          alert("Subject added successfully");
+          notifyAlert("Subject added successfully");
           setSubjects((prev) => [...prev, res.data.data]);
         }
       }
@@ -102,13 +103,13 @@ function SubjectSetup() {
       });
       setEditId(null);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save subject");
+      notifyAlert(err.response?.data?.message || "Failed to save subject");
     }
   };
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Please select one subject to edit");
+      notifyAlert("Please select one subject to edit");
       return;
     }
 
@@ -129,11 +130,11 @@ function SubjectSetup() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select subjects to delete");
+      notifyAlert("Please select subjects to delete");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete ${selectedIds.length} selected subject(s)?`
     );
     if (!ok) return;
@@ -146,9 +147,9 @@ function SubjectSetup() {
         prev.filter((item) => !selectedIds.includes(item._id || item.id))
       );
       setSelectedIds([]);
-      alert("Subject deleted successfully");
+      notifyAlert("Subject deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete subject");
+      notifyAlert(err.response?.data?.message || "Failed to delete subject");
     }
   };
 

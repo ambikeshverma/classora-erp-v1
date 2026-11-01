@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
+import { confirmDialog } from "../utils/toast";
 function EnquirySources() {
   const [showForm, setShowForm] = useState(false);
   const [sources, setSources] = useState([]);
@@ -90,7 +91,7 @@ function EnquirySources() {
       showToast("Cannot delete: source is already in use");
       return;
     }
-    if (!window.confirm("Delete selected enquiry source(s)?")) return;
+    if (!await confirmDialog("Delete selected enquiry source(s)?")) return;
     try {
       await Promise.all(selectedIds.map((id) => receptionService.deleteEnquirySource(id)));
       showToast("Enquiry source(s) deleted successfully");

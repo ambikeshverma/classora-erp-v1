@@ -27,11 +27,19 @@ const {
 } = require("../utils/feeEngine");
 
 // Every fee record is stored against the school/campus resolved from the access token (schoolAuth)
+const feeGuard = schoolAuth.guardRoutes("fee_manager", [
+  { re: /^\/meta/, sub: null },
+  { re: /^\/students/, method: "GET", sub: null },
+  { re: /^\/(students|manual-fees)/, sub: "fee_collection" },
+  { re: /^\/receipts/, sub: ["fee_receipt", "fee_collection"] },
+  { re: /^\/dues/, sub: ["fee_collection", "fee_receipt", "fee_analytics_reports"] },
+  { re: /^\/reports/, sub: "fee_analytics_reports" },
+]);
 router.use(schoolAuth, (req, res, next) =>
   // The dues list is also read by Fee Due Notice, which belongs to the Student App Access module
   req.path === "/dues" && (req.school.enabledModules || []).includes("student_app_access")
     ? next()
-    : schoolAuth.checkModule("fee_manager")(req, res, next)
+    : feeGuard(req, res, next)
 );
 
 const PAYMENT_MODES = ["Cash", "Cheque", "UPI", "Bank Transfer", "Card"];

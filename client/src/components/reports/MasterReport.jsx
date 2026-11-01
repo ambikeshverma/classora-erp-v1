@@ -9,6 +9,7 @@ import ReportTable from "./ReportTable";
 import { exportPDF, exportExcel } from "./reportExportUtils";
 import StudentPhotoCardReport from "./StudentPhotoCardReport";
 
+import { notifyAlert } from "../../utils/toast";
 function MasterReport({
   moduleTitle = "Analytics & Reports",
   reports = [],
@@ -69,7 +70,7 @@ function MasterReport({
     if (!activeReport) return;
 
     if (selectedColumns.length === 0) {
-      alert("At least one column is required in the report.");
+      notifyAlert("At least one column is required in the report.");
       return;
     }
 
@@ -79,7 +80,7 @@ function MasterReport({
 
   const handlePrint = () => {
     if (!viewClicked || filteredData.length === 0) {
-      alert("No records found to print.");
+      notifyAlert("No records found to print.");
       return;
     }
 
@@ -95,7 +96,7 @@ function MasterReport({
 
   const handleExport = (type) => {
     if (!viewClicked || filteredData.length === 0) {
-      alert("No records found to export.");
+      notifyAlert("No records found to export.");
       return;
     }
 

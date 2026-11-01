@@ -16,7 +16,17 @@ const FeeReceipt = require("../models/FeeReceipt");
 const { getPeriods, getCurrentSession, escapeRegex, TRANSPORT_HEAD } = require("../utils/feeEngine");
 
 // Records are stored against the school/campus resolved from the access token
-router.use(schoolAuth, schoolAuth.checkModule("transport"));
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("transport", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/routes/, method: "GET", sub: null },
+    { re: /^\/routes/, sub: "route_management" },
+    { re: /^\/(vehicles|staff-options)/, sub: "vehicle_management" },
+    { re: /^\/allocations/, sub: "student_transport_allocation" },
+    { re: /^\/reports/, sub: "transport_reports" },
+  ])
+);
 
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 const serverError = (res, error) => res.status(500).json({ success: false, message: error.message });

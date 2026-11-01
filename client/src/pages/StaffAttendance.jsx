@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { attendanceService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function StaffAttendance() {
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -108,12 +109,12 @@ function StaffAttendance() {
 
   const handleFetchSchoolLocation = () => {
     if (geoLocked) {
-      alert("School location is already locked.");
+      notifyAlert("School location is already locked.");
       return;
     }
 
     if (!navigator.geolocation) {
-      alert("Location is not supported in this browser/device.");
+      notifyAlert("Location is not supported in this browser/device.");
       return;
     }
 
@@ -140,14 +141,14 @@ function StaffAttendance() {
           }
         } catch (err) {
           console.error("Failed to save geo location:", err);
-          alert(err.response?.data?.message || "Failed to save geo location");
+          notifyAlert(err.response?.data?.message || "Failed to save geo location");
         } finally {
           setLocating(false);
         }
       },
       (geoErr) => {
         setLocating(false);
-        alert(
+        notifyAlert(
           geoErr.message ||
             "Please turn on device location services and allow location permission."
         );

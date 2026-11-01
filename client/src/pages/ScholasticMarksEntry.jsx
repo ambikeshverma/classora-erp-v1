@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { Skeleton } from "../components/Skeleton";
 import { reportCardService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const EMPTY_FILTERS = { examId: "", className: "", sectionName: "", subjectFilter: "All Subjects" };
 
 function ScholasticMarksEntry() {
@@ -81,7 +82,7 @@ function ScholasticMarksEntry() {
 
   const handleSearch = async () => {
     if (!filterData.examId || !filterData.className || !filterData.sectionName) {
-      alert("Please select exam, class and section");
+      notifyAlert("Please select exam, class and section");
       return;
     }
 
@@ -107,7 +108,7 @@ function ScholasticMarksEntry() {
       setMarksData(saved);
     } catch (err) {
       setEntry({ students: [], subjectOptions: [], setupMissing: false, locked: false });
-      alert(err.response?.data?.message || "Failed to load students");
+      notifyAlert(err.response?.data?.message || "Failed to load students");
     } finally {
       setLoading(false);
     }
@@ -122,7 +123,7 @@ function ScholasticMarksEntry() {
       if (Number.isNaN(Number(upperValue)) || Number(upperValue) < 0) return;
 
       if (Number(upperValue) > subject.maximumMarks) {
-        alert(`Maximum marks for ${subject.subjectName} is ${subject.maximumMarks}`);
+        notifyAlert(`Maximum marks for ${subject.subjectName} is ${subject.maximumMarks}`);
         return;
       }
     }
@@ -132,7 +133,7 @@ function ScholasticMarksEntry() {
 
   const handleSave = async () => {
     if (entry.locked) {
-      alert("Result is locked. Marks cannot be edited.");
+      notifyAlert("Result is locked. Marks cannot be edited.");
       return;
     }
 
@@ -156,9 +157,9 @@ function ScholasticMarksEntry() {
         marks,
       });
 
-      alert("Scholastic marks saved successfully");
+      notifyAlert("Scholastic marks saved successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save marks");
+      notifyAlert(err.response?.data?.message || "Failed to save marks");
     } finally {
       setSaving(false);
     }

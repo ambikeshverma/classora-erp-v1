@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { academicService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function StudentSubjectMapping() {
   const navigate = useNavigate();
 
@@ -85,7 +86,7 @@ function StudentSubjectMapping() {
   =============================== */
   const loadStudents = async () => {
     if (!className || !section) {
-      alert("Please select both Class and Section");
+      notifyAlert("Please select both Class and Section");
       return;
     }
 
@@ -111,7 +112,7 @@ function StudentSubjectMapping() {
       setSelectedRowIds([]);
     } catch (err) {
       console.error("Failed to load students:", err);
-      alert(err.response?.data?.message || "Failed to load students for mapping");
+      notifyAlert(err.response?.data?.message || "Failed to load students for mapping");
     } finally {
       setLoadingStudents(false);
       setLoadingMappings(false);
@@ -145,7 +146,7 @@ function StudentSubjectMapping() {
       targets = [singleStudent];
     } else {
       if (selectedStudentIds.length === 0) {
-        alert("Please select at least one student to assign subjects");
+        notifyAlert("Please select at least one student to assign subjects");
         return;
       }
       targets = students.filter((s) =>
@@ -159,7 +160,7 @@ function StudentSubjectMapping() {
       (!classSubjects.scholasticSubjects || classSubjects.scholasticSubjects.length === 0) &&
       (!classSubjects.coScholasticSubjects || classSubjects.coScholasticSubjects.length === 0)
     ) {
-      alert(
+      notifyAlert(
         `No subjects have been mapped to Class '${className}' yet. Please map subjects in Class Subject Mapping first.`
       );
       return;
@@ -204,7 +205,7 @@ function StudentSubjectMapping() {
   =============================== */
   const handleSaveAssignment = async () => {
     if (selectedScholastic.length === 0 && selectedCoScholastic.length === 0) {
-      alert("Please select at least one subject to assign");
+      notifyAlert("Please select at least one subject to assign");
       return;
     }
 
@@ -224,13 +225,13 @@ function StudentSubjectMapping() {
 
       const res = await academicService.bulkAssignStudentSubjects(payload);
       if (res.data?.success) {
-        alert(res.data.message || "Subjects assigned successfully");
+        notifyAlert(res.data.message || "Subjects assigned successfully");
         closePopup();
         // Refresh mapping and student statuses
         loadStudents();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to assign subjects");
+      notifyAlert(err.response?.data?.message || "Failed to assign subjects");
     }
   };
 
@@ -239,7 +240,7 @@ function StudentSubjectMapping() {
   =============================== */
   const handleEditMapping = () => {
     if (selectedRowIds.length !== 1) {
-      alert("Please select exactly one mapping to edit");
+      notifyAlert("Please select exactly one mapping to edit");
       return;
     }
 
@@ -268,21 +269,21 @@ function StudentSubjectMapping() {
 
   const handleDeleteMapping = async () => {
     if (selectedRowIds.length === 0) {
-      alert("Please select at least one mapping to delete");
+      notifyAlert("Please select at least one mapping to delete");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete ${selectedRowIds.length} selected student subject mapping(s)?`
     );
     if (!ok) return;
 
     try {
       await academicService.bulkDeleteStudentSubjectMappings(selectedRowIds);
-      alert("Mapping(s) deleted successfully");
+      notifyAlert("Mapping(s) deleted successfully");
       loadStudents();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete mapping(s)");
+      notifyAlert(err.response?.data?.message || "Failed to delete mapping(s)");
     }
   };
 

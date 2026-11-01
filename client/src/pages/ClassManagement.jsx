@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function ClassManagement() {
   const navigate = useNavigate();
 
@@ -60,7 +61,7 @@ function ClassManagement() {
 
   const handleSave = async () => {
     if (!formData.className || !formData.classCode) {
-      alert("Please fill required fields (Class Name & Class Code)");
+      notifyAlert("Please fill required fields (Class Name & Class Code)");
       return;
     }
 
@@ -69,7 +70,7 @@ function ClassManagement() {
       if (editId) {
         const res = await studentHubService.updateClass(editId, formData);
         if (res.data?.success) {
-          alert("Class updated successfully");
+          notifyAlert("Class updated successfully");
           resetForm();
           setShowForm(false);
           loadClasses();
@@ -78,7 +79,7 @@ function ClassManagement() {
       } else {
         const res = await studentHubService.createClass(formData);
         if (res.data?.success) {
-          alert("Class added successfully");
+          notifyAlert("Class added successfully");
           resetForm();
           setShowForm(false);
           loadClasses();
@@ -86,7 +87,7 @@ function ClassManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save class");
+      notifyAlert(err.response?.data?.message || "Failed to save class");
     } finally {
       setSaving(false);
     }
@@ -108,7 +109,7 @@ function ClassManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Please select exactly one class to edit");
+      notifyAlert("Please select exactly one class to edit");
       return;
     }
 
@@ -123,22 +124,22 @@ function ClassManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one class to delete");
+      notifyAlert("Please select at least one class to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected class(es)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected class(es)?`);
     if (!ok) return;
 
     try {
       for (const id of selectedIds) {
         await studentHubService.deleteClass(id);
       }
-      alert("Class(es) deleted successfully");
+      notifyAlert("Class(es) deleted successfully");
       setSelectedIds([]);
       loadClasses();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete class");
+      notifyAlert(err.response?.data?.message || "Failed to delete class");
     }
   };
 
@@ -194,7 +195,7 @@ function ClassManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Please select one class to view");
+                      notifyAlert("Please select one class to view");
                       return;
                     }
                     setViewData(selectedSingle);

@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
 import { attendanceService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function StudentAttendance() {
   const navigate = useNavigate();
   const today = new Date();
@@ -193,22 +194,22 @@ function StudentAttendance() {
 
   const saveAttendance = async () => {
     if (todayClosed) {
-      alert("Today is marked as school closed. Attendance cannot be saved.");
+      notifyAlert("Today is marked as school closed. Attendance cannot be saved.");
       return;
     }
 
     if (!selectedClassSection) {
-      alert("Please select class");
+      notifyAlert("Please select class");
       return;
     }
 
     if (students.length === 0) {
-      alert("No students to save attendance for.");
+      notifyAlert("No students to save attendance for.");
       return;
     }
 
     if (summary.na > 0) {
-      alert(
+      notifyAlert(
         `${summary.na} student(s) are still marked as NA. Please complete attendance first.`
       );
       return;

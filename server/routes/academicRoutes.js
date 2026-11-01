@@ -22,7 +22,18 @@ const schoolAdminOnly = (req, res, next) => {
   next();
 };
 
-router.use(schoolAuth, schoolAdminOnly);
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("academic_zone", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(class-subjects|co-scholastic-subjects)/, method: "GET", sub: null },
+    { re: /^\/co-scholastic-subjects/, sub: "co_scholastic_subject_setup" },
+    { re: /^\/class-subjects/, sub: "class_subject_mapping" },
+    { re: /^\/(students-for-mapping|student-subjects)/, sub: "student_subject_mapping" },
+    { re: /^\/reports-data/, sub: "academic_reports" },
+  ]),
+  schoolAdminOnly
+);
 
 /* ==========================================================
    1. OPTIMIZED META ENDPOINT

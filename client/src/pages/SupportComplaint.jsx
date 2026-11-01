@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
+import { confirmDialog } from "../utils/toast";
 const complaintStatuses = ["Open", "In Progress", "Resolved", "Closed", "Rejected"];
 const complaintCategories = ["Fee Issue", "Transport", "Teacher Behaviour", "Academic", "App/ERP Issue", "Examination", "Result", "Admission", "Discipline", "Other"];
 const priorities = ["Low", "Medium", "High", "Urgent"];
@@ -123,7 +124,7 @@ function SupportComplaint() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) { showToast("Select complaint(s) to delete"); return; }
-    if (!window.confirm("Delete selected complaint(s)?")) return;
+    if (!await confirmDialog("Delete selected complaint(s)?")) return;
     try {
       await Promise.all(selectedIds.map((id) => receptionService.deleteComplaint(id)));
       showToast("Complaint(s) deleted successfully");

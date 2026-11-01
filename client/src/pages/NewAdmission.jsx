@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import ScanLoader from "../components/ScanLoader";
 import { admissionService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const statesOfIndia = [
   "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
   "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
@@ -272,13 +273,13 @@ function NewAdmission() {
 
     for (let f of requiredFields) {
       if (!form[f] || !String(form[f]).trim()) {
-        alert("Please fill all mandatory fields marked with *");
+        notifyAlert("Please fill all mandatory fields marked with *");
         return false;
       }
     }
 
     if (subjects.length > 0 && selectedSubjects.length === 0) {
-      alert("Please select at least one subject");
+      notifyAlert("Please select at least one subject");
       return false;
     }
 
@@ -291,7 +292,7 @@ function NewAdmission() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        alert("Login expired. Please login again.");
+        notifyAlert("Login expired. Please login again.");
         navigate("/");
         return;
       }
@@ -306,10 +307,10 @@ function NewAdmission() {
       setSubmitting(true);
       const res = await admissionService.createAdmission(finalData);
 
-      alert(res.data?.msg || "Admission saved successfully ✅");
+      notifyAlert(res.data?.msg || "Admission saved successfully ✅");
       navigate("/admissions");
     } catch (err) {
-      alert(
+      notifyAlert(
         err.response?.data?.msg ||
           err.response?.data?.message ||
           "Admission save failed ❌"

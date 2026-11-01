@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "./appBanners.css";
 import AppButton from "../components/AppButton";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AppBanners() {
   const [showPopup, setShowPopup] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -16,12 +17,12 @@ function AppBanners() {
     const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
     if (!allowedTypes.includes(file.type)) {
-      alert("Only PNG, JPG and WEBP files are allowed");
+      notifyAlert("Only PNG, JPG and WEBP files are allowed");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("File size must be less than 2 MB");
+      notifyAlert("File size must be less than 2 MB");
       return;
     }
 
@@ -30,7 +31,7 @@ function AppBanners() {
 
   const handleSaveBanner = () => {
     if (!selectedFile) {
-      alert("Please select banner image");
+      notifyAlert("Please select banner image");
       return;
     }
 
@@ -45,13 +46,13 @@ function AppBanners() {
     setShowPopup(false);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) {
-      alert("Select banner to delete");
+      notifyAlert("Select banner to delete");
       return;
     }
 
-    const ok = window.confirm("Delete selected banner?");
+    const ok = await confirmDialog("Delete selected banner?");
     if (!ok) return;
 
     setBanners(banners.filter((item) => !selectedIds.includes(item.id)));

@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function SearchStudent() {
   const navigate = useNavigate();
 
@@ -144,7 +145,7 @@ function SearchStudent() {
               type="view"
               onClick={() => {
                 if (!selectedSingle) {
-                  alert("Please select exactly one student to view");
+                  notifyAlert("Please select exactly one student to view");
                   return;
                 }
                 setViewData(selectedSingle);

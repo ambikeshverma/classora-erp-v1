@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { examService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const EMPTY_FILTERS = { examId: "", className: "", sectionName: "" };
 
 const EMPTY_FORM = {
@@ -54,7 +55,7 @@ function ExamTimetable() {
       const res = await examService.getTimetables(params);
       setTimetable(res.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load timetable");
+      notifyAlert(err.response?.data?.message || "Failed to load timetable");
     } finally {
       setLoading(false);
     }
@@ -122,22 +123,22 @@ function ExamTimetable() {
       !formData.startTime ||
       !formData.endTime
     ) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
     if (formData.mode === "Single" && (!formData.className || !formData.sectionName)) {
-      alert("Please select class and section");
+      notifyAlert("Please select class and section");
       return;
     }
 
     if (formData.mode === "Multiple" && formData.selectedClassSections.length === 0) {
-      alert("Please select class sections");
+      notifyAlert("Please select class sections");
       return;
     }
 
     if (formData.endTime <= formData.startTime) {
-      alert("End time cannot be before start time");
+      notifyAlert("End time cannot be before start time");
       return;
     }
 
@@ -158,7 +159,7 @@ function ExamTimetable() {
           className: formData.className,
           sectionName: formData.sectionName,
         });
-        alert("Timetable updated successfully");
+        notifyAlert("Timetable updated successfully");
       } else {
         const targets =
           formData.mode === "Single"
@@ -169,7 +170,7 @@ function ExamTimetable() {
               });
 
         const res = await examService.createTimetable({ ...base, targets });
-        alert(res.data?.message || "Timetable added successfully");
+        notifyAlert(res.data?.message || "Timetable added successfully");
       }
 
       resetForm();
@@ -177,7 +178,7 @@ function ExamTimetable() {
       setSelectedIds([]);
       await loadTimetable();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save timetable");
+      notifyAlert(err.response?.data?.message || "Failed to save timetable");
     } finally {
       setSaving(false);
     }
@@ -185,7 +186,7 @@ function ExamTimetable() {
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Please select one timetable");
+      notifyAlert("Please select one timetable");
       return;
     }
 
@@ -209,19 +210,19 @@ function ExamTimetable() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select timetable");
+      notifyAlert("Please select timetable");
       return;
     }
 
-    if (!window.confirm("Delete selected timetable?")) return;
+    if (!await confirmDialog("Delete selected timetable?")) return;
 
     try {
       setSaving(true);
       await examService.deleteTimetables(selectedIds);
       setSelectedIds([]);
-      alert("Timetable deleted successfully");
+      notifyAlert("Timetable deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete timetable");
+      notifyAlert(err.response?.data?.message || "Failed to delete timetable");
     } finally {
       setSaving(false);
       await loadTimetable();
@@ -230,7 +231,7 @@ function ExamTimetable() {
 
   const handlePrint = () => {
     if (selectedIds.length === 0) {
-      alert("Please select timetable rows");
+      notifyAlert("Please select timetable rows");
       return;
     }
 
@@ -270,7 +271,7 @@ function ExamTimetable() {
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
-      alert("Please allow pop-ups to print the timetable");
+      notifyAlert("Please allow pop-ups to print the timetable");
       return;
     }
 

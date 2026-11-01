@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { Shield, AlertTriangle, Eye, EyeOff, LogIn } from "lucide-react";
 import "./login.css";
 
+import { notifyAlert } from "../utils/toast";
 function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -113,23 +114,23 @@ function Login() {
 
   const sendOtp = () => {
     if (!resetEmail) {
-      alert("Please enter registered email");
+      notifyAlert("Please enter registered email");
       return;
     }
     setOtpSent(true);
-    alert("Demo OTP sent: 123456");
+    notifyAlert("Demo OTP sent: 123456");
   };
 
   const resetPassword = () => {
     if (otp !== "123456") {
-      alert("Invalid OTP");
+      notifyAlert("Invalid OTP");
       return;
     }
     if (!newPassword) {
-      alert("Enter new password");
+      notifyAlert("Enter new password");
       return;
     }
-    alert("Demo password reset simulated. Contact Super Admin to reset your production school password.");
+    notifyAlert("Demo password reset simulated. Contact Super Admin to reset your production school password.");
     setResetOpen(false);
     setOtpSent(false);
     setOtp("");

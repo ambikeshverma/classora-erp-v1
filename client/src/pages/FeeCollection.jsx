@@ -9,6 +9,7 @@ import FeeStudentProfile from "../components/fee/FeeStudentProfile";
 import { feeService } from "../services/api";
 import { formatMoney, todayISO } from "../utils/feeUtils";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
 function FeeCollection() {
@@ -220,37 +221,37 @@ function FeeCollection() {
 
   const handleSaveReceipt = async () => {
     if (!dashboard) {
-      alert("Please select student");
+      notifyAlert("Please select student");
       return;
     }
 
     if (visibleRows.length === 0) {
-      alert("No fee rows selected");
+      notifyAlert("No fee rows selected");
       return;
     }
 
     if (Number.isNaN(calculatedPaidInput) || calculatedPaidInput < 0) {
-      alert("Invalid paid amount");
+      notifyAlert("Invalid paid amount");
       return;
     }
 
     if (calculatedPaidInput > totalPayableNow + 0.001) {
-      alert("Total paid cannot exceed payable amount");
+      notifyAlert("Total paid cannot exceed payable amount");
       return;
     }
 
     if (calculatedPaidInput === 0 && !zeroReceiptConfirmed) {
-      alert("Please confirm ZERO amount receipt.");
+      notifyAlert("Please confirm ZERO amount receipt.");
       return;
     }
 
     if (depositDate > todayISO()) {
-      alert("Future date is not allowed");
+      notifyAlert("Future date is not allowed");
       return;
     }
 
     if (paymentMode !== "Cash" && !paymentRef.trim()) {
-      alert("Please enter payment reference number");
+      notifyAlert("Please enter payment reference number");
       return;
     }
 
@@ -279,7 +280,7 @@ function FeeCollection() {
       resetCollectionForm();
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save receipt");
+      notifyAlert(err.response?.data?.message || "Failed to save receipt");
     } finally {
       setSaving(false);
     }
@@ -287,7 +288,7 @@ function FeeCollection() {
 
   const handleAddManualFee = async () => {
     if (!addFeeForm.feeHeadName || !addFeeForm.periodKey || !addFeeForm.amount) {
-      alert("Please select fee head, fee period and amount");
+      notifyAlert("Please select fee head, fee period and amount");
       return;
     }
 
@@ -303,21 +304,21 @@ function FeeCollection() {
       setAddFeeForm({ feeHeadName: "", periodKey: "", amount: "" });
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to add fee");
+      notifyAlert(err.response?.data?.message || "Failed to add fee");
     } finally {
       setPopupBusy(false);
     }
   };
 
   const handleDeleteManualFee = async (manualFeeId) => {
-    if (!window.confirm("Delete selected added fee?")) return;
+    if (!await confirmDialog("Delete selected added fee?")) return;
 
     try {
       setPopupBusy(true);
       await feeService.deleteManualFee(manualFeeId);
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete fee");
+      notifyAlert(err.response?.data?.message || "Failed to delete fee");
     } finally {
       setPopupBusy(false);
     }
@@ -330,7 +331,7 @@ function FeeCollection() {
 
   const handleAllocateTransport = async () => {
     if (!transportRouteId) {
-      alert("Please select route");
+      notifyAlert("Please select route");
       return;
     }
 
@@ -339,7 +340,7 @@ function FeeCollection() {
       await feeService.allocateTransport(student.id, { session: dashboard.session, routeId: transportRouteId });
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to allocate transport");
+      notifyAlert(err.response?.data?.message || "Failed to allocate transport");
     } finally {
       setPopupBusy(false);
     }
@@ -347,11 +348,11 @@ function FeeCollection() {
 
   const handleRemoveFullTransport = async () => {
     if (!transport) {
-      alert("Transport is not allocated to this student");
+      notifyAlert("Transport is not allocated to this student");
       return;
     }
 
-    if (!window.confirm("Remove full transport from this student?")) return;
+    if (!await confirmDialog("Remove full transport from this student?")) return;
 
     try {
       setPopupBusy(true);
@@ -359,7 +360,7 @@ function FeeCollection() {
       setTransportRouteId("");
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to remove transport");
+      notifyAlert(err.response?.data?.message || "Failed to remove transport");
     } finally {
       setPopupBusy(false);
     }
@@ -371,7 +372,7 @@ function FeeCollection() {
       await feeService.setTransportPeriod(student.id, { session: dashboard.session, periodKey, restore });
       await refreshDashboard();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update transport fee");
+      notifyAlert(err.response?.data?.message || "Failed to update transport fee");
     } finally {
       setPopupBusy(false);
     }
@@ -692,7 +693,7 @@ function FeeCollection() {
                                 const value = Number(e.target.value || 0);
 
                                 if (value > row.payable) {
-                                  alert("Payable amount cannot exceed balance.");
+                                  notifyAlert("Payable amount cannot exceed balance.");
                                   return;
                                 }
 

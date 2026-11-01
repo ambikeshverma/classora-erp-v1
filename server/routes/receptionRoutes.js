@@ -14,7 +14,22 @@ const IdCardIssue = require("../models/IdCardIssue");
 const { escapeRegex } = require("../utils/feeEngine");
 
 // Every reception record is stored against the school/campus resolved from the access token (schoolAuth)
-router.use(schoolAuth, schoolAuth.checkModule("reception"));
+// Module + sub-module entitlement, enforced here and not only in the frontend
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("reception", [
+    { re: /^\/(meta|students\/search)/, sub: null },
+    { re: /^\/enquiry-sources/, method: "GET", sub: null },
+    { re: /^\/enquiry-sources/, sub: "enquiry_sources" },
+    { re: /^\/follow-ups/, sub: "follow_up_management" },
+    { re: /^\/gate-passes/, sub: "gate_pass_management" },
+    { re: /^\/id-cards/, sub: ["student_id_management", "parent_id_management"] },
+    { re: /^\/appointments/, sub: ["appointment_scheduling", "visitor_management"] },
+    { re: /^\/visitors/, sub: "visitor_management" },
+    { re: /^\/complaints/, sub: "support_complaint" },
+    { re: /^\/reports/, sub: "reception_reports" },
+  ])
+);
 
 /* ══════════════════════════════════════════════════════════════
    MODELS (campusId + schoolId come from the token)

@@ -7,6 +7,7 @@ import FeeReceiptModal from "../components/fee/FeeReceiptModal";
 import { feeService } from "../services/api";
 import { formatDate, formatMoney } from "../utils/feeUtils";
 
+import { notifyAlert, promptDialog } from "../utils/toast";
 const EMPTY_FILTERS = { session: "", from: "", to: "", paymentMode: "", status: "", q: "" };
 
 function FeeReceipts() {
@@ -67,7 +68,7 @@ function FeeReceipts() {
 
   const handleSearch = () => {
     if (filters.from && filters.to && filters.from > filters.to) {
-      alert("From date cannot be after To date");
+      notifyAlert("From date cannot be after To date");
       return;
     }
 
@@ -87,18 +88,18 @@ function FeeReceipts() {
       const res = await feeService.getReceipt(id);
       setViewReceipt(res.data?.data || null);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load receipt");
+      notifyAlert(err.response?.data?.message || "Failed to load receipt");
     } finally {
       setBusyId("");
     }
   };
 
   const handleCancel = async (receipt) => {
-    const reason = window.prompt(`Cancel receipt ${receipt.receiptNo}? Enter the cancellation reason:`);
+    const reason = await promptDialog(`Cancel receipt ${receipt.receiptNo}? Enter the cancellation reason:`);
     if (reason === null) return;
 
     if (reason.trim().length < 3) {
-      alert("Cancellation reason is required");
+      notifyAlert("Cancellation reason is required");
       return;
     }
 
@@ -107,7 +108,7 @@ function FeeReceipts() {
       await feeService.cancelReceipt(receipt._id, reason.trim());
       await loadReceipts();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to cancel receipt");
+      notifyAlert(err.response?.data?.message || "Failed to cancel receipt");
     } finally {
       setBusyId("");
     }

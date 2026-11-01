@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "./appNews.css";
 import AppButton from "../components/AppButton";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AppNews() {
   const classOptions = [
     "All",
@@ -145,12 +146,12 @@ function AppNews() {
       !formData.newsDate ||
       !formData.expiryDate
     ) {
-      alert("Please fill required fields");
+      notifyAlert("Please fill required fields");
       return;
     }
 
     if (formData.expiryDate < formData.newsDate) {
-      alert("Expiry date cannot be before news date");
+      notifyAlert("Expiry date cannot be before news date");
       return;
     }
 
@@ -177,13 +178,13 @@ function AppNews() {
     setShowPopup(false);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) {
-      alert("Select news to delete");
+      notifyAlert("Select news to delete");
       return;
     }
 
-    const ok = window.confirm("Delete selected news?");
+    const ok = await confirmDialog("Delete selected news?");
     if (!ok) return;
 
     setNewsList(newsList.filter((item) => !selectedIds.includes(item.id)));
@@ -266,7 +267,7 @@ function AppNews() {
               type="view"
               onClick={() => {
                 if (selectedIds.length !== 1) {
-                  alert("Select one news");
+                  notifyAlert("Select one news");
                   return;
                 }
 

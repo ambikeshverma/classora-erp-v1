@@ -234,6 +234,24 @@ export const superAdminService = {
   addSchoolNotice: (id, data) => api.post(`/api/superAdmin/schools/${id}/notices`, data),
   toggleSchoolNotice: (id, noticeId) => api.patch(`/api/superAdmin/schools/${id}/notices/${noticeId}/toggle`),
   deleteSchoolNotice: (id, noticeId) => api.delete(`/api/superAdmin/schools/${id}/notices/${noticeId}`),
+  // Dashboard, subscriptions & billing, settings, audit, announcements
+  getDashboard: () => api.get("/api/superAdmin/dashboard"),
+  getSubscriptions: (params) => api.get("/api/superAdmin/subscriptions", { params }),
+  getSchoolBilling: (id) => api.get(`/api/superAdmin/schools/${id}/billing`),
+  updateSubscription: (id, data) => api.put(`/api/superAdmin/schools/${id}/subscription`, data),
+  recordManualPayment: (id, data) => api.post(`/api/superAdmin/schools/${id}/invoices/manual`, data),
+  getInvoices: (params) => api.get("/api/superAdmin/invoices", { params }),
+  getInvoiceScreenshot: (id) => api.get(`/api/superAdmin/invoices/${id}/screenshot`),
+  verifyInvoice: (id) => api.patch(`/api/superAdmin/invoices/${id}/verify`),
+  rejectInvoice: (id, reason) => api.patch(`/api/superAdmin/invoices/${id}/reject`, { reason }),
+  getReminders: () => api.get("/api/superAdmin/reminders"),
+  getPaymentQr: () => api.get("/api/superAdmin/settings/qr"),
+  uploadPaymentQr: (image) => api.put("/api/superAdmin/settings/qr", { image }),
+  removePaymentQr: () => api.delete("/api/superAdmin/settings/qr"),
+  getSettings: () => api.get("/api/superAdmin/settings"),
+  updateSettings: (data) => api.put("/api/superAdmin/settings", data),
+  getAuditLogs: (params) => api.get("/api/superAdmin/audit-logs", { params }),
+  broadcastAnnouncement: (data) => api.post("/api/superAdmin/announcements", data),
 };
 
 // 🏫 School Endpoints
@@ -392,6 +410,8 @@ export const adminPanelService = {
 
   // Subscription Billing & Reports
   getBilling: () => api.get("/api/admin-panel/billing"),
+  submitBillingPayment: (data) => api.post("/api/admin-panel/billing/submit", data),
+  getBillingQr: () => api.get("/api/admin-panel/billing/qr"),
   getReports: () => api.get("/api/admin-panel/reports"),
 };
 

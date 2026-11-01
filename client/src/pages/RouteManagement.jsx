@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { transportService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function RouteManagement() {
   const [showForm, setShowForm] = useState(false);
   const [routes, setRoutes] = useState([]);
@@ -61,7 +62,7 @@ function RouteManagement() {
       const res = await transportService.getRoutes();
       setRoutes(res.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load routes");
+      notifyAlert(err.response?.data?.message || "Failed to load routes");
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ function RouteManagement() {
 
   const handleSearch = () => {
     if (!routeNameFilter.trim()) {
-      alert("Enter route name to search");
+      notifyAlert("Enter route name to search");
       return;
     }
 
@@ -117,7 +118,7 @@ function RouteManagement() {
     });
 
     if (result.length === 0) {
-      alert("No route found");
+      notifyAlert("No route found");
     }
 
     setIsSearched(true);
@@ -157,12 +158,12 @@ function RouteManagement() {
 
   const handleSave = async () => {
     if (!formData.routeName || !formData.monthlyFee) {
-      alert("Route name and monthly fee are required");
+      notifyAlert("Route name and monthly fee are required");
       return;
     }
 
     if (Number(formData.monthlyFee) <= 0) {
-      alert("Monthly fee must be greater than zero");
+      notifyAlert("Monthly fee must be greater than zero");
       return;
     }
 
@@ -170,7 +171,7 @@ function RouteManagement() {
   formData.distance &&
   Number(formData.distance) <= 0
 ) {
-  alert("Distance must be greater than zero");
+  notifyAlert("Distance must be greater than zero");
   return;
 }
 
@@ -182,7 +183,7 @@ function RouteManagement() {
     );
 
     if (duplicateRoute) {
-      alert("Route name already exists");
+      notifyAlert("Route name already exists");
       return;
     }
 
@@ -199,10 +200,10 @@ function RouteManagement() {
 
       if (editId) {
         await transportService.updateRoute(editId, payload);
-        alert("Route updated successfully");
+        notifyAlert("Route updated successfully");
       } else {
         await transportService.createRoute(payload);
-        alert("Route added successfully");
+        notifyAlert("Route added successfully");
       }
 
       await loadRoutes();
@@ -210,7 +211,7 @@ function RouteManagement() {
       setShowForm(false);
       setIsSearched(true);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save route");
+      notifyAlert(err.response?.data?.message || "Failed to save route");
     } finally {
       setSaving(false);
     }
@@ -218,7 +219,7 @@ function RouteManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one route");
+      notifyAlert("Select one route");
       return;
     }
 
@@ -237,7 +238,7 @@ function RouteManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select route");
+      notifyAlert("Select route");
       return;
     }
 
@@ -246,13 +247,13 @@ function RouteManagement() {
     );
 
     if (assignedRoute) {
-      alert(
+      notifyAlert(
         "This route is assigned to students and cannot be deleted."
       );
       return;
     }
 
-    const ok = window.confirm("Delete selected route?");
+    const ok = await confirmDialog("Delete selected route?");
     if (!ok) return;
 
     try {
@@ -261,7 +262,7 @@ function RouteManagement() {
         selectedIds.map((id) => transportService.deleteRoute(id))
       );
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete route");
+      notifyAlert(err.response?.data?.message || "Failed to delete route");
     } finally {
       setSaving(false);
     }

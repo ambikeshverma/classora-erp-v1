@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { admissionService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AdmissionEnquiries() {
   // Sources come from Reception Desk -> Enquiry Sources, classes from Class Management
   const [sources, setSources] = useState([]);
@@ -84,7 +85,7 @@ function AdmissionEnquiries() {
 
   const handleSave = async () => {
     if (!formData.studentName.trim() || !formData.mobileNumber.trim() || !formData.classInterested || !formData.source) {
-      alert("Please fill all required fields marked with *");
+      notifyAlert("Please fill all required fields marked with *");
       return;
     }
 
@@ -92,16 +93,16 @@ function AdmissionEnquiries() {
       setSaving(true);
       if (editId) {
         await admissionService.updateEnquiry(editId, formData);
-        alert("Enquiry updated successfully");
+        notifyAlert("Enquiry updated successfully");
       } else {
         await admissionService.createEnquiry(formData);
-        alert("Enquiry added successfully");
+        notifyAlert("Enquiry added successfully");
       }
       resetForm();
       setShowForm(false);
       loadEnquiriesAndMeta();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save enquiry");
+      notifyAlert(err.response?.data?.message || "Failed to save enquiry");
     } finally {
       setSaving(false);
     }
@@ -124,17 +125,17 @@ function AdmissionEnquiries() {
   };
 
   const handleDelete = async (id) => {
-    const ok = window.confirm("Delete this enquiry?");
+    const ok = await confirmDialog("Delete this enquiry?");
     if (!ok) return;
 
     try {
       setSaving(true);
       await admissionService.deleteEnquiry(id);
       setSelectedIds([]);
-      alert("Enquiry deleted successfully");
+      notifyAlert("Enquiry deleted successfully");
       loadEnquiriesAndMeta();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete enquiry");
+      notifyAlert(err.response?.data?.message || "Failed to delete enquiry");
     } finally {
       setSaving(false);
     }
@@ -147,7 +148,7 @@ function AdmissionEnquiries() {
         prev.map((item) => (item.id === id ? { ...item, status: newStatus } : item))
       );
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update status");
+      notifyAlert(err.response?.data?.message || "Failed to update status");
     }
   };
 
@@ -202,7 +203,7 @@ function AdmissionEnquiries() {
                   disabled={selectedIds.length !== 1 || loading}
                   onClick={() => {
                     if (selectedIds.length !== 1) {
-                      alert("Select one enquiry");
+                      notifyAlert("Select one enquiry");
                       return;
                     }
                     const selected = enquiries.find((item) => item.id === selectedIds[0]);
@@ -217,7 +218,7 @@ function AdmissionEnquiries() {
                   disabled={selectedIds.length !== 1 || loading}
                   onClick={() => {
                     if (selectedIds.length !== 1) {
-                      alert("Select one enquiry");
+                      notifyAlert("Select one enquiry");
                       return;
                     }
                     const selected = enquiries.find((item) => item.id === selectedIds[0]);
@@ -232,7 +233,7 @@ function AdmissionEnquiries() {
                   disabled={selectedIds.length === 0 || loading}
                   onClick={() => {
                     if (selectedIds.length === 0) {
-                      alert("Select enquiry");
+                      notifyAlert("Select enquiry");
                       return;
                     }
                     handleDelete(selectedIds[0]);

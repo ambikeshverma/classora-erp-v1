@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function StudentDocuments() {
   const navigate = useNavigate();
 
@@ -93,12 +94,12 @@ function StudentDocuments() {
 
   const handleUploadSubmit = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student");
+      notifyAlert("Please select at least one student");
       return;
     }
 
     if (!uploadForm.documentType) {
-      alert("Please select a document type");
+      notifyAlert("Please select a document type");
       return;
     }
 
@@ -119,13 +120,13 @@ function StudentDocuments() {
         }
       }
 
-      alert(`Document recorded successfully for ${selectedIds.length} student(s)`);
+      notifyAlert(`Document recorded successfully for ${selectedIds.length} student(s)`);
       setShowUploadPopup(false);
       setSelectedIds([]);
       setUploadForm({ documentType: "Student Aadhaar Card", remarks: "" });
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to record document");
+      notifyAlert(err.response?.data?.message || "Failed to record document");
     } finally {
       setUploading(false);
     }
@@ -240,7 +241,7 @@ function StudentDocuments() {
               type="primary"
               onClick={() => {
                 if (selectedIds.length === 0) {
-                  alert("Please select at least one student to upload documents for");
+                  notifyAlert("Please select at least one student to upload documents for");
                   return;
                 }
                 setShowUploadPopup(true);

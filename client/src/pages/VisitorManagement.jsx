@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
+import { confirmDialog } from "../utils/toast";
 const visitorStatuses = ["Waiting", "Inside Campus", "Exited", "Cancelled"];
 const visitorTypes = ["Walk-In Visitor", "Appointment Visitor"];
 
@@ -151,7 +152,7 @@ function VisitorManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) { showToast("Select visitor(s) to delete"); return; }
-    if (!window.confirm("Delete selected visitor(s)?")) return;
+    if (!await confirmDialog("Delete selected visitor(s)?")) return;
     try {
       await Promise.all(selectedIds.map((id) => receptionService.deleteVisitor(id)));
       showToast("Visitor(s) deleted successfully");

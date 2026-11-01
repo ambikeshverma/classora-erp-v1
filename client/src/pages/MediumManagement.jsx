@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function MediumManagement() {
   const navigate = useNavigate();
 
@@ -60,7 +61,7 @@ function MediumManagement() {
 
   const handleSave = async () => {
     if (!formData.mediumName || !formData.mediumCode) {
-      alert("Please fill required fields (Medium Name & Medium Code)");
+      notifyAlert("Please fill required fields (Medium Name & Medium Code)");
       return;
     }
 
@@ -69,7 +70,7 @@ function MediumManagement() {
       if (editId) {
         const res = await studentHubService.updateMedium(editId, formData);
         if (res.data?.success) {
-          alert("Medium updated successfully");
+          notifyAlert("Medium updated successfully");
           resetForm();
           setShowForm(false);
           loadMediums();
@@ -78,7 +79,7 @@ function MediumManagement() {
       } else {
         const res = await studentHubService.createMedium(formData);
         if (res.data?.success) {
-          alert("Medium added successfully");
+          notifyAlert("Medium added successfully");
           resetForm();
           setShowForm(false);
           loadMediums();
@@ -86,7 +87,7 @@ function MediumManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save medium");
+      notifyAlert(err.response?.data?.message || "Failed to save medium");
     } finally {
       setSaving(false);
     }
@@ -108,7 +109,7 @@ function MediumManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Please select exactly one medium to edit");
+      notifyAlert("Please select exactly one medium to edit");
       return;
     }
 
@@ -123,22 +124,22 @@ function MediumManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one medium to delete");
+      notifyAlert("Please select at least one medium to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected medium(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected medium(s)?`);
     if (!ok) return;
 
     try {
       for (const id of selectedIds) {
         await studentHubService.deleteMedium(id);
       }
-      alert("Medium(s) deleted successfully");
+      notifyAlert("Medium(s) deleted successfully");
       setSelectedIds([]);
       loadMediums();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete medium");
+      notifyAlert(err.response?.data?.message || "Failed to delete medium");
     }
   };
 
@@ -194,7 +195,7 @@ function MediumManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Please select one medium to view");
+                      notifyAlert("Please select one medium to view");
                       return;
                     }
                     setViewData(selectedSingle);

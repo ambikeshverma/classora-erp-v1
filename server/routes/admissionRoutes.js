@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const schoolAuth = require("../middleware/schoolAuth");
+const { reserveStudentSlot } = require("../utils/studentLimit");
 const mongoose = require("mongoose");
 const Admission = require("../models/Admission");
 const AdmissionEnquiry = require("../models/AdmissionEnquiry");
@@ -28,7 +30,18 @@ const schoolAdminOnly = (req, res, next) => {
   next();
 };
 
-router.use(schoolAdminOnly);
+router.use(
+  schoolAuth.guardRoutes("admissions", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/enquiries/, sub: "admission_enquiries" },
+    { re: /^\/reports/, sub: "admission_analytics_reports" },
+    { re: /^\/bulk-import/, sub: "admission_bulk_import" },
+    { re: /^\/add/, sub: "new_admission" },
+    { re: /^\/[^/]+$/, method: "GET", sub: null },
+    { re: /^\/[^/]+$/, sub: "new_admission" },
+  ]),
+  schoolAdminOnly
+);
 
 // Helper to get school scope covering both ObjectId schoolId and String campusId
 const getSchoolScope = (req) => {
@@ -199,6 +212,11 @@ router.post("/add", async (req, res) => {
     } else {
       delete admissionData.aadhar;
     }
+
+    // Super Admin may cap new students for this school; checked atomically before anything is written
+    const slot = await reserveStudentSlot(schoolId);
+    if (!slot.ok) return res.status(403).json(slot.error);
+    res.on("finish", () => slot.release().catch(() => {}));
 
     const admission = new Admission(admissionData);
     await admission.save();
@@ -643,24 +661,35 @@ router.post("/bulk-import", async (req, res) => {
       if (aadhar) newAdmissionData.aadhar = aadhar;
       else delete newAdmissionData.aadhar;
 
-      const newAdmission = new Admission(newAdmissionData);
-      await newAdmission.save();
+      const slot = await reserveStudentSlot(schoolId);
+      if (!slot.ok) {
+        skippedCount++;
+        errors.push({ row: i + 1, message: slot.error.message });
+        continue;
+      }
 
       try {
-        await Student.create({
-          name: studentName,
-          class: className,
-          className: className,
-          section: row.section || "",
-          srNo: generatedSrNo,
-          admissionNo: schoolAdmissionNo || generatedSrNo,
-          schoolId,
-          campusId: actualCampusId || String(schoolId),
-          status: "Active",
-        });
-      } catch (_) {}
+        const newAdmission = new Admission(newAdmissionData);
+        await newAdmission.save();
 
-      insertedCount++;
+        try {
+          await Student.create({
+            name: studentName,
+            class: className,
+            className: className,
+            section: row.section || "",
+            srNo: generatedSrNo,
+            admissionNo: schoolAdmissionNo || generatedSrNo,
+            schoolId,
+            campusId: actualCampusId || String(schoolId),
+            status: "Active",
+          });
+        } catch (_) {}
+
+        insertedCount++;
+      } finally {
+        await slot.release();
+      }
     }
 
     res.status(200).json({

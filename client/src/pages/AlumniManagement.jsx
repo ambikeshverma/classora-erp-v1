@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function AlumniManagement() {
   const navigate = useNavigate();
 
@@ -102,7 +103,7 @@ function AlumniManagement() {
               type="view"
               onClick={() => {
                 if (!selectedSingle) {
-                  alert("Please select one alumnus to view");
+                  notifyAlert("Please select one alumnus to view");
                   return;
                 }
                 setViewData(selectedSingle);

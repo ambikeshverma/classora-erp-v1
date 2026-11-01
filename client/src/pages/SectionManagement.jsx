@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function SectionManagement() {
   const navigate = useNavigate();
 
@@ -72,7 +73,7 @@ function SectionManagement() {
 
   const handleSave = async () => {
     if (!formData.className || !formData.sectionName) {
-      alert("Please select Class and enter Section Name");
+      notifyAlert("Please select Class and enter Section Name");
       return;
     }
 
@@ -87,7 +88,7 @@ function SectionManagement() {
       if (editId) {
         const res = await studentHubService.updateSection(editId, payload);
         if (res.data?.success) {
-          alert("Section updated successfully");
+          notifyAlert("Section updated successfully");
           resetForm();
           setShowForm(false);
           loadData();
@@ -96,7 +97,7 @@ function SectionManagement() {
       } else {
         const res = await studentHubService.createSection(payload);
         if (res.data?.success) {
-          alert("Section added successfully");
+          notifyAlert("Section added successfully");
           resetForm();
           setShowForm(false);
           loadData();
@@ -104,7 +105,7 @@ function SectionManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save section");
+      notifyAlert(err.response?.data?.message || "Failed to save section");
     } finally {
       setSaving(false);
     }
@@ -126,7 +127,7 @@ function SectionManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Please select exactly one section to edit");
+      notifyAlert("Please select exactly one section to edit");
       return;
     }
 
@@ -142,22 +143,22 @@ function SectionManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one section to delete");
+      notifyAlert("Please select at least one section to delete");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected section(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected section(s)?`);
     if (!ok) return;
 
     try {
       for (const id of selectedIds) {
         await studentHubService.deleteSection(id);
       }
-      alert("Section(s) deleted successfully");
+      notifyAlert("Section(s) deleted successfully");
       setSelectedIds([]);
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete section");
+      notifyAlert(err.response?.data?.message || "Failed to delete section");
     }
   };
 
@@ -228,7 +229,7 @@ function SectionManagement() {
                   type="view"
                   onClick={() => {
                     if (!selectedSingle) {
-                      alert("Please select one section to view");
+                      notifyAlert("Please select one section to view");
                       return;
                     }
                     setViewData(selectedSingle);

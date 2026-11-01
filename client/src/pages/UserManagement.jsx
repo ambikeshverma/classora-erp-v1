@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { userControlService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function UserManagement() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -157,7 +158,7 @@ function UserManagement() {
       !formData.defaultSession ||
       !formData.employeeId
     ) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
@@ -165,7 +166,7 @@ function UserManagement() {
       if (editId) {
         const res = await userControlService.updateUser(editId, formData);
         if (res.data?.success) {
-          alert("User updated successfully");
+          notifyAlert("User updated successfully");
           setUsers((prev) =>
             prev.map((item) =>
               (item._id || item.id) === editId ? res.data.data : item
@@ -175,7 +176,7 @@ function UserManagement() {
       } else {
         const res = await userControlService.createUser(formData);
         if (res.data?.success) {
-          alert("User added successfully");
+          notifyAlert("User added successfully");
           setUsers((prev) => [res.data.data, ...prev]);
         }
       }
@@ -183,7 +184,7 @@ function UserManagement() {
       resetForm();
       setShowForm(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save user");
+      notifyAlert(err.response?.data?.message || "Failed to save user");
     }
   };
 
@@ -192,7 +193,7 @@ function UserManagement() {
   =============================== */
   const handleView = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one user");
+      notifyAlert("Select one user");
       return;
     }
 
@@ -216,7 +217,7 @@ function UserManagement() {
   =============================== */
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one user");
+      notifyAlert("Select one user");
       return;
     }
 
@@ -240,11 +241,11 @@ function UserManagement() {
   =============================== */
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select user to delete");
+      notifyAlert("Select user to delete");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete ${selectedIds.length} selected user(s)?`
     );
     if (!ok) return;
@@ -257,9 +258,9 @@ function UserManagement() {
         prev.filter((item) => !selectedIds.includes(item._id || item.id))
       );
       setSelectedIds([]);
-      alert("User deleted successfully");
+      notifyAlert("User deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete user");
+      notifyAlert(err.response?.data?.message || "Failed to delete user");
     }
   };
 
@@ -268,11 +269,11 @@ function UserManagement() {
   =============================== */
   const handleResetPassword = async (user) => {
     if (!user.email) {
-      alert("Email not found. Please add email before sending reset link.");
+      notifyAlert("Email not found. Please add email before sending reset link.");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Send password reset link to registered email (${user.email})?`
     );
     if (!ok) return;
@@ -281,9 +282,9 @@ function UserManagement() {
       const res = await userControlService.resetUserPassword(
         user._id || user.id
       );
-      alert(res.data?.message || "Password reset link sent successfully.");
+      notifyAlert(res.data?.message || "Password reset link sent successfully.");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to reset password.");
+      notifyAlert(err.response?.data?.message || "Failed to reset password.");
     }
   };
 
@@ -304,7 +305,7 @@ function UserManagement() {
         );
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to toggle status");
+      notifyAlert(err.response?.data?.message || "Failed to toggle status");
     }
   };
 

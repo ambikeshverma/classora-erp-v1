@@ -4,6 +4,7 @@ import AppButton from "../AppButton";
 import { SkeletonStats, SkeletonTable } from "../Skeleton";
 import { financeService } from "../../services/api";
 
+import { notifyAlert, promptDialog } from "../../utils/toast";
 // Income and expense screens are the same flow with different labels
 const CONFIG = {
   INCOME: {
@@ -138,7 +139,7 @@ function FinanceEntryPage({ type }) {
       const res = await financeService.getEntries(params);
       if (res.data?.data) setResult(res.data.data);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load entries");
+      notifyAlert(err.response?.data?.message || "Failed to load entries");
     } finally {
       setListLoading(false);
     }
@@ -175,7 +176,7 @@ function FinanceEntryPage({ type }) {
     }
 
     if (file.size > MAX_ATTACHMENT_BYTES) {
-      alert("Attachment must be smaller than 3 MB");
+      notifyAlert("Attachment must be smaller than 3 MB");
       e.target.value = "";
       return;
     }
@@ -184,7 +185,7 @@ function FinanceEntryPage({ type }) {
       const dataUrl = await readFileAsDataUrl(file);
       setFormData((prev) => ({ ...prev, attachmentName: file.name, attachmentUrl: dataUrl }));
     } catch {
-      alert("Failed to read attachment");
+      notifyAlert("Failed to read attachment");
     }
   };
 
@@ -197,12 +198,12 @@ function FinanceEntryPage({ type }) {
       !formData.partyName.trim() ||
       !formData.paymentMode
     ) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
     if (Number(formData.amount) <= 0) {
-      alert("Amount must be greater than zero");
+      notifyAlert("Amount must be greater than zero");
       return;
     }
 
@@ -225,14 +226,14 @@ function FinanceEntryPage({ type }) {
         attachmentUrl: formData.attachmentUrl,
       });
 
-      alert(`${type === "INCOME" ? "Income" : "Expense"} entry saved successfully`);
+      notifyAlert(`${type === "INCOME" ? "Income" : "Expense"} entry saved successfully`);
       resetForm();
       setShowForm(false);
 
       if (page === 1) await loadEntries();
       else setPage(1);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save entry");
+      notifyAlert(err.response?.data?.message || "Failed to save entry");
     } finally {
       setSaving(false);
     }
@@ -240,12 +241,12 @@ function FinanceEntryPage({ type }) {
 
   const handleSearch = () => {
     if (!filters.voucher && !filters.from && !filters.to) {
-      alert("Please fill at least one search field");
+      notifyAlert("Please fill at least one search field");
       return;
     }
 
     if (filters.from && filters.to && filters.from > filters.to) {
-      alert("From date cannot be after To date");
+      notifyAlert("From date cannot be after To date");
       return;
     }
 
@@ -263,12 +264,12 @@ function FinanceEntryPage({ type }) {
 
   const handleViewSelected = async () => {
     if (selectedEntries.length === 0) {
-      alert("Please select one entry");
+      notifyAlert("Please select one entry");
       return;
     }
 
     if (selectedEntries.length > 1) {
-      alert("Please select only one entry");
+      notifyAlert("Please select only one entry");
       return;
     }
 
@@ -277,14 +278,14 @@ function FinanceEntryPage({ type }) {
       const res = await financeService.getEntry(selectedEntries[0]);
       setViewEntry(res.data?.data || null);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load entry");
+      notifyAlert(err.response?.data?.message || "Failed to load entry");
     } finally {
       setSaving(false);
     }
   };
 
   const handleCancelEntry = async () => {
-    const reason = window.prompt("Enter the reason for cancelling this entry:");
+    const reason = await promptDialog("Enter the reason for cancelling this entry:");
     if (reason === null) return;
 
     try {
@@ -293,7 +294,7 @@ function FinanceEntryPage({ type }) {
       setViewEntry({ ...viewEntry, ...res.data?.data });
       await loadEntries();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to cancel entry");
+      notifyAlert(err.response?.data?.message || "Failed to cancel entry");
     } finally {
       setSaving(false);
     }

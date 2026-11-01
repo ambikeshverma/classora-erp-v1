@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { userControlService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function ClassTeacherAssignment() {
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -115,7 +116,7 @@ function ClassTeacherAssignment() {
       teacherForm.classTeacher2Id &&
       teacherForm.classTeacher1Id === teacherForm.classTeacher2Id
     ) {
-      alert("Class Teacher I and Class Teacher II cannot be the same person.");
+      notifyAlert("Class Teacher I and Class Teacher II cannot be the same person.");
       return;
     }
 
@@ -129,7 +130,7 @@ function ClassTeacherAssignment() {
       });
 
       if (res.data?.success) {
-        alert("Class teacher assigned successfully");
+        notifyAlert("Class teacher assigned successfully");
         const updatedAssignment = res.data.data;
         setAssignments((prev) => {
           const filtered = prev.filter((item) => {
@@ -145,7 +146,7 @@ function ClassTeacherAssignment() {
 
       closePopup();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to assign class teacher");
+      notifyAlert(err.response?.data?.message || "Failed to assign class teacher");
     }
   };
 

@@ -5,6 +5,7 @@ const Admin = require("../models/Admin");
 const SchoolAdmin = require("../models/schoolAdminSchema");
 const { DEFAULT_MODULES, DEFAULT_SUB_MODULES } = require("../models/schoolAdminSchema");
 const superAdminAuth = require("../middleware/superAdminAuth");
+const { logAudit } = require("../utils/audit");
 const {
   generateSuperAdminTokens,
   verifyRefreshToken,
@@ -376,6 +377,13 @@ router.post("/schools", superAdminAuth, async (req, res) => {
       role: "schoolAdmin",
     });
 
+    await logAudit(req, {
+      action: "school.create",
+      category: "school",
+      school: newSchool,
+      summary: `School '${newSchool.schoolName}' (${newSchool.campusId}) created`,
+    });
+
     const schoolObj = newSchool.toObject();
     res.status(201).json({
       success: true,
@@ -406,11 +414,25 @@ router.put("/schools/:id", superAdminAuth, async (req, res) => {
       website,
       schoolLogo,
       principalSignature,
+      email,
     } = req.body;
 
     const school = await SchoolAdmin.findById(id);
     if (!school) {
       return res.status(404).json({ success: false, message: "School not found" });
+    }
+
+    if (email && email.toLowerCase().trim() !== school.email) {
+      const cleanEmail = email.toLowerCase().trim();
+      const taken = await SchoolAdmin.findOne({ email: cleanEmail, _id: { $ne: school._id } }).select("_id");
+      if (taken) {
+        return res.status(409).json({
+          success: false,
+          message: `Email '${cleanEmail}' is already registered to another school.`,
+        });
+      }
+      school.email = cleanEmail;
+      school.refreshToken = null; // login identity changed: force re-login
     }
 
     if (schoolName) school.schoolName = schoolName.trim();
@@ -422,6 +444,13 @@ router.put("/schools/:id", superAdminAuth, async (req, res) => {
     if (principalSignature !== undefined) school.principalSignature = principalSignature;
 
     await school.save();
+
+    await logAudit(req, {
+      action: "school.update",
+      category: "school",
+      school,
+      summary: `Profile of '${school.schoolName}' updated`,
+    });
 
     res.json({
       success: true,
@@ -453,6 +482,13 @@ router.patch("/schools/:id/toggle-status", superAdminAuth, async (req, res) => {
     }
 
     await school.save();
+
+    await logAudit(req, {
+      action: nextStatus ? "school.activate" : "school.suspend",
+      category: "school",
+      school,
+      summary: `School '${school.schoolName}' ${nextStatus ? "activated" : "suspended"}`,
+    });
 
     res.json({
       success: true,
@@ -487,6 +523,7 @@ router.patch("/schools/:id/modules", superAdminAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: "School not found" });
     }
 
+    const previousModules = school.enabledModules ? [...school.enabledModules] : [];
     school.enabledModules = enabledModules;
 
     // Update sub-modules if provided
@@ -507,6 +544,17 @@ router.patch("/schools/:id/modules", superAdminAuth, async (req, res) => {
     school.markModified("enabledModules");
     school.markModified("enabledSubModules");
     await school.save();
+
+    await logAudit(req, {
+      action: "modules.update",
+      category: "modules",
+      school,
+      summary: `Module access updated for '${school.schoolName}' (${enabledModules.length} enabled)`,
+      meta: {
+        enabled: enabledModules.filter((m) => !previousModules.includes(m)),
+        disabled: previousModules.filter((m) => !enabledModules.includes(m)),
+      },
+    });
 
     res.json({
       success: true,
@@ -548,6 +596,13 @@ router.patch("/schools/:id/submodules", superAdminAuth, async (req, res) => {
     school.markModified("enabledSubModules");
     await school.save();
 
+    await logAudit(req, {
+      action: "submodules.update",
+      category: "modules",
+      school,
+      summary: `Sub-module access updated for '${school.schoolName}'`,
+    });
+
     res.json({
       success: true,
       message: `Sub-module permissions updated for '${school.schoolName}' ✅`,
@@ -585,6 +640,13 @@ router.patch("/schools/:id/reset-password", superAdminAuth, async (req, res) => 
     school.refreshToken = null; // force re-login
     await school.save();
 
+    await logAudit(req, {
+      action: "security.reset_password",
+      category: "security",
+      school,
+      summary: `Password reset for '${school.schoolName}'`,
+    });
+
     res.json({
       success: true,
       message: `Password reset successfully for '${school.schoolName}' ✅`,
@@ -603,6 +665,13 @@ router.delete("/schools/:id", superAdminAuth, async (req, res) => {
     if (!school) {
       return res.status(404).json({ success: false, message: "School not found" });
     }
+
+    await logAudit(req, {
+      action: "school.delete",
+      category: "school",
+      school,
+      summary: `School '${school.schoolName}' (${school.campusId}) deleted`,
+    });
 
     res.json({
       success: true,
@@ -640,6 +709,12 @@ router.post("/schools/:id/notices", superAdminAuth, async (req, res) => {
     await school.save();
 
     const addedNotice = school.notices[school.notices.length - 1];
+    await logAudit(req, {
+      action: "announcement.send",
+      category: "announcement",
+      school,
+      summary: `Notice sent to '${school.schoolName}': ${addedNotice.title || addedNotice.message.slice(0, 60)}`,
+    });
     res.status(201).json({
       success: true,
       message: `Notice sent to '${school.schoolName}' ✅`,

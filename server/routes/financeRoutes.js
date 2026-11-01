@@ -10,7 +10,17 @@ const FinanceEntry = require("../models/FinanceEntry");
 const { PAYMENT_MODES, round2, createEntry } = require("../utils/financeLedger");
 
 // Every finance record is stored against the school/campus resolved from the access token (schoolAuth)
-router.use(schoolAuth, schoolAuth.checkModule("finance"));
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("finance", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(groups|heads)/, method: "GET", sub: null },
+    { re: /^\/groups/, sub: "account_groups" },
+    { re: /^\/heads/, sub: "account_heads" },
+    { re: /^\/entries/, sub: ["income_entry", "expense_entry"] },
+    { re: /^\/reports/, sub: "finance_reports" },
+  ])
+);
 
 const TYPES = ["INCOME", "EXPENSE"];
 const MAX_ATTACHMENT_CHARS = 4 * 1024 * 1024; // data URL length, roughly a 3MB file

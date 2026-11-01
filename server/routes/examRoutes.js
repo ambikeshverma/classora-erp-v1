@@ -14,7 +14,17 @@ const Admission = require("../models/Admission");
 const { escapeRegex } = require("../utils/feeEngine");
 
 // Every exam record is stored against the school/campus resolved from the access token (schoolAuth)
-router.use(schoolAuth, schoolAuth.checkModule("exam_tools"));
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("exam_tools", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(exams|marks-setups|timetables)/, method: "GET", sub: null },
+    { re: /^\/exams/, sub: "exam_setup" },
+    { re: /^\/marks-setups/, sub: "exam_marks_setup" },
+    { re: /^\/timetables/, sub: "exam_timetable" },
+    { re: /^\/admit-cards/, sub: "admit_card" },
+  ])
+);
 
 const fail = (res, status, message) => res.status(status).json({ success: false, message });
 const serverError = (res, error) => res.status(500).json({ success: false, message: error.message });

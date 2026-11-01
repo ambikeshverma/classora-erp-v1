@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { transportService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const EMPTY_FILTERS = { className: "", section: "", q: "" };
 
 function StudentTransportAllocation() {
@@ -64,7 +65,7 @@ function StudentTransportAllocation() {
       const res = await transportService.getAllocations(params);
       setResult(res.data?.data || { items: [], total: 0, pages: 1 });
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load students");
+      notifyAlert(err.response?.data?.message || "Failed to load students");
     } finally {
       setListLoading(false);
     }
@@ -104,7 +105,7 @@ function StudentTransportAllocation() {
 
   const handleAllocateOpen = () => {
     if (selectedIds.length === 0) {
-      alert("Select student");
+      notifyAlert("Select student");
       return;
     }
 
@@ -114,7 +115,7 @@ function StudentTransportAllocation() {
 
   const handleSaveAllocation = async () => {
     if (!formData.routeId || !formData.vehicleId) {
-      alert("Select route and vehicle");
+      notifyAlert("Select route and vehicle");
       return;
     }
 
@@ -126,14 +127,14 @@ function StudentTransportAllocation() {
         vehicleId: formData.vehicleId,
       });
 
-      alert(res.data?.message || "Transport allocated successfully");
+      notifyAlert(res.data?.message || "Transport allocated successfully");
 
       setSelectedIds([]);
       setShowForm(false);
       setFormData({ routeId: "", vehicleId: "" });
       await loadStudents(appliedFilters, page);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to allocate transport");
+      notifyAlert(err.response?.data?.message || "Failed to allocate transport");
     } finally {
       setSaving(false);
     }
@@ -141,17 +142,17 @@ function StudentTransportAllocation() {
 
   const handleRemoveTransportOpen = () => {
     if (selectedIds.length === 0) {
-      alert("Select one student");
+      notifyAlert("Select one student");
       return;
     }
 
     if (selectedIds.length > 1) {
-      alert("Select only one student");
+      notifyAlert("Select only one student");
       return;
     }
 
     if (!selectedSingle.allocation) {
-      alert("Transport is not allocated to this student");
+      notifyAlert("Transport is not allocated to this student");
       return;
     }
 
@@ -162,11 +163,11 @@ function StudentTransportAllocation() {
 
   const handleSaveRemoveTransport = async () => {
     if (removeType === "MONTHS" && selectedMonths.length === 0) {
-      alert("Select at least one month");
+      notifyAlert("Select at least one month");
       return;
     }
 
-    if (removeType === "FULL" && !window.confirm("Remove full transport from selected student?")) return;
+    if (removeType === "FULL" && !await confirmDialog("Remove full transport from selected student?")) return;
 
     try {
       setSaving(true);
@@ -176,14 +177,14 @@ function StudentTransportAllocation() {
         periods: selectedMonths,
       });
 
-      alert(res.data?.message || "Transport updated successfully");
+      notifyAlert(res.data?.message || "Transport updated successfully");
 
       setSelectedIds([]);
       setSelectedMonths([]);
       setShowRemovePopup(false);
       await loadStudents(appliedFilters, page);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to remove transport");
+      notifyAlert(err.response?.data?.message || "Failed to remove transport");
     } finally {
       setSaving(false);
     }

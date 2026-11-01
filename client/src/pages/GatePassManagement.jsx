@@ -5,6 +5,7 @@ import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
 
+import { confirmDialog } from "../utils/toast";
 function GatePassManagement() {
   const [showForm, setShowForm] = useState(false);
   const [passes, setPasses] = useState([]);
@@ -155,7 +156,7 @@ function GatePassManagement() {
   };
 
   const handleCancel = async (item) => {
-    if (!window.confirm("Cancel this gate pass?")) return;
+    if (!await confirmDialog("Cancel this gate pass?")) return;
     try {
       await receptionService.updateGatePassStatus(item._id, { status: "Cancelled" });
       showToast("Gate pass cancelled");
@@ -168,7 +169,7 @@ function GatePassManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) { showToast("Select at least one pass to delete"); return; }
-    if (!window.confirm("Delete selected gate pass(es)?")) return;
+    if (!await confirmDialog("Delete selected gate pass(es)?")) return;
     try {
       await Promise.all(selectedIds.map((id) => receptionService.deleteGatePass(id)));
       showToast("Gate pass(es) deleted");

@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { financeService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AccountGroups() {
   const navigate = useNavigate();
 
@@ -22,7 +23,7 @@ function AccountGroups() {
       const res = await financeService.getGroups();
       setGroupList(res.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load account groups");
+      notifyAlert(err.response?.data?.message || "Failed to load account groups");
     } finally {
       setLoading(false);
     }
@@ -41,7 +42,7 @@ function AccountGroups() {
 
   const handleSave = async () => {
     if (!groupName.trim() || !groupType) {
-      alert("Please fill all fields");
+      notifyAlert("Please fill all fields");
       return;
     }
 
@@ -50,16 +51,16 @@ function AccountGroups() {
 
       if (editId) {
         await financeService.updateGroup(editId, { groupName, groupType });
-        alert("Group updated successfully");
+        notifyAlert("Group updated successfully");
       } else {
         await financeService.createGroup({ groupName, groupType });
-        alert("Group created successfully");
+        notifyAlert("Group created successfully");
       }
 
       resetForm();
       await loadGroups();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save group");
+      notifyAlert(err.response?.data?.message || "Failed to save group");
     } finally {
       setSaving(false);
     }
@@ -75,7 +76,7 @@ function AccountGroups() {
 
   const handleEdit = () => {
     if (selectedRows.length !== 1) {
-      alert("Please select one group to edit");
+      notifyAlert("Please select one group to edit");
       return;
     }
 
@@ -83,7 +84,7 @@ function AccountGroups() {
     if (!selectedGroup) return;
 
     if (selectedGroup.isSystem) {
-      alert("This group is created by the system and cannot be edited");
+      notifyAlert("This group is created by the system and cannot be edited");
       return;
     }
 
@@ -94,20 +95,20 @@ function AccountGroups() {
 
   const handleDelete = async () => {
     if (selectedRows.length === 0) {
-      alert("Please select group");
+      notifyAlert("Please select group");
       return;
     }
 
-    if (!window.confirm("Delete selected groups?")) return;
+    if (!await confirmDialog("Delete selected groups?")) return;
 
     try {
       setSaving(true);
       for (const id of selectedRows) {
         await financeService.deleteGroup(id);
       }
-      alert("Group deleted successfully");
+      notifyAlert("Group deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete group");
+      notifyAlert(err.response?.data?.message || "Failed to delete group");
     } finally {
       setSaving(false);
       setSelectedRows([]);

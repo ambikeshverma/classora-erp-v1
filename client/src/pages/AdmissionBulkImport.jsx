@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { admissionService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function AdmissionBulkImport() {
   const currentSession = localStorage.getItem("currentSession") || "2026-2027";
   const [parsedRows, setParsedRows] = useState([]);
@@ -39,7 +40,7 @@ function AdmissionBulkImport() {
       .filter((l) => l.length > 0);
 
     if (lines.length < 2) {
-      alert("CSV must contain at least a header row and one student data row.");
+      notifyAlert("CSV must contain at least a header row and one student data row.");
       return [];
     }
 
@@ -108,7 +109,7 @@ function AdmissionBulkImport() {
 
   const handlePasteSubmit = () => {
     if (!pasteText.trim()) {
-      alert("Please paste CSV data first.");
+      notifyAlert("Please paste CSV data first.");
       return;
     }
     const parsed = parseCsvText(pasteText);
@@ -122,13 +123,13 @@ function AdmissionBulkImport() {
 
   const handleCommitImport = async () => {
     if (parsedRows.length === 0) {
-      alert("No student records to import.");
+      notifyAlert("No student records to import.");
       return;
     }
 
     const rowsToImport = parsedRows.filter((r) => r.isValid);
     if (rowsToImport.length === 0) {
-      alert("No valid rows found to import.");
+      notifyAlert("No valid rows found to import.");
       return;
     }
 
@@ -140,13 +141,13 @@ function AdmissionBulkImport() {
       });
 
       setImportResult(res.data);
-      alert(res.data.message || "Import completed!");
+      notifyAlert(res.data.message || "Import completed!");
       if (res.data.insertedCount > 0) {
         setParsedRows([]);
         setPasteText("");
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Bulk import failed");
+      notifyAlert(err.response?.data?.message || "Bulk import failed");
     } finally {
       setLoading(false);
     }

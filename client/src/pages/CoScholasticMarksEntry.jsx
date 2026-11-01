@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { Skeleton } from "../components/Skeleton";
 import { reportCardService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const VALID_GRADES = ["A+", "A", "B+", "B", "C", "D"];
 const EMPTY_FILTERS = { examId: "", className: "", sectionName: "", subjectFilter: "All Subjects" };
 
@@ -68,7 +69,7 @@ function CoScholasticMarksEntry() {
 
   const handleSearch = async () => {
     if (!filterData.examId || !filterData.className || !filterData.sectionName) {
-      alert("Please select exam, class and section");
+      notifyAlert("Please select exam, class and section");
       return;
     }
 
@@ -94,7 +95,7 @@ function CoScholasticMarksEntry() {
       setGradeData(saved);
     } catch (err) {
       setEntry({ students: [], subjectOptions: [], locked: false });
-      alert(err.response?.data?.message || "Failed to load students");
+      notifyAlert(err.response?.data?.message || "Failed to load students");
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,7 @@ function CoScholasticMarksEntry() {
 
   const handleSave = async () => {
     if (entry.locked) {
-      alert("Result is locked. Grades cannot be edited.");
+      notifyAlert("Result is locked. Grades cannot be edited.");
       return;
     }
 
@@ -135,9 +136,9 @@ function CoScholasticMarksEntry() {
         grades,
       });
 
-      alert("Co-Scholastic grades saved successfully");
+      notifyAlert("Co-Scholastic grades saved successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save grades");
+      notifyAlert(err.response?.data?.message || "Failed to save grades");
     } finally {
       setSaving(false);
     }

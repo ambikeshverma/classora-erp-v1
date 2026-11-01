@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function FeePlanManagement() {
 
   const [loading, setLoading] = useState(true);
@@ -137,7 +138,7 @@ function FeePlanManagement() {
 
   const handleAmountChange = (type, head, col, value) => {
     if (Number(value) < 0) {
-      alert("Amount cannot be negative");
+      notifyAlert("Amount cannot be negative");
       return;
     }
 
@@ -165,24 +166,24 @@ function FeePlanManagement() {
     });
 
     if (!isValid) {
-      alert("Amount cannot be negative");
+      notifyAlert("Amount cannot be negative");
     }
     return isValid;
   };
 
   const handleSaveFeePlan = async () => {
     if (isLocked) {
-      alert("Fee plan locked by super admin");
+      notifyAlert("Fee plan locked by super admin");
       return;
     }
 
     if (!selectedClass) {
-      alert("Select class");
+      notifyAlert("Select class");
       return;
     }
 
     if (!selectedPlanName) {
-      alert("Select fee plan name");
+      notifyAlert("Select fee plan name");
       return;
     }
 
@@ -206,14 +207,14 @@ function FeePlanManagement() {
 
       const res = await adminPanelService.saveFeePlan(payload);
       if (res.data?.data) {
-        alert("Fee plan saved successfully");
+        notifyAlert("Fee plan saved successfully");
         const plansRes = await adminPanelService.getFeePlans();
         if (plansRes.data?.data) {
           setSavedPlans(plansRes.data.data);
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save fee plan");
+      notifyAlert(err.response?.data?.message || "Failed to save fee plan");
     } finally {
       setSaving(false);
     }
@@ -221,17 +222,17 @@ function FeePlanManagement() {
 
   const handleCopyPlan = async () => {
     if (!selectedClass || !selectedPlanName) {
-      alert("Open source class and fee plan first");
+      notifyAlert("Open source class and fee plan first");
       return;
     }
 
     if (!copyTargetClass) {
-      alert("Select target class");
+      notifyAlert("Select target class");
       return;
     }
 
     if (!copyTargetPlanName) {
-      alert("Select target fee plan name");
+      notifyAlert("Select target fee plan name");
       return;
     }
 
@@ -239,7 +240,7 @@ function FeePlanManagement() {
       copyTargetClass === selectedClass &&
       copyTargetPlanName === selectedPlanName
     ) {
-      alert("Source and target fee plan cannot be same");
+      notifyAlert("Source and target fee plan cannot be same");
       return;
     }
 
@@ -253,7 +254,7 @@ function FeePlanManagement() {
       });
 
       if (res.data?.data) {
-        alert("Fee plan copied successfully");
+        notifyAlert("Fee plan copied successfully");
         setCopyTargetClass("");
         setCopyTargetPlanName("");
         setShowCopyPopup(false);
@@ -263,7 +264,7 @@ function FeePlanManagement() {
         }
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to copy fee plan");
+      notifyAlert(err.response?.data?.message || "Failed to copy fee plan");
     } finally {
       setSaving(false);
     }

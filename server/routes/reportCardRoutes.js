@@ -17,7 +17,17 @@ const ResultStatus = require("../models/ResultStatus");
 const { getCurrentSession } = require("../utils/feeEngine");
 
 // Every report card record is stored against the school/campus resolved from the access token (schoolAuth)
-router.use(schoolAuth, schoolAuth.checkModule("report_cards"));
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("report_cards", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/marks-entry/, sub: "scholastic_marks_entry" },
+    { re: /^\/co-scholastic-entry/, sub: "co_scholastic_marks_entry" },
+    { re: /^\/results/, sub: "result_generation" },
+    { re: /^\/report-cards/, sub: "report_cards_view" },
+    { re: /^\/analytics/, sub: "report_card_analytics" },
+  ])
+);
 
 const GRADES = ["A+", "A", "B+", "B", "C", "D"];
 const MARK_CODES = ["AB", "ML"]; // absent, medical leave

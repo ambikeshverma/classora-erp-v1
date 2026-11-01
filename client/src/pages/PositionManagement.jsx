@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { hrService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function PositionManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -72,7 +73,7 @@ function PositionManagement() {
   const handleSave = async () => {
     const { departmentId, positionName } = formData;
     if (!departmentId || !positionName.trim()) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
@@ -86,7 +87,7 @@ function PositionManagement() {
     );
 
     if (alreadyExists) {
-      alert("Position already exists in this department");
+      notifyAlert("Position already exists in this department");
       return;
     }
 
@@ -97,7 +98,7 @@ function PositionManagement() {
           positionName: cleanName,
         });
         if (res.data?.success) {
-          alert("Position updated successfully");
+          notifyAlert("Position updated successfully");
           setPositions((prev) =>
             prev.map((item) => ((item._id || item.id) === editId ? res.data.data : item))
           );
@@ -108,7 +109,7 @@ function PositionManagement() {
           positionName: cleanName,
         });
         if (res.data?.success) {
-          alert("Position added successfully");
+          notifyAlert("Position added successfully");
           setPositions((prev) => [...prev, res.data.data]);
         }
       }
@@ -116,7 +117,7 @@ function PositionManagement() {
       resetForm();
       setShowForm(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save position");
+      notifyAlert(err.response?.data?.message || "Failed to save position");
     }
   };
 
@@ -139,11 +140,11 @@ function PositionManagement() {
   =============================== */
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select position");
+      notifyAlert("Select position");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected position(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected position(s)?`);
     if (!ok) return;
 
     try {
@@ -154,9 +155,9 @@ function PositionManagement() {
         prev.filter((item) => !selectedIds.includes(item._id || item.id))
       );
       setSelectedIds([]);
-      alert("Position deleted successfully");
+      notifyAlert("Position deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete position");
+      notifyAlert(err.response?.data?.message || "Failed to delete position");
     }
   };
 
@@ -214,7 +215,7 @@ function PositionManagement() {
                   type="primary"
                   onClick={() => {
                     if (selectedIds.length !== 1) {
-                      alert("Select one position");
+                      notifyAlert("Select one position");
                       return;
                     }
                     const selected = positions.find(

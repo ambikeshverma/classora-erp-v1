@@ -5,6 +5,7 @@ import AppButton from "../AppButton";
 import { SkeletonTable } from "../Skeleton";
 import { receptionService } from "../../services/api";
 
+import { notifyAlert } from "../../utils/toast";
 const CONFIG = {
   STUDENT: {
     pageClass: "student-id-page",
@@ -88,7 +89,7 @@ function IdCardManager({ type }) {
       await loadStudents();
     } catch (err) {
       setStudents([]);
-      alert(err.response?.data?.message || "Failed to load students");
+      notifyAlert(err.response?.data?.message || "Failed to load students");
     } finally {
       setLoading(false);
     }
@@ -97,17 +98,17 @@ function IdCardManager({ type }) {
   // Photos are only fetched for the cards that are actually shown
   const openPreview = async () => {
     if (!templateId) {
-      alert("Please select template");
+      notifyAlert("Please select template");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Please select students");
+      notifyAlert("Please select students");
       return;
     }
 
     if (selectedIds.length > 100) {
-      alert("Select up to 100 students at a time");
+      notifyAlert("Select up to 100 students at a time");
       return;
     }
 
@@ -116,7 +117,7 @@ function IdCardManager({ type }) {
       const res = await receptionService.previewIdCards(selectedIds);
       setPreview(res.data?.data || null);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load ID cards");
+      notifyAlert(err.response?.data?.message || "Failed to load ID cards");
     } finally {
       setBusy(false);
     }
@@ -129,7 +130,7 @@ function IdCardManager({ type }) {
       window.print();
       await loadStudents();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to mark ID cards as issued");
+      notifyAlert(err.response?.data?.message || "Failed to mark ID cards as issued");
     } finally {
       setBusy(false);
     }

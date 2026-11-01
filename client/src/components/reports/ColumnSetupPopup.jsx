@@ -1,6 +1,7 @@
 import React from "react";
 import AppButton from "../AppButton";
 
+import { notifyAlert } from "../../utils/toast";
 function ColumnSetupPopup({
   allColumns = [],
   selectedColumns = [],
@@ -20,7 +21,7 @@ function ColumnSetupPopup({
 
   const handleRemoveColumn = (column) => {
     if (selectedColumns.length === 1) {
-      alert("At least one column is required in the report.");
+      notifyAlert("At least one column is required in the report.");
       return;
     }
 

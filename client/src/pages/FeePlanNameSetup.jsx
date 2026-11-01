@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function FeePlanNameSetup() {
   const [setupList, setSetupList] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -50,12 +51,12 @@ function FeePlanNameSetup() {
 
   const handleSave = async () => {
     if (isLocked) {
-      alert("Setup locked by super admin");
+      notifyAlert("Setup locked by super admin");
       return;
     }
 
     if (!feePlanName.trim()) {
-      alert("Enter fee plan name");
+      notifyAlert("Enter fee plan name");
       return;
     }
 
@@ -67,7 +68,7 @@ function FeePlanNameSetup() {
     );
 
     if (alreadyExists) {
-      alert("Fee plan name already exists");
+      notifyAlert("Fee plan name already exists");
       return;
     }
 
@@ -77,17 +78,17 @@ function FeePlanNameSetup() {
         await adminPanelService.updateFeePlanName(editingId, {
           feePlanName: feePlanName.trim(),
         });
-        alert("Setup updated successfully");
+        notifyAlert("Setup updated successfully");
       } else {
         await adminPanelService.createFeePlanName({
           feePlanName: feePlanName.trim(),
         });
-        alert("Setup added successfully");
+        notifyAlert("Setup added successfully");
       }
       resetForm();
       fetchFeePlanNames();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save fee plan name");
+      notifyAlert(err.response?.data?.message || "Failed to save fee plan name");
     } finally {
       setSaving(false);
     }
@@ -95,12 +96,12 @@ function FeePlanNameSetup() {
 
   const handleEdit = () => {
     if (isLocked) {
-      alert("Setup locked by super admin");
+      notifyAlert("Setup locked by super admin");
       return;
     }
 
     if (selectedIds.length !== 1) {
-      alert("Select one setup");
+      notifyAlert("Select one setup");
       return;
     }
 
@@ -111,7 +112,7 @@ function FeePlanNameSetup() {
     if (!selectedItem) return;
 
     if (selectedItem.isUsed) {
-      alert("This setup is already used in fee plan");
+      notifyAlert("This setup is already used in fee plan");
       return;
     }
 
@@ -122,12 +123,12 @@ function FeePlanNameSetup() {
 
   const handleDelete = async () => {
     if (isLocked) {
-      alert("Setup locked by super admin");
+      notifyAlert("Setup locked by super admin");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Select setup");
+      notifyAlert("Select setup");
       return;
     }
 
@@ -136,11 +137,11 @@ function FeePlanNameSetup() {
     );
 
     if (usedSetup) {
-      alert("Used setup cannot be deleted");
+      notifyAlert("Used setup cannot be deleted");
       return;
     }
 
-    const ok = window.confirm("Delete selected setups?");
+    const ok = await confirmDialog("Delete selected setups?");
     if (!ok) return;
 
     try {
@@ -149,10 +150,10 @@ function FeePlanNameSetup() {
         await adminPanelService.deleteFeePlanName(id);
       }
       setSelectedIds([]);
-      alert("Setup deleted successfully");
+      notifyAlert("Setup deleted successfully");
       fetchFeePlanNames();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete setup");
+      notifyAlert(err.response?.data?.message || "Failed to delete setup");
     } finally {
       setSaving(false);
     }

@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
+import { confirmDialog } from "../utils/toast";
 const followUpTypes = ["Call", "WhatsApp", "Visit", "SMS", "Meeting"];
 const followUpStatuses = ["Interested", "Call Back Later", "No Response", "Not Interested", "Admission Confirmed"];
 
@@ -122,7 +123,7 @@ function FollowUpManagement() {
   };
 
   const handleDelete = async (ids) => {
-    if (!window.confirm("Delete selected follow-up(s)?")) return;
+    if (!await confirmDialog("Delete selected follow-up(s)?")) return;
     try {
       await Promise.all(ids.map((id) => receptionService.deleteFollowUp(id)));
       showToast("Follow-up(s) deleted successfully");

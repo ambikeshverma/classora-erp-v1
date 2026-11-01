@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { financeService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AccountHeads() {
   const navigate = useNavigate();
 
@@ -24,7 +25,7 @@ function AccountHeads() {
       setGroups(groupRes.data?.data || []);
       setHeads(headRes.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load account heads");
+      notifyAlert(err.response?.data?.message || "Failed to load account heads");
     } finally {
       setLoading(false);
     }
@@ -45,7 +46,7 @@ function AccountHeads() {
 
   const handleSave = async () => {
     if (!selectedGroupId || !headName.trim()) {
-      alert("Please select group and enter head name");
+      notifyAlert("Please select group and enter head name");
       return;
     }
 
@@ -54,16 +55,16 @@ function AccountHeads() {
 
       if (editId) {
         await financeService.updateHead(editId, { groupId: selectedGroupId, headName });
-        alert("Account head updated successfully");
+        notifyAlert("Account head updated successfully");
       } else {
         await financeService.createHead({ groupId: selectedGroupId, headName });
-        alert("Account head created successfully");
+        notifyAlert("Account head created successfully");
       }
 
       resetForm();
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save account head");
+      notifyAlert(err.response?.data?.message || "Failed to save account head");
     } finally {
       setSaving(false);
     }
@@ -79,12 +80,12 @@ function AccountHeads() {
 
   const handleEdit = () => {
     if (selectedRows.length === 0) {
-      alert("Please select one account head");
+      notifyAlert("Please select one account head");
       return;
     }
 
     if (selectedRows.length > 1) {
-      alert("Please select only one account head");
+      notifyAlert("Please select only one account head");
       return;
     }
 
@@ -92,7 +93,7 @@ function AccountHeads() {
     if (!selectedHead) return;
 
     if (selectedHead.isSystem) {
-      alert("This account head is created by the system and cannot be edited");
+      notifyAlert("This account head is created by the system and cannot be edited");
       return;
     }
 
@@ -103,20 +104,20 @@ function AccountHeads() {
 
   const handleDelete = async () => {
     if (selectedRows.length === 0) {
-      alert("Please select account head");
+      notifyAlert("Please select account head");
       return;
     }
 
-    if (!window.confirm("Delete selected account heads?")) return;
+    if (!await confirmDialog("Delete selected account heads?")) return;
 
     try {
       setSaving(true);
       for (const id of selectedRows) {
         await financeService.deleteHead(id);
       }
-      alert("Account head deleted successfully");
+      notifyAlert("Account head deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete account head");
+      notifyAlert(err.response?.data?.message || "Failed to delete account head");
     } finally {
       setSaving(false);
       setSelectedRows([]);

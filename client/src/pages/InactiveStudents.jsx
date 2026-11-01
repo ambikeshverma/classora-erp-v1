@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function InactiveStudents() {
   const navigate = useNavigate();
 
@@ -94,11 +95,11 @@ function InactiveStudents() {
 
   const handleReactivate = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student to reactivate");
+      notifyAlert("Please select at least one student to reactivate");
       return;
     }
 
-    const ok = window.confirm(`Restore ${selectedIds.length} student(s) to Active status?`);
+    const ok = await confirmDialog(`Restore ${selectedIds.length} student(s) to Active status?`);
     if (!ok) return;
 
     try {
@@ -106,11 +107,11 @@ function InactiveStudents() {
       for (const id of selectedIds) {
         await studentHubService.restoreStudent(id);
       }
-      alert("Student(s) reactivated successfully");
+      notifyAlert("Student(s) reactivated successfully");
       setSelectedIds([]);
       handleSearch();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to restore students");
+      notifyAlert(err.response?.data?.message || "Failed to restore students");
     } finally {
       setProcessing(false);
     }
@@ -118,7 +119,7 @@ function InactiveStudents() {
 
   const handleConfirmInactive = async () => {
     if (!inactiveReason) {
-      alert("Please select reason for deactivation");
+      notifyAlert("Please select reason for deactivation");
       return;
     }
 
@@ -130,14 +131,14 @@ function InactiveStudents() {
       });
 
       if (res.data?.success) {
-        alert(res.data.message || "Students marked inactive successfully");
+        notifyAlert(res.data.message || "Students marked inactive successfully");
         setSelectedIds([]);
         setInactiveReason("");
         setShowInactivePopup(false);
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to deactivate students");
+      notifyAlert(err.response?.data?.message || "Failed to deactivate students");
     } finally {
       setProcessing(false);
     }
@@ -300,7 +301,7 @@ function InactiveStudents() {
                 type="delete"
                 onClick={() => {
                   if (selectedIds.length === 0) {
-                    alert("Please select at least one student to deactivate");
+                    notifyAlert("Please select at least one student to deactivate");
                     return;
                   }
                   setShowInactivePopup(true);

@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { examService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const EMPTY_FORM = { examName: "", applicableClasses: [], allowCoScholastic: false };
 
 function ExamSetup() {
@@ -29,7 +30,7 @@ function ExamSetup() {
       setExams(examRes.data?.data || []);
       setClassOptions((metaRes.data?.data?.classes || []).map((item) => item.className));
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load exams");
+      notifyAlert(err.response?.data?.message || "Failed to load exams");
     } finally {
       setLoading(false);
     }
@@ -47,12 +48,12 @@ function ExamSetup() {
 
   const handleSave = async () => {
     if (!formData.examName.trim()) {
-      alert("Please enter exam name");
+      notifyAlert("Please enter exam name");
       return;
     }
 
     if (formData.applicableClasses.length === 0) {
-      alert("Please select applicable classes");
+      notifyAlert("Please select applicable classes");
       return;
     }
 
@@ -61,10 +62,10 @@ function ExamSetup() {
 
       if (editId) {
         await examService.updateExam(editId, formData);
-        alert("Exam updated successfully");
+        notifyAlert("Exam updated successfully");
       } else {
         await examService.createExam(formData);
-        alert("Exam added successfully");
+        notifyAlert("Exam added successfully");
       }
 
       resetForm();
@@ -72,7 +73,7 @@ function ExamSetup() {
       setSelectedIds([]);
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save exam");
+      notifyAlert(err.response?.data?.message || "Failed to save exam");
     } finally {
       setSaving(false);
     }
@@ -80,7 +81,7 @@ function ExamSetup() {
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one exam");
+      notifyAlert("Select one exam");
       return;
     }
 
@@ -88,7 +89,7 @@ function ExamSetup() {
     if (!selected) return;
 
     if (selected.isUsed) {
-      alert("This exam is already used in other records. You cannot edit or delete it.");
+      notifyAlert("This exam is already used in other records. You cannot edit or delete it.");
       return;
     }
 
@@ -103,24 +104,24 @@ function ExamSetup() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select exam");
+      notifyAlert("Select exam");
       return;
     }
 
     if (exams.some((item) => selectedIds.includes(item._id) && item.isUsed)) {
-      alert("This exam is already used in other records. You cannot edit or delete it.");
+      notifyAlert("This exam is already used in other records. You cannot edit or delete it.");
       return;
     }
 
-    if (!window.confirm("Delete selected exam?")) return;
+    if (!await confirmDialog("Delete selected exam?")) return;
 
     try {
       setSaving(true);
       await Promise.all(selectedIds.map((id) => examService.deleteExam(id)));
       setSelectedIds([]);
-      alert("Exam deleted successfully");
+      notifyAlert("Exam deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete exam");
+      notifyAlert(err.response?.data?.message || "Failed to delete exam");
     } finally {
       setSaving(false);
       await loadData();

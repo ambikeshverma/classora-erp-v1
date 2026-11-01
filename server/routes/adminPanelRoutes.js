@@ -7,6 +7,11 @@ const FeePlan = require("../models/FeePlan");
 const Concession = require("../models/Concession");
 const Class = require("../models/Class");
 const Student = require("../models/Student");
+const Subscription = require("../models/Subscription");
+const BillingInvoice = require("../models/BillingInvoice");
+const billing = require("../utils/billing");
+const { parseImageDataUrl, saveImage, readAsDataUrl } = require("../utils/privateFiles");
+const mongoose = require("mongoose");
 
 // Role guard: Only schoolAdmin can manage Admin Panel
 const schoolAdminOnly = (req, res, next) => {
@@ -20,7 +25,21 @@ const schoolAdminOnly = (req, res, next) => {
   next();
 };
 
-router.use(schoolAuth, schoolAdminOnly);
+// Billing must stay reachable so a school can always pay, even if other Admin Panel features are disabled
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("admin_panel", [
+    { re: /^\/billing/, open: true },
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(fee-plan-names|fee-plans)/, method: "GET", sub: null },
+    { re: /^\/fee-scheme/, sub: "fee_scheme" },
+    { re: /^\/fee-plan-names/, sub: "fee_plan_name_setup" },
+    { re: /^\/fee-plans/, sub: "fee_plan_management" },
+    { re: /^\/concessions/, sub: "concession_management" },
+    { re: /^\/reports/, sub: "admin_reports" },
+  ]),
+  schoolAdminOnly
+);
 
 /* ==========================================================
    OPTIMIZED META ENDPOINT
@@ -626,29 +645,183 @@ router.delete("/concessions/:id", async (req, res) => {
 /* ==========================================================
    SUBSCRIPTION & BILLING
 ========================================================== */
+// Single source of truth: platform settings + Subscription + BillingInvoice (also used by Super Admin)
 router.get("/billing", async (req, res) => {
   try {
-    const activeStudents = await Student.countDocuments({
-      schoolId: req.schoolId,
-      status: "Active",
-    });
+    const settings = await billing.getSettings();
+    const [counts, subscription, invoices] = await Promise.all([
+      billing.countBillingStudents(req.schoolId, settings),
+      Subscription.findOne({ schoolId: req.schoolId }).lean(),
+      BillingInvoice.find({ schoolId: req.schoolId }).sort({ createdAt: -1 }).limit(100).lean(),
+    ]);
 
-    const inactiveStudents = await Student.countDocuments({
-      schoolId: req.schoolId,
-      status: "Inactive",
-    });
+    const status = billing.subscriptionStatus(subscription, settings);
+    const periodStart = billing.nextPeriodStart(subscription);
+    const iso = (d) => (d ? new Date(d).toISOString().slice(0, 10) : null);
+
+    const plans = billing.PLANS.map((plan) => ({
+      ...billing.quote(settings, plan, counts.billingStudents),
+      periodStart: iso(periodStart),
+      periodEnd: iso(billing.addMonthsMinusOneDay(periodStart, plan.months)),
+    }));
+
+    const pending = invoices.find((i) => i.status === "Pending") || null;
+    const latest = invoices[0] || null;
 
     res.status(200).json({
       success: true,
       data: {
-        activeStudents: activeStudents || 0,
-        inactiveStudents: inactiveStudents || 0,
-        ratePerStudent: 4,
-        gstPercent: 18,
-        currentDueDate: "2026-06-25",
-        isExpired: false,
+        // fields consumed by the original page
+        activeStudents: counts.activeStudents,
+        inactiveStudents: counts.inactiveStudents,
+        ratePerStudent: settings.ratePerStudent,
+        gstPercent: settings.gstPercent,
+        currentDueDate: iso(periodStart),
+        isExpired: status === "Expired",
+        // extended fields
+        billingStudents: counts.billingStudents,
+        includeInactiveStudents: settings.includeInactiveStudents,
+        discounts: settings.discounts,
+        plans,
+        subscription: subscription
+          ? {
+              plan: subscription.plan,
+              startDate: iso(subscription.startDate),
+              expiryDate: iso(subscription.expiryDate),
+              studentLimit: subscription.studentLimit || 0,
+              restrictStudentAdditions: Boolean(subscription.restrictStudentAdditions),
+              studentRemaining: subscription.studentLimit > 0 ? subscription.studentLimit - counts.activeStudents : null,
+              status,
+            }
+          : null,
+        status,
+        gracePeriodDays: settings.gracePeriodDays,
+        payment: billing.publicPayment(settings),
+        pendingInvoice: pending ? billing.toPublicInvoice(pending) : null,
+        rejectedInvoice: latest && latest.status === "Rejected" ? billing.toPublicInvoice(latest) : null,
+        invoices: invoices.filter((i) => i.status === "Paid").map(billing.toPublicInvoice),
       },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// School submits the details of a payment made externally via the QR code. It stays "Pending" (pending
+// verification) until the Super Admin verifies it; the amount is always taken from the server-side invoice.
+router.post("/billing/submit", async (req, res) => {
+  try {
+    const { plan, transactionNo, amountPaid, paymentDate, payerName, remarks, screenshot } = req.body || {};
+    const settings = await billing.getSettings();
+
+    if (!billing.PLANS.some((p) => p.name === plan)) {
+      return res.status(400).json({ success: false, message: "Choose a valid plan" });
+    }
+    const txn = String(transactionNo || "").trim();
+    if (txn.length < 4 || txn.length > 80) {
+      return res.status(400).json({ success: false, message: "Enter the transaction / reference ID (4 to 80 characters)" });
+    }
+    const payer = String(payerName || "").trim();
+    if (payer.length < 2 || payer.length > 100) {
+      return res.status(400).json({ success: false, message: "Enter the payer name" });
+    }
+    const paidOn = new Date(paymentDate);
+    if (!paymentDate || Number.isNaN(paidOn.getTime())) {
+      return res.status(400).json({ success: false, message: "Enter the payment date" });
+    }
+    if (paidOn.getTime() > Date.now() + 24 * 60 * 60 * 1000) {
+      return res.status(400).json({ success: false, message: "The payment date cannot be in the future" });
+    }
+    const paidAmount = Number(amountPaid);
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      return res.status(400).json({ success: false, message: "Enter the amount paid" });
+    }
+
+    let proof = null;
+    if (screenshot) {
+      proof = parseImageDataUrl(screenshot, 5 * 1024 * 1024);
+      if (proof.error) return res.status(400).json({ success: false, message: proof.error });
+    } else if (settings.proofRequired !== false) {
+      return res.status(400).json({ success: false, message: "Upload the payment screenshot as proof" });
+    }
+
+    const existingPending = await BillingInvoice.exists({ schoolId: req.schoolId, status: "Pending" });
+    if (existingPending) {
+      return res.status(409).json({
+        success: false,
+        message: "A payment is already waiting for verification. Wait until it is verified or rejected.",
+      });
+    }
+
+    const subscription = await Subscription.findOne({ schoolId: req.schoolId }).lean();
+    const draft = await billing.buildInvoice(req.school, plan, settings, subscription);
+
+    // Never trust the submitted amount: it must match what this school actually owes for the plan
+    if (Math.abs(paidAmount - draft.amount) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        code: "AMOUNT_MISMATCH",
+        message: `The amount paid does not match the payable amount of ${billing.round2(draft.amount).toFixed(2)} for the ${plan} plan.`,
+      });
+    }
+
+    const id = new mongoose.Types.ObjectId();
+    let invoice;
+    try {
+      invoice = await BillingInvoice.create({
+        _id: id,
+        ...draft,
+        status: "Pending",
+        source: "school",
+        paymentMode: "UPI / QR",
+        transactionNo: txn,
+        activeTxnKey: billing.normalizeTxn(txn),
+        amountPaid: paidAmount,
+        paymentDate: paidOn,
+        payerName: payer,
+        remarks: String(remarks || "").trim().slice(0, 300),
+        submittedAt: new Date(),
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          code: "DUPLICATE_TRANSACTION",
+          message: "This transaction / reference ID has already been submitted.",
+        });
+      }
+      throw err;
+    }
+
+    if (proof) {
+      try {
+        const rel = await saveImage(`payment-proofs/${String(req.schoolId)}`, String(id), proof);
+        await BillingInvoice.updateOne({ _id: id }, { $set: { proofPath: rel, proofMime: proof.mime } });
+        invoice.proofMime = proof.mime;
+      } catch (fileErr) {
+        // Do not leave a proof-less pending invoice behind
+        await BillingInvoice.deleteOne({ _id: id, status: "Pending" });
+        throw fileErr;
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "Payment submitted for verification",
+      data: billing.toPublicInvoice(invoice),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// The payment QR configured by the Super Admin, read from protected storage
+router.get("/billing/qr", async (req, res) => {
+  try {
+    const settings = await billing.getSettings();
+    const image = settings.paymentQrPath ? await readAsDataUrl(settings.paymentQrPath, settings.paymentQrMime) : null;
+    res.set("Cache-Control", "private, no-store");
+    res.json({ success: true, data: { image: image || "" } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

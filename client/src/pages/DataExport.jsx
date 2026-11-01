@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function DataExport() {
   const navigate = useNavigate();
 
@@ -53,7 +54,7 @@ function DataExport() {
 
   const handleExportCSV = () => {
     if (students.length === 0) {
-      alert("No students to export");
+      notifyAlert("No students to export");
       return;
     }
 

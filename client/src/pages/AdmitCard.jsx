@@ -6,6 +6,7 @@ import { SkeletonTable } from "../components/Skeleton";
 import AdmitCardPrint from "../components/exam/AdmitCardPrint";
 import { examService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const formatDate = (value) => (value ? String(value).split("-").reverse().join("-") : "-");
 
 function AdmitCard() {
@@ -47,7 +48,7 @@ function AdmitCard() {
 
   const handleGenerate = async () => {
     if (!filters.examId || !filters.className || !filters.sectionName) {
-      alert("Select exam, class and section");
+      notifyAlert("Select exam, class and section");
       return;
     }
 
@@ -59,7 +60,7 @@ function AdmitCard() {
       setResult({ ...res.data?.data, className: filters.className, sectionName: filters.sectionName });
     } catch (err) {
       setResult(null);
-      alert(err.response?.data?.message || "Failed to load admit card data");
+      notifyAlert(err.response?.data?.message || "Failed to load admit card data");
     } finally {
       setLoading(false);
     }
@@ -70,12 +71,12 @@ function AdmitCard() {
 
   const openPrint = (mode) => {
     if (timetable.length === 0) {
-      alert("No timetable found for this exam, class and section. Create it in Exam Timetable first.");
+      notifyAlert("No timetable found for this exam, class and section. Create it in Exam Timetable first.");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Select student");
+      notifyAlert("Select student");
       return;
     }
 

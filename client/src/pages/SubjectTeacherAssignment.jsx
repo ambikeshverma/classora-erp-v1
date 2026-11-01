@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { userControlService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function SubjectTeacherAssignment() {
   const [loading, setLoading] = useState(true);
   const [classes, setClasses] = useState([]);
@@ -133,12 +134,12 @@ function SubjectTeacherAssignment() {
 
   const handleSaveAssignment = async () => {
     if (!formData.subjectId) {
-      alert("Please select subject");
+      notifyAlert("Please select subject");
       return;
     }
 
     if (!formData.teacherStaffId) {
-      alert("Please select subject teacher");
+      notifyAlert("Please select subject teacher");
       return;
     }
 
@@ -152,7 +153,7 @@ function SubjectTeacherAssignment() {
       });
 
       if (res.data?.success) {
-        alert("Subject teacher assigned successfully");
+        notifyAlert("Subject teacher assigned successfully");
         const updatedAssignment = res.data.data;
         setAssignments((prev) => {
           const filtered = prev.filter((item) => {
@@ -173,12 +174,12 @@ function SubjectTeacherAssignment() {
         });
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to assign subject teacher");
+      notifyAlert(err.response?.data?.message || "Failed to assign subject teacher");
     }
   };
 
   const handleDeleteAssignment = async (assignmentId) => {
-    const ok = window.confirm("Delete this subject teacher assignment?");
+    const ok = await confirmDialog("Delete this subject teacher assignment?");
     if (!ok) return;
 
     try {
@@ -186,9 +187,9 @@ function SubjectTeacherAssignment() {
       setAssignments((prev) =>
         prev.filter((item) => (item._id || item.id) !== assignmentId)
       );
-      alert("Assignment deleted successfully");
+      notifyAlert("Assignment deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete assignment");
+      notifyAlert(err.response?.data?.message || "Failed to delete assignment");
     }
   };
 

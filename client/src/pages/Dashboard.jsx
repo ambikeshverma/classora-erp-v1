@@ -7,6 +7,7 @@ import { MODULES_REGISTRY } from "../constants/modulesRegistry";
 import { useAuth } from "../context/AuthContext";
 import ScanLoader from "../components/ScanLoader";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -234,12 +235,12 @@ function Dashboard() {
 
   const saveClosedDates = async () => {
     if (!closedFromDate || !closedToDate) {
-      alert("Please select date range");
+      notifyAlert("Please select date range");
       return;
     }
 
     if (!closedReason.trim()) {
-      alert("Please enter holiday/closed reason");
+      notifyAlert("Please enter holiday/closed reason");
       return;
     }
 
@@ -247,7 +248,7 @@ function Dashboard() {
     const to = new Date(closedToDate);
 
     if (from > to) {
-      alert("To date cannot be before from date");
+      notifyAlert("To date cannot be before from date");
       return;
     }
 
@@ -306,13 +307,13 @@ function Dashboard() {
     const hasPastDate = relatedDates.some((item) => item.date < todayKey);
 
     if (hasPastDate) {
-      alert(
+      notifyAlert(
         "Holiday already started or past date exists. You cannot delete it. You can change future holiday dates only."
       );
       return;
     }
 
-    const ok = window.confirm("Delete this holiday?");
+    const ok = await confirmDialog("Delete this holiday?");
     if (!ok) return;
 
     try {
@@ -348,7 +349,7 @@ function Dashboard() {
 
   const handleModuleClick = (module) => {
     if (module.key && !isModuleEnabled(module.key)) {
-      alert(`⚠️ '${module.name}' is currently disabled for your school campus by Super Admin.`);
+      notifyAlert(`⚠️ '${module.name}' is currently disabled for your school campus by Super Admin.`);
       return;
     }
     if (module.path) {

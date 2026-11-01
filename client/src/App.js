@@ -4,6 +4,14 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import SuperAdminProtectedRoute from "./components/SuperAdminProtectedRoute";
 import SuperAdminLogin from "./pages/SuperAdminLogin";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import ToastHost from "./components/ToastHost";
+import SuperAdminLayout from "./pages/superadmin/SuperAdminLayout";
+import SADashboard from "./pages/superadmin/SADashboard";
+import SAModules from "./pages/superadmin/SAModules";
+import SASubscriptions from "./pages/superadmin/SASubscriptions";
+import SAPayments from "./pages/superadmin/SAPayments";
+import SAActivity from "./pages/superadmin/SAActivity";
+import SASettings from "./pages/superadmin/SASettings";
 import SubModulePlaceholder from "./components/SubModulePlaceholder";
 
 import Login from "./pages/Login";
@@ -121,6 +129,7 @@ import ReportCardReports from "./pages/reportcard/ReportCardReports";
 function App() {
   return (
     <BrowserRouter>
+      <ToastHost />
       <Routes>
         {/* Public Authentication Routes */}
         <Route path="/" element={<Login />} />
@@ -131,10 +140,19 @@ function App() {
           path="/super-admin"
           element={
             <SuperAdminProtectedRoute>
-              <SuperAdminDashboard />
+              <SuperAdminLayout />
             </SuperAdminProtectedRoute>
           }
-        />
+        >
+          <Route index element={<SADashboard />} />
+          <Route path="schools" element={<SuperAdminDashboard embedded />} />
+          <Route path="modules" element={<SAModules />} />
+          <Route path="billing" element={<SASubscriptions />} />
+          <Route path="payments" element={<SAPayments />} />
+          <Route path="activity" element={<SAActivity />} />
+          <Route path="settings" element={<SASettings />} />
+          <Route path="*" element={<Navigate to="/super-admin" replace />} />
+        </Route>
 
         {/* School Protected Dashboard */}
         <Route

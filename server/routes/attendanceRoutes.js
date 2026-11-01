@@ -4,7 +4,17 @@ const mongoose = require("mongoose");
 const schoolAuth = require("../middleware/schoolAuth");
 
 // Ensure all routes are protected with schoolAuth
-router.use(schoolAuth);
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("attendance", [
+    { re: /^\/holidays/, method: "GET", open: true }, // also feeds the school dashboard calendar
+    { re: /^\/meta/, sub: null },
+    { re: /^\/students/, sub: ["student_attendance", "bulk_attendance_entry"] },
+    { re: /^\/staff/, sub: "staff_attendance" },
+    { re: /^\/(geo-settings|holidays)/, sub: ["student_attendance", "staff_attendance", "bulk_attendance_entry"] },
+    { re: /^\/reports-data/, sub: "attendance_analytics" },
+  ])
+);
 
 // Models
 const StudentAttendance = require("../models/StudentAttendance");

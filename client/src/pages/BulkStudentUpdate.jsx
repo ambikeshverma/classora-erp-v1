@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function BulkStudentUpdate() {
   const navigate = useNavigate();
 
@@ -50,7 +51,7 @@ function BulkStudentUpdate() {
 
   const handleSearch = async () => {
     if (!classFilter) {
-      alert("Please select a Class first");
+      notifyAlert("Please select a Class first");
       return;
     }
 
@@ -74,7 +75,7 @@ function BulkStudentUpdate() {
 
   const handleApplyBulkUpdate = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student to update");
+      notifyAlert("Please select at least one student to update");
       return;
     }
 
@@ -85,11 +86,11 @@ function BulkStudentUpdate() {
       updateFields.status;
 
     if (!hasAnyField) {
-      alert("Please select at least one field to update (Section, House, Medium, or Status)");
+      notifyAlert("Please select at least one field to update (Section, House, Medium, or Status)");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Apply bulk update to ${selectedIds.length} selected student(s)?`
     );
     if (!ok) return;
@@ -103,13 +104,13 @@ function BulkStudentUpdate() {
 
       const res = await studentHubService.bulkUpdateStudents(payload);
       if (res.data?.success) {
-        alert(res.data.message || "Students updated successfully");
+        notifyAlert(res.data.message || "Students updated successfully");
         setUpdateFields({ section: "", house: "", medium: "", status: "" });
         setSelectedIds([]);
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update students");
+      notifyAlert(err.response?.data?.message || "Failed to update students");
     } finally {
       setUpdating(false);
     }

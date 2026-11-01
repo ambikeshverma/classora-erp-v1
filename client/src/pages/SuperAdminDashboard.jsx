@@ -30,10 +30,13 @@ import {
   TOTAL_SUB_MODULES_COUNT as TOTAL_SUB_MODULES,
 } from "../constants/modulesRegistry";
 import ScanLoader from "../components/ScanLoader";
+import SchoolProfileModal from "../components/superadmin/SchoolProfileModal";
 import { SkeletonCard, SkeletonList } from "../components/Skeleton";
 
-const SuperAdminDashboard = () => {
+import { toast as toastService, notifyAlert, confirmDialog } from "../utils/toast";
+const SuperAdminDashboard = ({ embedded = false }) => {
   const navigate = useNavigate();
+  const [profileSchool, setProfileSchool] = useState(null);
   const [schools, setSchools] = useState([]);
   const [stats, setStats] = useState({
     totalSchools: 0,
@@ -54,7 +57,6 @@ const SuperAdminDashboard = () => {
 
   const [selectedSchool, setSelectedSchool] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [toast, setToast] = useState(null);
 
   // Accordion & Filter states for Modules modals
   const [expandedCreateModules, setExpandedCreateModules] = useState({});
@@ -85,10 +87,7 @@ const SuperAdminDashboard = () => {
   // Form state for Reset Password
   const [newPasswordInput, setNewPasswordInput] = useState("");
 
-  const showToast = (message, type = "success") => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
-  };
+  const showToast = (message, type = "success") => toastService.show(message, type);
 
   const openNoticeModal = async (school) => {
     setSelectedSchool(school);
@@ -124,7 +123,7 @@ const SuperAdminDashboard = () => {
   };
 
   const handleDeleteNotice = async (noticeId) => {
-    if (!window.confirm("Delete this notice?")) return;
+    if (!await confirmDialog("Delete this notice?")) return;
     try {
       await superAdminService.deleteSchoolNotice(selectedSchool._id, noticeId);
       setSchoolNotices((prev) => prev.filter((n) => n._id !== noticeId));
@@ -178,7 +177,7 @@ const SuperAdminDashboard = () => {
       ? `Activate '${school.schoolName}'? Users of this school will be able to log in.`
       : `Deactivate '${school.schoolName}'? This will immediately prevent all logins and block API access for this school campus.`;
 
-    if (!window.confirm(confirmMsg)) return;
+    if (!await confirmDialog(confirmMsg)) return;
 
     try {
       const res = await superAdminService.toggleSchoolStatus(school._id, newStatus);
@@ -463,7 +462,7 @@ const SuperAdminDashboard = () => {
   // Reset School Password
   const handleResetPassword = async () => {
     if (!newPasswordInput || newPasswordInput.length < 6) {
-      alert("Password must be at least 6 characters.");
+      notifyAlert("Password must be at least 6 characters.");
       return;
     }
 
@@ -485,7 +484,7 @@ const SuperAdminDashboard = () => {
   // Delete School
   const handleDeleteSchool = async (school) => {
     if (
-      !window.confirm(
+      !await confirmDialog(
         `Are you sure you want to permanently delete '${school.schoolName}' (${school.campusId})? This action cannot be undone.`
       )
     ) {
@@ -591,10 +590,10 @@ const SuperAdminDashboard = () => {
   });
 
   return (
-    <div className="sa-dashboard-wrapper">
+    <div className={`sa-dashboard-wrapper ${embedded ? "sa-embedded" : ""}`}>
       {/* 🚀 Modern Holographic Scanning Page Overlay Loader */}
       <ScanLoader
-        loading={loading}
+        loading={loading && !embedded}
         title="Classora Master Control"
         subtitle="Synchronizing Multi-School Governance & Security Registry..."
         badgeText="CENTRAL CORE • GOVERNANCE SCAN"
@@ -604,33 +603,8 @@ const SuperAdminDashboard = () => {
         minDuration={300}
       />
 
-      {/* Toast Notification */}
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: "24px",
-            right: "24px",
-            background: toast.type === "error" ? "#ef4444" : "#10b981",
-            color: "#ffffff",
-            padding: "14px 22px",
-            borderRadius: "12px",
-            fontWeight: "600",
-            fontSize: "14px",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            animation: "fadeIn 0.3s ease",
-          }}
-        >
-          {toast.type === "error" ? <XCircle size={18} /> : <CheckCircle size={18} />}
-          <span>{toast.message}</span>
-        </div>
-      )}
-
       {/* Top Navbar */}
+      {!embedded && (
       <header className="sa-navbar">
         <div className="sa-brand-group">
           <div className="sa-brand-icon">
@@ -652,6 +626,7 @@ const SuperAdminDashboard = () => {
           </button>
         </div>
       </header>
+      )}
 
       {/* Main Content */}
       <main className="sa-main-content">
@@ -865,6 +840,22 @@ const SuperAdminDashboard = () => {
                     </button>
 
                     <button
+                      className="sa-btn-icon-label"
+                      onClick={() => setProfileSchool(school)}
+                      title="Edit school profile and School Admin email"
+                    >
+                      ✏️ Profile
+                    </button>
+
+                    <button
+                      className="sa-btn-icon-label"
+                      onClick={() => navigate(`/super-admin/billing?school=${school._id}`)}
+                      title="Subscription, invoices and payments"
+                    >
+                      💳 Billing
+                    </button>
+
+                    <button
                       className="sa-btn-icon-label credentials"
                       onClick={() => {
                         setSelectedSchool({ ...school });
@@ -889,6 +880,15 @@ const SuperAdminDashboard = () => {
           )}
         </section>
       </main>
+
+      {profileSchool && (
+        <SchoolProfileModal
+          school={profileSchool}
+          notify={showToast}
+          onClose={() => setProfileSchool(null)}
+          onSaved={fetchSchools}
+        />
+      )}
 
       {/* ==========================================================
           MODAL 1: CREATE NEW SCHOOL

@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function SectionTransfer() {
   const navigate = useNavigate();
 
@@ -43,7 +44,7 @@ function SectionTransfer() {
 
   const handleSearch = async () => {
     if (!classFilter) {
-      alert("Please select a Class first");
+      notifyAlert("Please select a Class first");
       return;
     }
 
@@ -67,17 +68,17 @@ function SectionTransfer() {
 
   const handleTransfer = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student to transfer");
+      notifyAlert("Please select at least one student to transfer");
       return;
     }
 
     if (!newSection) {
-      alert("Please select destination section");
+      notifyAlert("Please select destination section");
       return;
     }
 
     if (newSection === currentSectionFilter) {
-      alert("Destination section must be different from the current section");
+      notifyAlert("Destination section must be different from the current section");
       return;
     }
 
@@ -89,13 +90,13 @@ function SectionTransfer() {
       });
 
       if (res.data?.success) {
-        alert(res.data.message || "Students transferred successfully");
+        notifyAlert(res.data.message || "Students transferred successfully");
         setShowTransferPopup(false);
         setNewSection("");
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to transfer students");
+      notifyAlert(err.response?.data?.message || "Failed to transfer students");
     } finally {
       setTransferring(false);
     }
@@ -194,7 +195,7 @@ function SectionTransfer() {
                 type="primary"
                 onClick={() => {
                   if (selectedIds.length === 0) {
-                    alert("Please select at least one student to transfer");
+                    notifyAlert("Please select at least one student to transfer");
                     return;
                   }
                   setShowTransferPopup(true);

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import "./appNoticeBoard.css";
 import AppButton from "../components/AppButton";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function AppNoticeBoard() {
   const classOptions = [
     "All",
@@ -148,12 +149,12 @@ function AppNoticeBoard() {
       !formData.noticeDate ||
       !formData.expiryDate
     ) {
-      alert("Please fill required fields");
+      notifyAlert("Please fill required fields");
       return;
     }
 
     if (formData.expiryDate < formData.noticeDate) {
-      alert("Expiry date cannot be before notice date");
+      notifyAlert("Expiry date cannot be before notice date");
       return;
     }
 
@@ -181,13 +182,13 @@ function AppNoticeBoard() {
     setShowPopup(false);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedIds.length === 0) {
-      alert("Select notice to delete");
+      notifyAlert("Select notice to delete");
       return;
     }
 
-    const ok = window.confirm("Delete selected notice?");
+    const ok = await confirmDialog("Delete selected notice?");
     if (!ok) return;
 
     setNotices(notices.filter((item) => !selectedIds.includes(item.id)));
@@ -270,7 +271,7 @@ function AppNoticeBoard() {
     type="primary"
     onClick={() => {
       if (selectedIds.length !== 1) {
-        alert("Select one notice");
+        notifyAlert("Select one notice");
         return;
       }
 

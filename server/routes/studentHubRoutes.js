@@ -3,7 +3,29 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const schoolAuth = require("../middleware/schoolAuth");
 
-router.use(schoolAuth);
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("student_hub", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/(classes|sections|mediums|houses)/, method: "GET", sub: null }, // dropdown data for every Student Hub page
+    { re: /^\/classes/, sub: "class_management" },
+    { re: /^\/sections/, sub: "section_management" },
+    { re: /^\/mediums/, sub: "medium_management" },
+    { re: /^\/houses/, sub: "house_management" },
+    { re: /^\/house-allocations/, sub: "house_allocation" },
+    { re: /^\/sibling-groups/, sub: "sibling_management" },
+    { re: /^\/students\/search/, sub: "student_search" },
+    { re: /^\/students\/(inactive|bulk-deactivate|[^/]+\/(deactivate|restore))/, sub: "inactive_students" },
+    { re: /^\/students\/bulk-update/, sub: "bulk_student_update" },
+    { re: /^\/student-documents/, sub: "student_documents" },
+    { re: /^\/roll-numbers/, sub: "roll_number_update" },
+    { re: /^\/section-transfer/, sub: "section_transfer" },
+    { re: /^\/promotion/, sub: "promotion_management" },
+    { re: /^\/alumni/, sub: "alumni_management" },
+    { re: /^\/data-export/, sub: "data_export" },
+    { re: /^\/reports/, sub: "student_reports" },
+  ])
+);
 
 // Models
 const Class = mongoose.models.Class || require("../models/Class");

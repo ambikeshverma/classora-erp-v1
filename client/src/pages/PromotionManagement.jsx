@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function PromotionManagement() {
   const navigate = useNavigate();
 
@@ -57,7 +58,7 @@ function PromotionManagement() {
 
   const handleSearch = async () => {
     if (!classFilter) {
-      alert("Please select a Class first");
+      notifyAlert("Please select a Class first");
       return;
     }
 
@@ -81,17 +82,17 @@ function PromotionManagement() {
 
   const handlePromoteSubmit = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student to promote");
+      notifyAlert("Please select at least one student to promote");
       return;
     }
 
     if (!targetClass) {
-      alert("Please select Target (Promoted) Class");
+      notifyAlert("Please select Target (Promoted) Class");
       return;
     }
 
     if (!toSession) {
-      alert("Please enter target academic session");
+      notifyAlert("Please enter target academic session");
       return;
     }
 
@@ -107,7 +108,7 @@ function PromotionManagement() {
       });
 
       if (res.data?.success) {
-        alert(res.data.message || "Students promoted successfully");
+        notifyAlert(res.data.message || "Students promoted successfully");
         setShowPromotionPopup(false);
         setSelectedIds([]);
         setTargetClass("");
@@ -117,7 +118,7 @@ function PromotionManagement() {
         if (promoRes.data?.success) setPromotionsHistory(promoRes.data.data || []);
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to promote students");
+      notifyAlert(err.response?.data?.message || "Failed to promote students");
     } finally {
       setPromoting(false);
     }
@@ -252,7 +253,7 @@ function PromotionManagement() {
                     type="primary"
                     onClick={() => {
                       if (selectedIds.length === 0) {
-                        alert("Please select at least one student to promote");
+                        notifyAlert("Please select at least one student to promote");
                         return;
                       }
                       setShowPromotionPopup(true);

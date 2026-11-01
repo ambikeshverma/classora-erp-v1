@@ -67,10 +67,22 @@ const feeRoutes = require("./routes/feeRoutes");
 const transportRoutes = require("./routes/transportRoutes");
 
 app.use("/api/superAdmin", adminRoutes);
+app.use("/api/superAdmin", require("./routes/superAdminBillingRoutes"));
 app.use("/api/school", schoolRoutes);
-app.use("/api/students", schoolAuth, studentRoutes);
+app.use("/api/students", schoolAuth, schoolAuth.checkAnyModule(["admissions", "student_hub"]), studentRoutes);
 app.use("/api/admissions", schoolAuth, admissionRoutes);
-app.use("/api/master", schoolAuth, masterRoutes);
+// Shared master data: subjects belong to Academic Zone; classes/mediums/siblings are shared by several modules
+const subjectGuard = schoolAuth.guardRoutes("academic_zone", [
+  { re: /^\/subject/, method: "GET", sub: null },
+  { re: /^\/subject/, sub: "subject_setup" },
+]);
+const sharedMasterGuard = schoolAuth.checkAnyModule(["student_hub", "academic_zone", "admissions"]);
+app.use(
+  "/api/master",
+  schoolAuth,
+  (req, res, next) => (/^\/subject/.test(req.path) ? subjectGuard(req, res, next) : sharedMasterGuard(req, res, next)),
+  masterRoutes
+);
 app.use("/api/hr", hrRoutes);
 app.use("/api/user-control", userControlRoutes);
 app.use("/api/admin-panel", adminPanelRoutes);

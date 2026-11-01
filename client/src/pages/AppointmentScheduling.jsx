@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { receptionService } from "../services/api";
 
+import { confirmDialog } from "../utils/toast";
 const appointmentStatuses = ["Pending", "Approved", "Rejected", "Completed", "Cancelled"];
 
 function AppointmentScheduling() {
@@ -129,7 +130,7 @@ function AppointmentScheduling() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) { showToast("Select appointment(s) to delete"); return; }
-    if (!window.confirm("Delete selected appointment(s)?")) return;
+    if (!await confirmDialog("Delete selected appointment(s)?")) return;
     try {
       await Promise.all(selectedIds.map((id) => receptionService.deleteAppointment(id)));
       showToast("Appointment(s) deleted successfully");

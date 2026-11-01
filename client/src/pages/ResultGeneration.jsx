@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { Skeleton } from "../components/Skeleton";
 import { reportCardService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 const EMPTY_STATE = { session: "", studentCount: 0, isLocked: false, isClassLive: false, results: [] };
 
 function ResultGeneration() {
@@ -63,7 +64,7 @@ function ResultGeneration() {
       applyResponse(res.data?.data || EMPTY_STATE);
     } catch (err) {
       applyResponse(EMPTY_STATE);
-      alert(err.response?.data?.message || "Failed to load results");
+      notifyAlert(err.response?.data?.message || "Failed to load results");
     } finally {
       setLoading(false);
     }
@@ -71,7 +72,7 @@ function ResultGeneration() {
 
   const handleSearch = async () => {
     if (!filterData.className || !filterData.sectionName) {
-      alert("Please select class and section");
+      notifyAlert("Please select class and section");
       return;
     }
 
@@ -84,10 +85,10 @@ function ResultGeneration() {
     try {
       setBusy(true);
       const res = await action();
-      alert(res?.data?.message || successMessage);
+      notifyAlert(res?.data?.message || successMessage);
       await loadResults(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Action failed");
+      notifyAlert(err.response?.data?.message || "Action failed");
     } finally {
       setBusy(false);
     }
@@ -97,7 +98,7 @@ function ResultGeneration() {
 
   const handleGenerateResult = () => {
     if (state.studentCount === 0) {
-      alert("No students found");
+      notifyAlert("No students found");
       return;
     }
 
@@ -134,7 +135,7 @@ function ResultGeneration() {
 
   const handleToggleStudentLive = () => {
     if (selectedStudentIds.length === 0) {
-      alert("Please select students");
+      notifyAlert("Please select students");
       return;
     }
 

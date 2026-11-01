@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { transportService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const DOCUMENT_TYPES = [
   "Registration Certificate (RC)",
   "Fitness Certificate",
@@ -92,7 +93,7 @@ function VehicleManagement() {
       setDrivers(staffRes.data?.data?.drivers || []);
       setConductors(staffRes.data?.data?.conductors || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load vehicles");
+      notifyAlert(err.response?.data?.message || "Failed to load vehicles");
     } finally {
       setLoading(false);
     }
@@ -157,12 +158,12 @@ function VehicleManagement() {
 
   const handleSave = async () => {
     if (!formData.vehicleName.trim() || !formData.totalSeats) {
-      alert("Vehicle name and total seats are required");
+      notifyAlert("Vehicle name and total seats are required");
       return;
     }
 
     if (Number(formData.totalSeats) <= 0) {
-      alert("Total seats must be greater than zero");
+      notifyAlert("Total seats must be greater than zero");
       return;
     }
 
@@ -182,17 +183,17 @@ function VehicleManagement() {
 
       if (editId) {
         await transportService.updateVehicle(editId, payload);
-        alert("Vehicle updated successfully");
+        notifyAlert("Vehicle updated successfully");
       } else {
         await transportService.createVehicle(payload);
-        alert("Vehicle added successfully");
+        notifyAlert("Vehicle added successfully");
       }
 
       resetForm();
       setShowForm(false);
       await loadVehicles();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save vehicle");
+      notifyAlert(err.response?.data?.message || "Failed to save vehicle");
     } finally {
       setSaving(false);
     }
@@ -200,7 +201,7 @@ function VehicleManagement() {
 
   const handleEdit = () => {
     if (!selectedSingle) {
-      alert("Select one vehicle");
+      notifyAlert("Select one vehicle");
       return;
     }
 
@@ -225,23 +226,23 @@ function VehicleManagement() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select vehicle");
+      notifyAlert("Select vehicle");
       return;
     }
 
     if (selectedVehicles.some((item) => item.isAssigned)) {
-      alert("Assigned vehicle cannot be deleted");
+      notifyAlert("Assigned vehicle cannot be deleted");
       return;
     }
 
-    if (!window.confirm("Delete selected vehicle?")) return;
+    if (!await confirmDialog("Delete selected vehicle?")) return;
 
     try {
       setSaving(true);
       await Promise.all(selectedIds.map((id) => transportService.deleteVehicle(id)));
       setSelectedIds([]);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete vehicle");
+      notifyAlert(err.response?.data?.message || "Failed to delete vehicle");
     } finally {
       setSaving(false);
       await loadVehicles();
@@ -250,17 +251,17 @@ function VehicleManagement() {
 
   const handleUploadDocument = async () => {
     if (!uploadData.documentType || !uploadData.file) {
-      alert("Select document type and file");
+      notifyAlert("Select document type and file");
       return;
     }
 
     if (!ALLOWED_FILE_TYPES.includes(uploadData.file.type)) {
-      alert("Only PDF, JPG, JPEG and PNG files are allowed");
+      notifyAlert("Only PDF, JPG, JPEG and PNG files are allowed");
       return;
     }
 
     if (uploadData.file.size > MAX_DOCUMENT_BYTES) {
-      alert("File must be smaller than 6 MB");
+      notifyAlert("File must be smaller than 6 MB");
       return;
     }
 
@@ -274,21 +275,21 @@ function VehicleManagement() {
       setRemovedTypes((prev) => prev.filter((type) => type !== uploadData.documentType));
       setUploadData({ documentType: "", file: null });
       setShowUploadPopup(false);
-      alert("Document added. It is saved with the vehicle.");
+      notifyAlert("Document added. It is saved with the vehicle.");
     } catch {
-      alert("Failed to read file");
+      notifyAlert("Failed to read file");
     }
   };
 
   const handleRemoveDocument = () => {
     if (!uploadData.documentType) {
-      alert("Select document type");
+      notifyAlert("Select document type");
       return;
     }
 
     setNewDocuments((prev) => prev.filter((doc) => doc.documentType !== uploadData.documentType));
     setRemovedTypes((prev) => (prev.includes(uploadData.documentType) ? prev : [...prev, uploadData.documentType]));
-    alert("Document removed. The change is saved with the vehicle.");
+    notifyAlert("Document removed. The change is saved with the vehicle.");
   };
 
   const openDownloadPopup = (vehicle) => {
@@ -299,7 +300,7 @@ function VehicleManagement() {
 
   const handleDownloadDocuments = async () => {
     if (selectedDocumentIds.length === 0) {
-      alert("Select document");
+      notifyAlert("Select document");
       return;
     }
 
@@ -312,7 +313,7 @@ function VehicleManagement() {
         if (file?.fileUrl) downloadDataUrl(file.fileUrl, file.fileName);
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to download document");
+      notifyAlert(err.response?.data?.message || "Failed to download document");
     } finally {
       setSaving(false);
     }

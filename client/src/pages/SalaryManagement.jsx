@@ -6,6 +6,7 @@ import { SkeletonTable } from "../components/Skeleton";
 import SalarySlip from "../components/hr/SalarySlip";
 import { hrService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 const MONTHS = [
   "January",
   "February",
@@ -98,7 +99,7 @@ function SalaryManagement() {
       setStaffList(meta.staff || []);
       setSalaryStructures(structureRes.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load salary data");
+      notifyAlert(err.response?.data?.message || "Failed to load salary data");
     } finally {
       setLoading(false);
     }
@@ -118,7 +119,7 @@ function SalaryManagement() {
       const res = await hrService.getSalaries(params);
       setSalaryRecords(res.data?.data || []);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load salary records");
+      notifyAlert(err.response?.data?.message || "Failed to load salary records");
     } finally {
       setListLoading(false);
     }
@@ -165,12 +166,12 @@ function SalaryManagement() {
   /* ---------------- Salary structure ---------------- */
   const handleSaveSalaryStructure = async () => {
     if (!salaryStructureForm.employeeId || !salaryStructureForm.monthlySalary || !salaryStructureForm.effectiveFrom) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
     if (Number(salaryStructureForm.monthlySalary) <= 0) {
-      alert("Monthly salary must be greater than zero");
+      notifyAlert("Monthly salary must be greater than zero");
       return;
     }
 
@@ -182,21 +183,21 @@ function SalaryManagement() {
           monthlySalary: Number(salaryStructureForm.monthlySalary),
           effectiveFrom: salaryStructureForm.effectiveFrom,
         });
-        alert("Salary structure updated successfully");
+        notifyAlert("Salary structure updated successfully");
       } else {
         await hrService.createSalaryStructure({
           staffId: salaryStructureForm.employeeId,
           monthlySalary: Number(salaryStructureForm.monthlySalary),
           effectiveFrom: salaryStructureForm.effectiveFrom,
         });
-        alert("Salary structure added successfully");
+        notifyAlert("Salary structure added successfully");
       }
 
       resetSalaryStructureForm();
       setShowSalaryStructureForm(false);
       await loadSetup();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save salary structure");
+      notifyAlert(err.response?.data?.message || "Failed to save salary structure");
     } finally {
       setSaving(false);
     }
@@ -204,7 +205,7 @@ function SalaryManagement() {
 
   const handleEditSalaryStructure = () => {
     if (selectedStructureIds.length !== 1) {
-      alert("Select one salary structure");
+      notifyAlert("Select one salary structure");
       return;
     }
 
@@ -222,19 +223,19 @@ function SalaryManagement() {
 
   const handleDeleteSalaryStructure = async () => {
     if (selectedStructureIds.length === 0) {
-      alert("Select salary structure");
+      notifyAlert("Select salary structure");
       return;
     }
 
-    if (!window.confirm("Delete selected salary structure?")) return;
+    if (!await confirmDialog("Delete selected salary structure?")) return;
 
     try {
       setSaving(true);
       await Promise.all(selectedStructureIds.map((id) => hrService.deleteSalaryStructure(id)));
       setSelectedStructureIds([]);
-      alert("Salary structure deleted successfully");
+      notifyAlert("Salary structure deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete salary structure");
+      notifyAlert(err.response?.data?.message || "Failed to delete salary structure");
     } finally {
       setSaving(false);
       await loadSetup();
@@ -244,7 +245,7 @@ function SalaryManagement() {
   /* ---------------- Generate salary ---------------- */
   const handleGenerateSalary = async () => {
     if (!generateSalaryForm.employeeId || !generateSalaryForm.month || !generateSalaryForm.year) {
-      alert("Please fill all required fields");
+      notifyAlert("Please fill all required fields");
       return;
     }
 
@@ -257,12 +258,12 @@ function SalaryManagement() {
         otherDeduction: Number(generateSalaryForm.otherDeduction || 0),
       });
 
-      alert("Salary generated successfully");
+      notifyAlert("Salary generated successfully");
       resetGenerateSalaryForm();
       setShowGenerateSalaryForm(false);
       await loadSalaries();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to generate salary");
+      notifyAlert(err.response?.data?.message || "Failed to generate salary");
     } finally {
       setSaving(false);
     }
@@ -271,7 +272,7 @@ function SalaryManagement() {
   /* ---------------- Payment ---------------- */
   const selectedSalary = () => {
     if (selectedSalaryIds.length !== 1) {
-      alert("Select one salary record");
+      notifyAlert("Select one salary record");
       return null;
     }
 
@@ -283,7 +284,7 @@ function SalaryManagement() {
     if (!selected) return;
 
     if (selected.remainingAmount <= 0) {
-      alert("This salary is already fully paid");
+      notifyAlert("This salary is already fully paid");
       return;
     }
 
@@ -294,19 +295,19 @@ function SalaryManagement() {
 
   const handleSavePayment = async () => {
     if (!paymentForm.paymentAmount || !paymentForm.paymentDate || !paymentForm.paymentMode) {
-      alert("Please fill required payment fields");
+      notifyAlert("Please fill required payment fields");
       return;
     }
 
     const amount = Number(paymentForm.paymentAmount);
 
     if (!(amount > 0)) {
-      alert("Enter valid payment amount");
+      notifyAlert("Enter valid payment amount");
       return;
     }
 
     if (amount > paymentSalary.remainingAmount) {
-      alert("Payment amount cannot be greater than remaining amount");
+      notifyAlert("Payment amount cannot be greater than remaining amount");
       return;
     }
 
@@ -315,10 +316,10 @@ function SalaryManagement() {
       await hrService.paySalary(paymentSalary._id, { ...paymentForm, paymentAmount: amount });
 
       closePaymentPopup();
-      alert("Payment updated successfully");
+      notifyAlert("Payment updated successfully");
       await loadSalaries();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save payment");
+      notifyAlert(err.response?.data?.message || "Failed to save payment");
     } finally {
       setSaving(false);
     }
@@ -326,19 +327,19 @@ function SalaryManagement() {
 
   const handleDeleteSalary = async () => {
     if (selectedSalaryIds.length === 0) {
-      alert("Select salary record");
+      notifyAlert("Select salary record");
       return;
     }
 
-    if (!window.confirm("Delete selected salary record?")) return;
+    if (!await confirmDialog("Delete selected salary record?")) return;
 
     try {
       setSaving(true);
       await Promise.all(selectedSalaryIds.map((id) => hrService.deleteSalary(id)));
       setSelectedSalaryIds([]);
-      alert("Salary record deleted");
+      notifyAlert("Salary record deleted");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete salary record");
+      notifyAlert(err.response?.data?.message || "Failed to delete salary record");
     } finally {
       setSaving(false);
       await loadSalaries();
@@ -355,7 +356,7 @@ function SalaryManagement() {
       const res = await hrService.getSalary(selected._id);
       setSlip({ data: res.data?.data, autoPrint });
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to load salary slip");
+      notifyAlert(err.response?.data?.message || "Failed to load salary slip");
     } finally {
       setSaving(false);
     }

@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { hrService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function DepartmentManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -62,7 +63,7 @@ function DepartmentManagement() {
   const handleSave = async () => {
     const name = formData.departmentName.trim();
     if (!name) {
-      alert("Please enter department name");
+      notifyAlert("Please enter department name");
       return;
     }
 
@@ -73,7 +74,7 @@ function DepartmentManagement() {
     );
 
     if (alreadyExists) {
-      alert("Department already exists");
+      notifyAlert("Department already exists");
       return;
     }
 
@@ -81,7 +82,7 @@ function DepartmentManagement() {
       if (editId) {
         const res = await hrService.updateDepartment(editId, { departmentName: name });
         if (res.data?.success) {
-          alert("Department updated successfully");
+          notifyAlert("Department updated successfully");
           setDepartments((prev) =>
             prev.map((item) => ((item._id || item.id) === editId ? res.data.data : item))
           );
@@ -89,7 +90,7 @@ function DepartmentManagement() {
       } else {
         const res = await hrService.createDepartment({ departmentName: name });
         if (res.data?.success) {
-          alert("Department added successfully");
+          notifyAlert("Department added successfully");
           setDepartments((prev) => [...prev, res.data.data]);
         }
       }
@@ -97,7 +98,7 @@ function DepartmentManagement() {
       resetForm();
       setShowForm(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save department");
+      notifyAlert(err.response?.data?.message || "Failed to save department");
     }
   };
 
@@ -119,11 +120,11 @@ function DepartmentManagement() {
   =============================== */
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Select department");
+      notifyAlert("Select department");
       return;
     }
 
-    const ok = window.confirm(`Delete ${selectedIds.length} selected department(s)?`);
+    const ok = await confirmDialog(`Delete ${selectedIds.length} selected department(s)?`);
     if (!ok) return;
 
     try {
@@ -134,9 +135,9 @@ function DepartmentManagement() {
         prev.filter((item) => !selectedIds.includes(item._id || item.id))
       );
       setSelectedIds([]);
-      alert("Department deleted successfully");
+      notifyAlert("Department deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete department");
+      notifyAlert(err.response?.data?.message || "Failed to delete department");
     }
   };
 
@@ -194,7 +195,7 @@ function DepartmentManagement() {
                   type="primary"
                   onClick={() => {
                     if (selectedIds.length !== 1) {
-                      alert("Select one department");
+                      notifyAlert("Select one department");
                       return;
                     }
                     const selected = departments.find(

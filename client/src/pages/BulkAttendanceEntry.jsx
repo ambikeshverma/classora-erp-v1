@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonStats, SkeletonTable } from "../components/Skeleton";
 import { attendanceService } from "../services/api";
 
+import { notifyAlert } from "../utils/toast";
 function BulkAttendanceEntry() {
   const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
@@ -115,17 +116,17 @@ function BulkAttendanceEntry() {
 
   const loadAttendance = async () => {
     if (!selectedDate) {
-      alert("Please select date");
+      notifyAlert("Please select date");
       return;
     }
 
     if (!selectedClassSection) {
-      alert("Please select class");
+      notifyAlert("Please select class");
       return;
     }
 
     if (selectedDate > today) {
-      alert("Future date is not allowed");
+      notifyAlert("Future date is not allowed");
       return;
     }
 
@@ -196,32 +197,32 @@ function BulkAttendanceEntry() {
 
   const saveAttendance = async () => {
     if (!selectedDate) {
-      alert("Please select date");
+      notifyAlert("Please select date");
       return;
     }
 
     if (selectedDate > today) {
-      alert("Future date is not allowed");
+      notifyAlert("Future date is not allowed");
       return;
     }
 
     if (selectedClosedDate) {
-      alert("Selected date is marked as school closed. Attendance cannot be saved.");
+      notifyAlert("Selected date is marked as school closed. Attendance cannot be saved.");
       return;
     }
 
     if (!selectedClassSection) {
-      alert("Please select class");
+      notifyAlert("Please select class");
       return;
     }
 
     if (students.length === 0) {
-      alert("No students to save attendance for.");
+      notifyAlert("No students to save attendance for.");
       return;
     }
 
     if (summary.na > 0) {
-      alert(
+      notifyAlert(
         `${summary.na} student(s) are still marked as NA. Please complete attendance first.`
       );
       return;

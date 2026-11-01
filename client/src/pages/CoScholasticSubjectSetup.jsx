@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { academicService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function CoScholasticSubjectSetup() {
   const navigate = useNavigate();
 
@@ -53,7 +54,7 @@ function CoScholasticSubjectSetup() {
 
   const handleSave = async () => {
     if (!subject.subjectName.trim()) {
-      alert("Please fill Subject Name");
+      notifyAlert("Please fill Subject Name");
       return;
     }
 
@@ -67,7 +68,7 @@ function CoScholasticSubjectSetup() {
     );
 
     if (duplicateSubject) {
-      alert(`Subject '${cleanName}' already exists`);
+      notifyAlert(`Subject '${cleanName}' already exists`);
       return;
     }
 
@@ -79,7 +80,7 @@ function CoScholasticSubjectSetup() {
         });
 
         if (res.data?.success) {
-          alert("Co-Scholastic Subject updated successfully");
+          notifyAlert("Co-Scholastic Subject updated successfully");
           setSubjects((prev) =>
             prev.map((s) => ((s._id || s.id) === editId ? res.data.data : s))
           );
@@ -91,7 +92,7 @@ function CoScholasticSubjectSetup() {
         });
 
         if (res.data?.success) {
-          alert("Co-Scholastic Subject added successfully");
+          notifyAlert("Co-Scholastic Subject added successfully");
           setSubjects((prev) => [...prev, res.data.data]);
         }
       }
@@ -102,13 +103,13 @@ function CoScholasticSubjectSetup() {
       });
       setEditId(null);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save co-scholastic subject");
+      notifyAlert(err.response?.data?.message || "Failed to save co-scholastic subject");
     }
   };
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Please select exactly one subject to edit");
+      notifyAlert("Please select exactly one subject to edit");
       return;
     }
 
@@ -129,11 +130,11 @@ function CoScholasticSubjectSetup() {
 
   const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one subject to delete");
+      notifyAlert("Please select at least one subject to delete");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Delete ${selectedIds.length} selected co-scholastic subject(s)?`
     );
     if (!ok) return;
@@ -147,9 +148,9 @@ function CoScholasticSubjectSetup() {
         prev.filter((item) => !selectedIds.includes(item._id || item.id))
       );
       setSelectedIds([]);
-      alert("Co-Scholastic Subject(s) deleted successfully");
+      notifyAlert("Co-Scholastic Subject(s) deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete subject");
+      notifyAlert(err.response?.data?.message || "Failed to delete subject");
     }
   };
 

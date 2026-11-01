@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function ConcessionManagement() {
   const currentUser = {
     userId: localStorage.getItem("userId") || "USR001",
@@ -138,7 +139,7 @@ function ConcessionManagement() {
     if (value !== "") {
       const num = Number(value);
       if (num < 0 || num > 100) {
-        alert("Percentage must be between 0 and 100");
+        notifyAlert("Percentage must be between 0 and 100");
         return;
       }
     }
@@ -154,7 +155,7 @@ function ConcessionManagement() {
 
   const validatePlan = () => {
     if (!planName.trim()) {
-      alert("Enter concession plan name");
+      notifyAlert("Enter concession plan name");
       return false;
     }
 
@@ -165,7 +166,7 @@ function ConcessionManagement() {
     );
 
     if (duplicate) {
-      alert("Concession plan already exists");
+      notifyAlert("Concession plan already exists");
       return false;
     }
 
@@ -200,16 +201,16 @@ function ConcessionManagement() {
       if (editingId) {
         const editingPlan = savedPlans.find((item) => item.id === editingId);
         if (editingPlan?.isLocked) {
-          alert("Locked plan cannot be edited");
+          notifyAlert("Locked plan cannot be edited");
           return;
         }
 
         await adminPanelService.updateConcession(editingId, payload);
-        alert("Concession plan updated successfully");
+        notifyAlert("Concession plan updated successfully");
       } else {
         payload.createdBy = currentUser.employeeName;
         await adminPanelService.createConcession(payload);
-        alert("Concession plan saved successfully");
+        notifyAlert("Concession plan saved successfully");
       }
 
       resetForm();
@@ -217,7 +218,7 @@ function ConcessionManagement() {
       setSelectedIds([]);
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to save concession plan");
+      notifyAlert(err.response?.data?.message || "Failed to save concession plan");
     } finally {
       setSaving(false);
     }
@@ -225,7 +226,7 @@ function ConcessionManagement() {
 
   const handleView = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one concession plan");
+      notifyAlert("Select one concession plan");
       return;
     }
 
@@ -242,18 +243,18 @@ function ConcessionManagement() {
 
   const handleEdit = () => {
     if (selectedIds.length !== 1) {
-      alert("Select one concession plan");
+      notifyAlert("Select one concession plan");
       return;
     }
 
     const item = selectedSingle;
     if (item.isLocked) {
-      alert("Locked plan cannot be edited");
+      notifyAlert("Locked plan cannot be edited");
       return;
     }
 
     if (item.isUsed) {
-      alert("Used plan cannot be edited");
+      notifyAlert("Used plan cannot be edited");
       return;
     }
 
@@ -269,17 +270,17 @@ function ConcessionManagement() {
 
   const handleLockPlan = async () => {
     if (selectedIds.length !== 1) {
-      alert("Select one concession plan");
+      notifyAlert("Select one concession plan");
       return;
     }
 
     const item = selectedSingle;
     if (item.isLocked) {
-      alert("Plan already locked");
+      notifyAlert("Plan already locked");
       return;
     }
 
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       "Once locked, this plan cannot be edited by school admin. Continue?"
     );
     if (!ok) return;
@@ -297,10 +298,10 @@ function ConcessionManagement() {
           hour12: true,
         }),
       });
-      alert("Concession plan locked successfully");
+      notifyAlert("Concession plan locked successfully");
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to lock plan");
+      notifyAlert(err.response?.data?.message || "Failed to lock plan");
     } finally {
       setSaving(false);
     }
@@ -308,17 +309,17 @@ function ConcessionManagement() {
 
   const handleDeletePlan = async () => {
     if (selectedIds.length === 0) {
-      alert("Select at least one plan to delete");
+      notifyAlert("Select at least one plan to delete");
       return;
     }
 
     const lockedSelected = selectedPlans.some((p) => p.isLocked);
     if (lockedSelected) {
-      alert("Locked plans cannot be deleted");
+      notifyAlert("Locked plans cannot be deleted");
       return;
     }
 
-    const ok = window.confirm("Delete selected concession plans?");
+    const ok = await confirmDialog("Delete selected concession plans?");
     if (!ok) return;
 
     try {
@@ -327,10 +328,10 @@ function ConcessionManagement() {
         await adminPanelService.deleteConcession(id);
       }
       setSelectedIds([]);
-      alert("Concession plans deleted successfully");
+      notifyAlert("Concession plans deleted successfully");
       loadData();
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete concession plans");
+      notifyAlert(err.response?.data?.message || "Failed to delete concession plans");
     } finally {
       setSaving(false);
     }

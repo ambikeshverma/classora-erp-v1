@@ -20,7 +20,16 @@ const schoolAdminOnly = (req, res, next) => {
   next();
 };
 
-router.use(schoolAuth, schoolAdminOnly);
+router.use(
+  schoolAuth,
+  schoolAuth.guardRoutes("user_control", [
+    { re: /^\/meta/, sub: null },
+    { re: /^\/users/, sub: "user_management" },
+    { re: /^\/class-teachers/, sub: "class_teacher_assignment" },
+    { re: /^\/subject-teachers/, sub: "subject_teacher_assignment" },
+  ]),
+  schoolAdminOnly
+);
 
 /* ==========================================================
    OPTIMIZED META ENDPOINT

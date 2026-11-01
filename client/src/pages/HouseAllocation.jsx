@@ -5,6 +5,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function HouseAllocation() {
   const navigate = useNavigate();
 
@@ -74,12 +75,12 @@ function HouseAllocation() {
 
   const handleAllocateHouse = async () => {
     if (!selectedHouse) {
-      alert("Please select a house to allocate");
+      notifyAlert("Please select a house to allocate");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Please select at least one student");
+      notifyAlert("Please select at least one student");
       return;
     }
 
@@ -94,13 +95,13 @@ function HouseAllocation() {
       });
 
       if (res.data?.success) {
-        alert(res.data.message || "House allocated successfully");
+        notifyAlert(res.data.message || "House allocated successfully");
         setSelectedIds([]);
         setSelectedHouse("");
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to allocate house");
+      notifyAlert(err.response?.data?.message || "Failed to allocate house");
     } finally {
       setAllocating(false);
     }
@@ -108,11 +109,11 @@ function HouseAllocation() {
 
   const handleRemoveAllocation = async () => {
     if (selectedIds.length === 0) {
-      alert("Please select at least one student");
+      notifyAlert("Please select at least one student");
       return;
     }
 
-    const ok = window.confirm(`Remove house allocation from ${selectedIds.length} student(s)?`);
+    const ok = await confirmDialog(`Remove house allocation from ${selectedIds.length} student(s)?`);
     if (!ok) return;
 
     try {
@@ -124,12 +125,12 @@ function HouseAllocation() {
       });
 
       if (res.data?.success) {
-        alert("House allocation removed successfully");
+        notifyAlert("House allocation removed successfully");
         setSelectedIds([]);
         handleSearch();
       }
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to remove house allocation");
+      notifyAlert(err.response?.data?.message || "Failed to remove house allocation");
     } finally {
       setAllocating(false);
     }

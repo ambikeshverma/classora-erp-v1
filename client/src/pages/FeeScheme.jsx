@@ -4,6 +4,7 @@ import AppButton from "../components/AppButton";
 import { SkeletonTable } from "../components/Skeleton";
 import { adminPanelService } from "../services/api";
 
+import { notifyAlert, confirmDialog } from "../utils/toast";
 function FeeScheme() {
 
   const allowedFeeTypes = [
@@ -75,7 +76,7 @@ function FeeScheme() {
 
   const handleFeeTypeChange = async (type) => {
     if (isLocked) {
-      alert("Fee scheme locked by super admin");
+      notifyAlert("Fee scheme locked by super admin");
       return;
     }
     setSelectedFeeType(type);
@@ -137,12 +138,12 @@ function FeeScheme() {
 
   const handleAddFeeHead = async () => {
     if (isLocked) {
-      alert("Fee scheme locked by super admin");
+      notifyAlert("Fee scheme locked by super admin");
       return;
     }
 
     if (!feeHeadName.trim()) {
-      alert("Enter fee head name");
+      notifyAlert("Enter fee head name");
       return;
     }
 
@@ -153,12 +154,12 @@ function FeeScheme() {
     );
 
     if (duplicateFeeHead) {
-      alert("Fee head already exists");
+      notifyAlert("Fee head already exists");
       return;
     }
 
     if (selectedFeeType === "Installment" && selectedMonths.length === 0) {
-      alert("Select months");
+      notifyAlert("Select months");
       return;
     }
 
@@ -181,11 +182,11 @@ function FeeScheme() {
           }))
         );
       }
-      alert("Fee head added successfully");
+      notifyAlert("Fee head added successfully");
       resetForm();
       setShowAddPopup(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to add fee head");
+      notifyAlert(err.response?.data?.message || "Failed to add fee head");
     } finally {
       setSaving(false);
     }
@@ -193,12 +194,12 @@ function FeeScheme() {
 
   const handleEditOpen = () => {
     if (isLocked) {
-      alert("Fee scheme locked by super admin");
+      notifyAlert("Fee scheme locked by super admin");
       return;
     }
 
     if (selectedIds.length !== 1) {
-      alert("Select one fee head");
+      notifyAlert("Select one fee head");
       return;
     }
 
@@ -207,7 +208,7 @@ function FeeScheme() {
     if (!item) return;
 
     if (isFeeHeadUsed(item)) {
-      alert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
+      notifyAlert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
       return;
     }
 
@@ -226,7 +227,7 @@ function FeeScheme() {
 
   const handleUpdate = async () => {
     if (!feeHeadName.trim()) {
-      alert("Enter fee head name");
+      notifyAlert("Enter fee head name");
       return;
     }
 
@@ -238,12 +239,12 @@ function FeeScheme() {
     );
 
     if (duplicateFeeHead) {
-      alert("Fee head already exists");
+      notifyAlert("Fee head already exists");
       return;
     }
 
     if (editingFeeType === "Installment" && selectedMonths.length === 0) {
-      alert("Select months");
+      notifyAlert("Select months");
       return;
     }
 
@@ -266,12 +267,12 @@ function FeeScheme() {
           }))
         );
       }
-      alert("Fee head updated successfully");
+      notifyAlert("Fee head updated successfully");
       resetForm();
       setSelectedIds([]);
       setShowEditPopup(false);
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to update fee head");
+      notifyAlert(err.response?.data?.message || "Failed to update fee head");
     } finally {
       setSaving(false);
     }
@@ -279,12 +280,12 @@ function FeeScheme() {
 
   const handleDelete = async () => {
     if (isLocked) {
-      alert("Fee scheme locked by super admin");
+      notifyAlert("Fee scheme locked by super admin");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Select fee head");
+      notifyAlert("Select fee head");
       return;
     }
 
@@ -292,11 +293,11 @@ function FeeScheme() {
     const usedFeeHead = selectedFeeHeads.some((item) => isFeeHeadUsed(item));
 
     if (usedFeeHead) {
-      alert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
+      notifyAlert("This fee head is used in Fee Plan Management and cannot be edited/deleted.");
       return;
     }
 
-    const ok = window.confirm("Delete selected fee heads?");
+    const ok = await confirmDialog("Delete selected fee heads?");
     if (!ok) return;
 
     try {
@@ -306,9 +307,9 @@ function FeeScheme() {
       }
       setFeeHeads((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
       setSelectedIds([]);
-      alert("Fee heads deleted successfully");
+      notifyAlert("Fee heads deleted successfully");
     } catch (err) {
-      alert(err.response?.data?.message || "Failed to delete fee heads");
+      notifyAlert(err.response?.data?.message || "Failed to delete fee heads");
     } finally {
       setSaving(false);
     }

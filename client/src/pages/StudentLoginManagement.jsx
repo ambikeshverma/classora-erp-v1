@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import "./studentLoginManagement.css";
 import AppButton from "../components/AppButton";
 
+import { notifyAlert } from "../utils/toast";
 function StudentLoginManagement() {
   const loginMethodFromSuperAdmin = "Both";
 
@@ -200,19 +201,19 @@ function StudentLoginManagement() {
 
   const openGeneratePopup = () => {
     if (!canUseSchoolManaged) {
-      alert("School managed login is not allowed for this school");
+      notifyAlert("School managed login is not allowed for this school");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Select student");
+      notifyAlert("Select student");
       return;
     }
 
     const alreadyCreated = selectedStudents.some((s) => s.accountCreated);
 
     if (alreadyCreated) {
-      alert("Selected student already has account");
+      notifyAlert("Selected student already has account");
       return;
     }
 
@@ -238,7 +239,7 @@ function StudentLoginManagement() {
       !credentialForm.password ||
       !credentialForm.confirmPassword
     ) {
-      alert("Fill all fields");
+      notifyAlert("Fill all fields");
       return;
     }
 
@@ -246,7 +247,7 @@ function StudentLoginManagement() {
       credentialForm.password !==
       credentialForm.confirmPassword
     ) {
-      alert("Passwords do not match");
+      notifyAlert("Passwords do not match");
       return;
     }
 
@@ -273,12 +274,12 @@ function StudentLoginManagement() {
 
   const openResetPopup = () => {
     if (!canUseSchoolManaged) {
-      alert("Not allowed");
+      notifyAlert("Not allowed");
       return;
     }
 
     if (selectedIds.length === 0) {
-      alert("Select student");
+      notifyAlert("Select student");
       return;
     }
 
@@ -296,7 +297,7 @@ function StudentLoginManagement() {
       !credentialForm.password ||
       !credentialForm.confirmPassword
     ) {
-      alert("Fill all fields");
+      notifyAlert("Fill all fields");
       return;
     }
 
@@ -304,7 +305,7 @@ function StudentLoginManagement() {
       credentialForm.password !==
       credentialForm.confirmPassword
     ) {
-      alert("Passwords do not match");
+      notifyAlert("Passwords do not match");
       return;
     }
 
@@ -325,7 +326,7 @@ function StudentLoginManagement() {
 
   const handleEnableDisable = () => {
     if (selectedIds.length === 0) {
-      alert("Select student");
+      notifyAlert("Select student");
       return;
     }
 
@@ -342,7 +343,7 @@ function StudentLoginManagement() {
     );
 
     if (!allEnabled && !allDisabled) {
-      alert(
+      notifyAlert(
         "Please select students with same login status."
       );
       return;
@@ -595,7 +596,7 @@ function StudentLoginManagement() {
                 type="print"
                 onClick={() => {
                   if (selectedIds.length === 0) {
-                    alert("Select student");
+                    notifyAlert("Select student");
                     return;
                   }
 
