@@ -32,7 +32,56 @@ function GatePassManagement() {
     remarks: "",
   });
 
+  // Gate passes are issued to real students picked from the admission records
+  const [studentQuery, setStudentQuery] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [studentId, setStudentId] = useState("");
+
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+
+  useEffect(() => {
+    const query = studentQuery.trim();
+
+    if (studentId || query.length < 2) {
+      setSuggestions([]);
+      setSearching(false);
+      return undefined;
+    }
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await receptionService.searchStudents(query);
+        if (active) setSuggestions(res.data?.data || []);
+      } catch {
+        if (active) setSuggestions([]);
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [studentQuery, studentId]);
+
+  const handleStudentSelect = (student) => {
+    setStudentId(student._id);
+    setStudentQuery(student.studentName);
+    setSuggestions([]);
+    setFormData((prev) => ({
+      ...prev,
+      studentName: student.studentName,
+      className: student.className || "",
+      section: student.section || "",
+      rollNumber: student.rollNumber || "",
+      guardianName: student.fatherName || "",
+      mobile: student.mobile || "",
+    }));
+  };
 
   const fetchPasses = useCallback(async () => {
     if (!isSearched) return;
@@ -61,6 +110,9 @@ function GatePassManagement() {
       reason: "", outTime: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
       passDate: new Date().toISOString().split("T")[0], remarks: "",
     });
+    setStudentId("");
+    setStudentQuery("");
+    setSuggestions([]);
   };
 
   const handleChange = (e) => {
@@ -69,13 +121,13 @@ function GatePassManagement() {
   };
 
   const handleSave = async () => {
-    if (!formData.studentName || !formData.reason || !formData.passDate) {
-      showToast("Student name, reason and pass date are required");
+    if (!studentId || !formData.reason || !formData.passDate) {
+      showToast("Select a student and enter reason and pass date");
       return;
     }
     setSaving(true);
     try {
-      await receptionService.createGatePass(formData);
+      await receptionService.createGatePass({ ...formData, studentId });
       showToast("Gate pass issued successfully");
       resetForm();
       setShowForm(false);
@@ -266,21 +318,49 @@ function GatePassManagement() {
       {showForm && (
         <div className="common-card">
           <div className="enquiry-form-grid">
-            <div className="form-group">
-              <label>Student Name *</label>
-              <input type="text" name="studentName" value={formData.studentName} onChange={handleChange} placeholder="Enter student name" />
+            <div className="form-group" style={{ position: "relative" }}>
+              <label>Student *</label>
+              <input
+                type="text"
+                value={studentQuery}
+                onChange={(e) => { setStudentId(""); setStudentQuery(e.target.value); }}
+                placeholder="Search by name, father, mobile, SR no"
+              />
+              {!studentId && studentQuery.trim().length >= 2 && (
+                <div className="fc-search-suggestion-box" style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 20, background: "#fff", border: "1px solid #dbeafe", borderRadius: 12, boxShadow: "0 12px 28px rgba(15,23,42,0.18)", overflow: "hidden" }}>
+                  {searching ? (
+                    <div style={{ padding: 12 }}>Searching...</div>
+                  ) : suggestions.length === 0 ? (
+                    <div style={{ padding: 12 }}>No student found</div>
+                  ) : (
+                    suggestions.map((student) => (
+                      <button
+                        type="button"
+                        key={student._id}
+                        onClick={() => handleStudentSelect(student)}
+                        style={{ display: "block", width: "100%", textAlign: "left", border: "none", background: "#fff", padding: "10px 14px", cursor: "pointer" }}
+                      >
+                        <strong>{student.studentName}</strong>
+                        <div style={{ fontSize: 12, color: "#6b7280" }}>
+                          {[student.className, student.section].filter(Boolean).join(" - ") || "No class"} | Father: {student.fatherName || "-"} | SR: {student.srNo || "-"}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label>Class</label>
-              <input type="text" name="className" value={formData.className} onChange={handleChange} placeholder="e.g. Class 8" />
+              <input type="text" name="className" value={formData.className} readOnly />
             </div>
             <div className="form-group">
               <label>Section</label>
-              <input type="text" name="section" value={formData.section} onChange={handleChange} placeholder="e.g. A" />
+              <input type="text" name="section" value={formData.section} readOnly />
             </div>
             <div className="form-group">
               <label>Roll Number</label>
-              <input type="text" name="rollNumber" value={formData.rollNumber} onChange={handleChange} />
+              <input type="text" name="rollNumber" value={formData.rollNumber} readOnly />
             </div>
             <div className="form-group">
               <label>Guardian Name</label>

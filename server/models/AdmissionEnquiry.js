@@ -62,7 +62,7 @@ const admissionEnquirySchema = new mongoose.Schema(
     },
     session: {
       type: String,
-      default: "2026-2027",
+      default: "",
     },
   },
   { timestamps: true }

@@ -458,6 +458,15 @@ export const receptionService = {
   updateComplaintStatus: (id, data) => api.patch(`/api/reception/complaints/${id}/status`, data),
   deleteComplaint: (id) => api.delete(`/api/reception/complaints/${id}`),
 
+  // Student lookup (gate pass)
+  searchStudents: (q) => api.get("/api/reception/students/search", { params: { q } }),
+
+  // Student ID / Parent ID cards
+  getIdCardMeta: () => api.get("/api/reception/id-cards/meta"),
+  getIdCardStudents: (params) => api.get("/api/reception/id-cards/students", { params }),
+  previewIdCards: (studentIds) => api.post("/api/reception/id-cards/preview", { studentIds }),
+  issueIdCards: (data) => api.post("/api/reception/id-cards/issue", data),
+
   // Reports
   getReports: () => api.get("/api/reception/reports"),
 };

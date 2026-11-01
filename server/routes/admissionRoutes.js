@@ -12,6 +12,9 @@ const Medium = require("../models/Medium");
 const Subject = require("../models/Subject");
 const House = require("../models/House");
 const ClassSubjectMapping = require("../models/ClassSubjectMapping");
+const EnquirySource = require("../models/EnquirySource");
+const FeeCounter = require("../models/FeeCounter");
+const { escapeRegex, getCurrentSession } = require("../utils/feeEngine");
 
 // Role guard: Only schoolAdmin can manage Admissions
 const schoolAdminOnly = (req, res, next) => {
@@ -60,6 +63,7 @@ router.get("/meta", async (req, res) => {
       classSubjectMappings,
       totalAdmissions,
       totalEnquiries,
+      enquirySourceDocs,
     ] = await Promise.all([
       Class.find({ campusId }).select("className classCode sections").sort({ className: 1 }).lean(),
       FeePlan.find({ campusId }).select("className feePlanName feeScheme newTotal oldTotal").sort({ className: 1 }).lean(),
@@ -71,6 +75,7 @@ router.get("/meta", async (req, res) => {
       ClassSubjectMapping.find({ campusId }).select("className scholasticSubjects coScholasticSubjects").lean().catch(() => []),
       Admission.countDocuments({ campusId }),
       AdmissionEnquiry.countDocuments({ campusId }),
+      EnquirySource.find({ campusId }).select("sourceName").sort({ sourceName: 1 }).lean(),
     ]);
 
     const housesList = Array.isArray(houses) ? houses : [];
@@ -86,7 +91,8 @@ router.get("/meta", async (req, res) => {
         subjects: subjects || [],
         houses: housesList,
         classSubjectMappings: classSubjectMappings || [],
-        enquirySources: ["Walk-in", "WhatsApp", "Facebook", "Instagram", "Reference", "Website", "Phone Call"],
+        // Managed in Reception Desk -> Enquiry Sources
+        enquirySources: enquirySourceDocs.map((item) => item.sourceName),
         stats: {
           totalAdmissions: totalAdmissions || 0,
           totalEnquiries: totalEnquiries || 0,
@@ -272,28 +278,66 @@ router.get("/", async (req, res) => {
    ADMISSION ENQUIRIES CRUD
 ========================================================== */
 
+const ENQUIRY_STATUSES = ["NEW", "FOLLOW-UP", "CLOSED", "CONVERTED"];
+const ENQUIRY_FIELDS = ["studentName", "mobileNumber", "classInterested", "fatherName", "address", "source", "status", "enquiryDate", "remarks"];
+
+// Enquiries are stored against the campus from the token
+const enquiryScope = (req) => ({ campusId: req.campusId });
+
+const pickEnquiry = (body) => {
+  const out = {};
+  ENQUIRY_FIELDS.forEach((field) => {
+    const value = field === "mobileNumber" ? body.mobileNumber ?? body.mobile : body[field];
+    if (value !== undefined) out[field] = typeof value === "string" ? value.trim() : value;
+  });
+  return out;
+};
+
+// Returns an error text when the enquiry data is not acceptable
+const checkEnquiry = async (req, data, { partial = false } = {}) => {
+  if (!partial || data.studentName !== undefined) if (!data.studentName) return "Student name is required";
+  if (!partial || data.mobileNumber !== undefined) if (!data.mobileNumber) return "Mobile number is required";
+  if (!partial || data.classInterested !== undefined) if (!data.classInterested) return "Class interested is required";
+  if (data.status !== undefined && !ENQUIRY_STATUSES.includes(data.status)) return "Invalid status";
+  if (data.enquiryDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.enquiryDate))) return "Invalid enquiry date";
+
+  if (!partial || data.source !== undefined) {
+    if (!data.source) return "Enquiry source is required";
+    const known = await EnquirySource.exists({
+      campusId: req.campusId,
+      sourceName: new RegExp("^" + escapeRegex(data.source) + "$", "i"),
+    });
+    if (!known) return "Select a valid enquiry source. Sources are managed in Reception Desk.";
+  }
+
+  return "";
+};
+
+const nextEnquiryNo = async (campusId) => {
+  const year = new Date().getFullYear();
+  const counter = await FeeCounter.findOneAndUpdate(
+    { campusId, session: "enquiry:" + year },
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  return "ENQ-" + year + "-" + String(counter.seq).padStart(4, "0");
+};
+
 // Enquiries - Get all enquiries
 router.get("/enquiries", async (req, res) => {
   try {
-    const schoolScope = getSchoolScope(req);
     const { status, classInterested, search } = req.query;
 
-    const filter = { ...schoolScope };
+    const filter = { ...enquiryScope(req) };
     if (status) filter.status = status;
     if (classInterested) filter.classInterested = classInterested;
-    if (search) {
-      const reg = new RegExp(search.trim(), "i");
-      filter.$or = [
-        { studentName: reg },
-        { parentName: reg },
-        { mobile: reg },
-        { enquiryNumber: reg },
-      ];
+    if (search && String(search).trim()) {
+      const reg = new RegExp(escapeRegex(String(search).trim()), "i");
+      filter.$or = [{ studentName: reg }, { fatherName: reg }, { mobileNumber: reg }, { enquiryNo: reg }];
     }
 
-    const enquiries = await AdmissionEnquiry.find(filter)
-      .sort({ createdAt: -1 })
-      .lean();
+    const enquiries = await AdmissionEnquiry.find(filter).sort({ createdAt: -1 }).lean();
 
     res.status(200).json({ success: true, data: enquiries });
   } catch (error) {
@@ -304,41 +348,22 @@ router.get("/enquiries", async (req, res) => {
 // Enquiries - Create new enquiry
 router.post("/enquiries", async (req, res) => {
   try {
-    const schoolId = req.schoolId || req.user?.schoolId;
-    const actualCampusId = req.school?.campusId || req.user?.campusCode || req.user?.campusId;
-    const { studentName, parentName, mobile, classInterested, source } = req.body;
+    const data = pickEnquiry(req.body);
 
-    if (!studentName || !mobile || !classInterested) {
-      return res.status(400).json({
-        success: false,
-        message: "Student name, mobile number, and class interested are required",
-      });
-    }
+    const problem = await checkEnquiry(req, data);
+    if (problem) return res.status(400).json({ success: false, message: problem });
 
-    const count = await AdmissionEnquiry.countDocuments(getSchoolScope(req));
-    const enquiryNumber = `ENQ-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
-
-    const enquiry = new AdmissionEnquiry({
-      ...req.body,
-      enquiryNumber,
-      schoolId,
-      campusId: actualCampusId || String(schoolId),
-      studentName: studentName.trim(),
-      parentName: parentName ? parentName.trim() : "",
-      mobile: mobile.trim(),
-      classInterested,
-      source: source || "Walk-in",
-      status: req.body.status || "New",
-      enquiryDate: req.body.enquiryDate || new Date().toISOString().split("T")[0],
+    const enquiry = await AdmissionEnquiry.create({
+      ...data,
+      schoolId: req.schoolId,
+      campusId: req.campusId,
+      enquiryNo: await nextEnquiryNo(req.campusId),
+      status: data.status || "NEW",
+      enquiryDate: data.enquiryDate || new Date().toISOString().split("T")[0],
+      session: getCurrentSession(),
     });
 
-    await enquiry.save();
-
-    res.status(201).json({
-      success: true,
-      message: "Enquiry created successfully",
-      data: enquiry,
-    });
+    res.status(201).json({ success: true, message: "Enquiry created successfully", data: enquiry });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -347,10 +372,14 @@ router.post("/enquiries", async (req, res) => {
 // Enquiries - Update enquiry
 router.put("/enquiries/:id", async (req, res) => {
   try {
-    const schoolScope = getSchoolScope(req);
+    const data = pickEnquiry(req.body);
+
+    const problem = await checkEnquiry(req, data, { partial: true });
+    if (problem) return res.status(400).json({ success: false, message: problem });
+
     const updated = await AdmissionEnquiry.findOneAndUpdate(
-      { _id: req.params.id, ...schoolScope },
-      { $set: req.body },
+      { _id: req.params.id, ...enquiryScope(req) },
+      { $set: data },
       { new: true }
     );
 
@@ -358,11 +387,7 @@ router.put("/enquiries/:id", async (req, res) => {
       return res.status(404).json({ success: false, message: "Enquiry not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Enquiry updated successfully",
-      data: updated,
-    });
+    res.status(200).json({ success: true, message: "Enquiry updated successfully", data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -371,11 +396,13 @@ router.put("/enquiries/:id", async (req, res) => {
 // Enquiries - Update enquiry status
 router.patch("/enquiries/:id/status", async (req, res) => {
   try {
-    const schoolScope = getSchoolScope(req);
     const { status } = req.body;
+    if (!ENQUIRY_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
 
     const updated = await AdmissionEnquiry.findOneAndUpdate(
-      { _id: req.params.id, ...schoolScope },
+      { _id: req.params.id, ...enquiryScope(req) },
       { $set: { status } },
       { new: true }
     );
@@ -384,33 +411,26 @@ router.patch("/enquiries/:id/status", async (req, res) => {
       return res.status(404).json({ success: false, message: "Enquiry not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Enquiry status updated successfully",
-      data: updated,
-    });
+    res.status(200).json({ success: true, message: "Enquiry status updated successfully", data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Enquiries - Delete enquiry
+// Enquiries - Delete enquiry (its follow-ups go with it)
 router.delete("/enquiries/:id", async (req, res) => {
   try {
-    const schoolScope = getSchoolScope(req);
-    const deleted = await AdmissionEnquiry.findOneAndDelete({
-      _id: req.params.id,
-      ...schoolScope,
-    });
+    const deleted = await AdmissionEnquiry.findOneAndDelete({ _id: req.params.id, ...enquiryScope(req) });
 
     if (!deleted) {
       return res.status(404).json({ success: false, message: "Enquiry not found" });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Enquiry deleted successfully",
-    });
+    if (mongoose.models.FollowUp) {
+      await mongoose.models.FollowUp.deleteMany({ campusId: req.campusId, enquiryId: deleted._id });
+    }
+
+    res.status(200).json({ success: true, message: "Enquiry deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

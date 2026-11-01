@@ -5,11 +5,9 @@ import { SkeletonTable } from "../components/Skeleton";
 import { admissionService } from "../services/api";
 
 function AdmissionEnquiries() {
-  const [sources, setSources] = useState(["Walk-in", "WhatsApp", "Facebook", "Instagram", "Reference", "Website"]);
-  const [classOptions, setClassOptions] = useState([
-    "Nursery", "Class 1", "Class 2", "Class 3", "Class 4", "Class 5",
-    "Class 6", "Class 7", "Class 8", "Class 9", "Class 10", "Class 11", "Class 12"
-  ]);
+  // Sources come from Reception Desk -> Enquiry Sources, classes from Class Management
+  const [sources, setSources] = useState([]);
+  const [classOptions, setClassOptions] = useState([]);
   const statuses = ["NEW", "FOLLOW-UP", "CLOSED", "CONVERTED"];
 
   const [selectedIds, setSelectedIds] = useState([]);
@@ -26,7 +24,7 @@ function AdmissionEnquiries() {
     classInterested: "",
     fatherName: "",
     address: "",
-    source: "Walk-in",
+    source: "",
     status: "NEW",
     enquiryDate: new Date().toISOString().split("T")[0],
     remarks: "",
@@ -55,12 +53,8 @@ function AdmissionEnquiries() {
 
       if (metaRes.data?.data) {
         const { classes, enquirySources } = metaRes.data.data;
-        if (classes && classes.length > 0) {
-          setClassOptions(classes.map((c) => c.className));
-        }
-        if (enquirySources && enquirySources.length > 0) {
-          setSources(enquirySources);
-        }
+        setClassOptions((classes || []).map((c) => c.className));
+        setSources(enquirySources || []);
       }
     } catch (err) {
       console.error("Failed to load enquiries", err);
@@ -76,7 +70,7 @@ function AdmissionEnquiries() {
       classInterested: "",
       fatherName: "",
       address: "",
-      source: "Walk-in",
+      source: "",
       status: "NEW",
       enquiryDate: new Date().toISOString().split("T")[0],
       remarks: "",
@@ -121,7 +115,7 @@ function AdmissionEnquiries() {
       classInterested: item.classInterested || "",
       fatherName: item.fatherName || "",
       address: item.address || "",
-      source: item.source || "Walk-in",
+      source: item.source || "",
       status: item.status || "NEW",
       enquiryDate: item.enquiryDate || new Date().toISOString().split("T")[0],
       remarks: item.remarks || "",
@@ -402,6 +396,7 @@ function AdmissionEnquiries() {
                 onChange={handleChange}
                 disabled={saving}
               >
+                <option value="">{sources.length === 0 ? "No source available" : "Select Source"}</option>
                 {sources.map((src) => (
                   <option key={src} value={src}>
                     {src}

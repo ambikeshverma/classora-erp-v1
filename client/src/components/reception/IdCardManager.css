@@ -1,0 +1,50 @@
+.idcard-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.id-card.mirror,
+.parent-id-card.mirror {
+  transform: scaleX(-1);
+}
+
+.idcard-popup {
+  max-height: 92vh;
+  overflow-y: auto;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .idcard-print-area,
+  .idcard-print-area * {
+    visibility: visible;
+  }
+
+  .idcard-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .idcard-popup {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    box-shadow: none;
+  }
+
+  .idcard-actions,
+  .idcard-popup .popup-head,
+  .idcard-popup .template-info {
+    display: none;
+  }
+}
