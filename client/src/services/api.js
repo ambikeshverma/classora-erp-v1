@@ -605,6 +605,28 @@ export const financeService = {
   getReports: (params) => api.get("/api/finance/reports", { params }),
 };
 
+// 🧾 Exam Tools Endpoints
+export const examService = {
+  getMeta: () => api.get("/api/exam-tools/meta"),
+
+  getExams: () => api.get("/api/exam-tools/exams"),
+  createExam: (data) => api.post("/api/exam-tools/exams", data),
+  updateExam: (id, data) => api.put(`/api/exam-tools/exams/${id}`, data),
+  deleteExam: (id) => api.delete(`/api/exam-tools/exams/${id}`),
+
+  getMarksSetups: (params) => api.get("/api/exam-tools/marks-setups", { params }),
+  getMarksSetupDetail: (params) => api.get("/api/exam-tools/marks-setups/detail", { params }),
+  saveMarksSetup: (data) => api.post("/api/exam-tools/marks-setups", data),
+  deleteMarksSetup: (params) => api.delete("/api/exam-tools/marks-setups", { params }),
+
+  getTimetables: (params) => api.get("/api/exam-tools/timetables", { params }),
+  createTimetable: (data) => api.post("/api/exam-tools/timetables", data),
+  updateTimetable: (id, data) => api.put(`/api/exam-tools/timetables/${id}`, data),
+  deleteTimetables: (ids) => api.delete("/api/exam-tools/timetables", { params: { ids: ids.join(",") } }),
+
+  getAdmitCards: (params) => api.get("/api/exam-tools/admit-cards", { params }),
+};
+
 // 🚌 Transport Endpoints (routes feed the Transport Fee in Fee Manager)
 export const transportService = {
   getMeta: () => api.get("/api/transport/meta"),

@@ -1,0 +1,196 @@
+.admit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 1000;
+}
+
+.admit-box {
+  width: 100%;
+  max-width: 900px;
+  max-height: 94vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.admit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.admit-count {
+  margin-right: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.admit-card {
+  border: 2px solid #111827;
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 16px;
+  color: #111827;
+  page-break-after: always;
+  break-after: page;
+}
+
+.admit-school-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 10px;
+}
+
+.admit-school-header img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+.admit-school-header h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.admit-school-header p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #4b5563;
+}
+
+.admit-title {
+  text-align: center;
+  margin: 14px 0;
+  font-size: 17px;
+}
+
+.admit-info {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 24px;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.admit-info p {
+  margin: 0;
+}
+
+.admit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.admit-table th,
+.admit-table td {
+  border: 1px solid #111827;
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.admit-table th {
+  background: #f1f5f9;
+}
+
+.admit-empty {
+  color: #6b7280;
+}
+
+.admit-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 46px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admit-signatures span {
+  border-top: 1px solid #111827;
+  padding-top: 4px;
+  min-width: 140px;
+  text-align: center;
+}
+
+.deskslip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.deskslip {
+  border: 1.5px dashed #111827;
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #111827;
+  break-inside: avoid;
+}
+
+.deskslip h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  text-align: center;
+}
+
+.deskslip p {
+  margin: 3px 0;
+}
+
+.deskslip-exam {
+  text-align: center;
+  font-weight: 700;
+  border-bottom: 1px solid #9ca3af;
+  padding-bottom: 5px;
+  margin-bottom: 7px !important;
+}
+
+@media (max-width: 600px) {
+  .admit-info,
+  .deskslip-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .admit-print-sheet,
+  .admit-print-sheet * {
+    visibility: visible;
+  }
+
+  .admit-overlay {
+    position: static;
+    background: none;
+    padding: 0;
+  }
+
+  .admit-box {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .admit-actions {
+    display: none;
+  }
+}

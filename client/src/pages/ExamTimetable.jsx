@@ -1,155 +1,111 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./examTimetable.css";
 import AppButton from "../components/AppButton";
+import { SkeletonTable } from "../components/Skeleton";
+import { examService } from "../services/api";
+
+const EMPTY_FILTERS = { examId: "", className: "", sectionName: "" };
+
+const EMPTY_FORM = {
+  mode: "Single",
+  examId: "",
+  className: "",
+  sectionName: "",
+  selectedClassSections: [],
+  subjectName: "",
+  examDate: "",
+  startTime: "",
+  endTime: "",
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+
+const formatDate = (value) => (value ? String(value).split("-").reverse().join("-") : "-");
+
+const formatTime = (start, end) => `${start} - ${end}`;
 
 function ExamTimetable() {
-  const schoolId =
-    localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const exams = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      examName: "Unit Test 1",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      examName: "Half-Yearly Examination",
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      examName: "Annual Examination",
-    },
-  ];
-
-  const classes = [
-    { id: 1, schoolId: "SCH001", className: "9" },
-    { id: 2, schoolId: "SCH001", className: "10" },
-  ];
-
-  const sections = [
-    { id: 1, schoolId: "SCH001", className: "9", sectionName: "A" },
-    { id: 2, schoolId: "SCH001", className: "9", sectionName: "B" },
-    { id: 3, schoolId: "SCH001", className: "10", sectionName: "A" },
-    { id: 4, schoolId: "SCH001", className: "10", sectionName: "B" },
-  ];
-
-  const subjects = [
-    { id: 1, schoolId: "SCH001", className: "9", subjectName: "Hindi" },
-    { id: 2, schoolId: "SCH001", className: "9", subjectName: "English" },
-    { id: 3, schoolId: "SCH001", className: "10", subjectName: "Science" },
-    { id: 4, schoolId: "SCH001", className: "10", subjectName: "Math" },
-  ];
-
-  const schoolDetails = {
-    name: "CHANDRA SHEKHAR AZAD INTER COLLEGE",
-    address: "Rasauli, Barabanki",
-    contact: "+91 8840248644",
-  };
+  const [meta, setMeta] = useState({ exams: [], classes: [], schoolInfo: {} });
+  const [timetable, setTimetable] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const [filterData, setFilterData] = useState({
-    examName: "",
-    className: "",
-    sectionName: "",
-  });
+  const [filterData, setFilterData] = useState(EMPTY_FILTERS);
+  const [appliedFilters, setAppliedFilters] = useState(EMPTY_FILTERS);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  const [appliedFilters, setAppliedFilters] = useState({
-    examName: "",
-    className: "",
-    sectionName: "",
-  });
+  const loadTimetable = useCallback(async () => {
+    try {
+      setLoading(true);
 
-  const emptyForm = {
-    mode: "Single",
-    examName: "",
-    className: "",
-    sectionName: "",
-    selectedClassSections: [],
-    subjectName: "",
-    examDate: "",
-    startTime: "",
-    endTime: "",
-  };
+      const params = {};
+      Object.entries(appliedFilters).forEach(([key, value]) => {
+        if (value) params[key] = value;
+      });
 
-  const [formData, setFormData] = useState(emptyForm);
+      const res = await examService.getTimetables(params);
+      setTimetable(res.data?.data || []);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load timetable");
+    } finally {
+      setLoading(false);
+    }
+  }, [appliedFilters]);
 
-  const [timetableList, setTimetableList] = useState([
-    {
-      id: 1,
-      schoolId: "SCH001",
-      examName: "Half-Yearly Examination",
-      className: "9",
-      sectionName: "A",
-      subjectName: "Hindi",
-      examDate: "2026-09-10",
-      startTime: "09:00",
-      endTime: "12:00",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      examName: "Half-Yearly Examination",
-      className: "9",
-      sectionName: "B",
-      subjectName: "Hindi",
-      examDate: "2026-09-10",
-      startTime: "09:00",
-      endTime: "12:00",
-    },
-  ]);
+  useEffect(() => {
+    let active = true;
 
-  const schoolExams = exams.filter(
-    (item) => item.schoolId === schoolId
+    examService
+      .getMeta()
+      .then((res) => {
+        if (active) setMeta(res.data?.data || { exams: [], classes: [], schoolInfo: {} });
+      })
+      .catch((err) => {
+        console.error("Failed to load exam meta", err);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    loadTimetable();
+  }, [loadTimetable]);
+
+  const classInfo = (className) => meta.classes.find((item) => item.className === className);
+
+  const formExam = meta.exams.find((item) => item._id === formData.examId);
+
+  // Only classes the chosen exam applies to can be scheduled
+  const formClasses = formExam
+    ? meta.classes.filter((item) => formExam.applicableClasses.includes(item.className))
+    : meta.classes;
+
+  const classSectionOptions = formClasses.flatMap((item) =>
+    item.sections.map((sectionName) => ({ className: item.className, sectionName }))
   );
 
-  const schoolClasses = classes.filter(
-    (item) => item.schoolId === schoolId
-  );
-
-  const filterSections = sections.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!filterData.className ||
-        item.className === filterData.className)
-  );
-
-  const formSections = sections.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!formData.className ||
-        item.className === formData.className)
-  );
-
-  const formSubjects = subjects.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!formData.className ||
-        item.className === formData.className)
-  );
-
-  const classSectionOptions = sections.filter(
-    (item) => item.schoolId === schoolId
-  );
-
-  const filteredTimetable = timetableList.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!appliedFilters.examName ||
-        item.examName === appliedFilters.examName) &&
-      (!appliedFilters.className ||
-        item.className === appliedFilters.className) &&
-      (!appliedFilters.sectionName ||
-        item.sectionName === appliedFilters.sectionName)
-  );
+  const formSubjects =
+    formData.mode === "Single"
+      ? classInfo(formData.className)?.subjects || []
+      : (() => {
+          const chosen = formData.selectedClassSections.map((value) => value.split("|")[0]);
+          const lists = [...new Set(chosen)].map((name) => classInfo(name)?.subjects || []);
+          // Multiple classes: only subjects every selected class has
+          return lists.length === 0 ? [] : lists.reduce((common, list) => common.filter((name) => list.includes(name)));
+        })();
 
   const resetForm = () => {
-    setFormData(emptyForm);
+    setFormData(EMPTY_FORM);
     setEditId(null);
   };
 
@@ -158,13 +114,9 @@ function ExamTimetable() {
     setSelectedIds([]);
   };
 
-  const formatTime = (start, end) => {
-    return `${start} - ${end}`;
-  };
-  const handleSave = () => {
-
+  const handleSave = async () => {
     if (
-      !formData.examName ||
+      !formData.examId ||
       !formData.subjectName ||
       !formData.examDate ||
       !formData.startTime ||
@@ -174,285 +126,119 @@ function ExamTimetable() {
       return;
     }
 
-    if (
-      formData.mode === "Single" &&
-      (!formData.className ||
-        !formData.sectionName)
-    ) {
+    if (formData.mode === "Single" && (!formData.className || !formData.sectionName)) {
       alert("Please select class and section");
       return;
     }
 
-    if (
-      formData.mode === "Multiple" &&
-      formData.selectedClassSections.length === 0
-    ) {
-      alert(
-        "Please select class sections"
-      );
+    if (formData.mode === "Multiple" && formData.selectedClassSections.length === 0) {
+      alert("Please select class sections");
       return;
     }
 
-    if (
-      formData.endTime <=
-      formData.startTime
-    ) {
-      alert(
-        "End time cannot be before start time"
-      );
+    if (formData.endTime <= formData.startTime) {
+      alert("End time cannot be before start time");
       return;
     }
 
-    if (formData.mode === "Single") {
+    const base = {
+      examId: formData.examId,
+      subjectName: formData.subjectName,
+      examDate: formData.examDate,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+    };
 
-      const duplicate =
-        timetableList.some(
-          (item) =>
-            item.examName ===
-              formData.examName &&
-            item.className ===
-              formData.className &&
-            item.sectionName ===
-              formData.sectionName &&
-            item.subjectName ===
-              formData.subjectName &&
-            item.id !== editId
-        );
-
-      if (duplicate) {
-        alert(
-          "Duplicate timetable not allowed"
-        );
-        return;
-      }
+    try {
+      setSaving(true);
 
       if (editId) {
-
-        setTimetableList(
-          timetableList.map((item) =>
-            item.id === editId
-              ? {
-                  ...item,
-                  examName:
-                    formData.examName,
-                  className:
-                    formData.className,
-                  sectionName:
-                    formData.sectionName,
-                  subjectName:
-                    formData.subjectName,
-                  examDate:
-                    formData.examDate,
-                  startTime:
-                    formData.startTime,
-                  endTime:
-                    formData.endTime,
-                }
-              : item
-          )
-        );
-
-        alert(
-          "Timetable updated successfully"
-        );
-
+        await examService.updateTimetable(editId, {
+          ...base,
+          className: formData.className,
+          sectionName: formData.sectionName,
+        });
+        alert("Timetable updated successfully");
       } else {
+        const targets =
+          formData.mode === "Single"
+            ? [{ className: formData.className, sectionName: formData.sectionName }]
+            : formData.selectedClassSections.map((value) => {
+                const [className, sectionName] = value.split("|");
+                return { className, sectionName };
+              });
 
-        const newRecord = {
-          id: Date.now(),
-          schoolId,
-          examName:
-            formData.examName,
-          className:
-            formData.className,
-          sectionName:
-            formData.sectionName,
-          subjectName:
-            formData.subjectName,
-          examDate:
-            formData.examDate,
-          startTime:
-            formData.startTime,
-          endTime:
-            formData.endTime,
-        };
-
-        setTimetableList([
-          ...timetableList,
-          newRecord,
-        ]);
-
-        alert(
-          "Timetable added successfully"
-        );
-
+        const res = await examService.createTimetable({ ...base, targets });
+        alert(res.data?.message || "Timetable added successfully");
       }
 
-    } else {
-
-      const duplicateFound =
-        formData.selectedClassSections.some(
-          (value) => {
-
-            const splitData =
-              value.split("-");
-
-            const className =
-              splitData[0];
-
-            const sectionName =
-              splitData[1];
-
-            return timetableList.some(
-              (item) =>
-                item.examName ===
-                  formData.examName &&
-                item.className ===
-                  className &&
-                item.sectionName ===
-                  sectionName &&
-                item.subjectName ===
-                  formData.subjectName
-            );
-
-          }
-        );
-
-      if (duplicateFound) {
-        alert(
-          "Duplicate timetable not allowed"
-        );
-        return;
-      }
-
-      const newRecords =
-        formData.selectedClassSections.map(
-          (value) => {
-
-            const splitData =
-              value.split("-");
-
-            return {
-              id:
-                Date.now() +
-                Math.random(),
-              schoolId,
-              examName:
-                formData.examName,
-              className:
-                splitData[0],
-              sectionName:
-                splitData[1],
-              subjectName:
-                formData.subjectName,
-              examDate:
-                formData.examDate,
-              startTime:
-                formData.startTime,
-              endTime:
-                formData.endTime,
-            };
-
-          }
-        );
-
-      setTimetableList([
-        ...timetableList,
-        ...newRecords,
-      ]);
-
-      alert(
-        "Multi class timetable added successfully"
-      );
-
+      resetForm();
+      setShowForm(false);
+      setSelectedIds([]);
+      await loadTimetable();
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save timetable");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
-    setShowForm(false);
   };
 
   const handleEdit = () => {
-
     if (selectedIds.length !== 1) {
-      alert(
-        "Please select one timetable"
-      );
+      alert("Please select one timetable");
       return;
     }
 
-    const selected =
-      timetableList.find(
-        (item) =>
-          item.id ===
-          selectedIds[0]
-      );
-
+    const selected = timetable.find((item) => item._id === selectedIds[0]);
     if (!selected) return;
 
-    setEditId(selected.id);
-
+    setEditId(selected._id);
     setFormData({
       mode: "Single",
-      examName:
-        selected.examName,
-      className:
-        selected.className,
-      sectionName:
-        selected.sectionName,
+      examId: String(selected.examId),
+      className: selected.className,
+      sectionName: selected.sectionName,
       selectedClassSections: [],
-      subjectName:
-        selected.subjectName,
-      examDate:
-        selected.examDate,
-      startTime:
-        selected.startTime,
-      endTime:
-        selected.endTime,
+      subjectName: selected.subjectName,
+      examDate: selected.examDate,
+      startTime: selected.startTime,
+      endTime: selected.endTime,
     });
-
     setShowForm(true);
   };
 
-  const handleDelete = () => {
-
+  const handleDelete = async () => {
     if (selectedIds.length === 0) {
-      alert(
-        "Please select timetable"
-      );
+      alert("Please select timetable");
       return;
     }
 
-    const ok = window.confirm(
-      "Delete selected timetable?"
-    );
+    if (!window.confirm("Delete selected timetable?")) return;
 
-    if (!ok) return;
-
-    setTimetableList(
-      timetableList.filter(
-        (item) =>
-          !selectedIds.includes(item.id)
-      )
-    );
-
-    setSelectedIds([]);
-
-    alert(
-      "Timetable deleted successfully"
-    );
+    try {
+      setSaving(true);
+      await examService.deleteTimetables(selectedIds);
+      setSelectedIds([]);
+      alert("Timetable deleted successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to delete timetable");
+    } finally {
+      setSaving(false);
+      await loadTimetable();
+    }
   };
+
   const handlePrint = () => {
     if (selectedIds.length === 0) {
       alert("Please select timetable rows");
       return;
     }
 
-    const selectedRows = timetableList.filter((item) =>
-      selectedIds.includes(item.id)
-    );
+    const schoolDetails = meta.schoolInfo || {};
+    const selectedRows = timetable.filter((item) => selectedIds.includes(item._id));
 
+    // Same paper for several sections of a class is printed as one row
     const groupedRows = [];
-
     selectedRows.forEach((item) => {
       const existing = groupedRows.find(
         (row) =>
@@ -464,101 +250,55 @@ function ExamTimetable() {
           row.endTime === item.endTime
       );
 
-      if (existing) {
-        existing.sections.push(item.sectionName);
-      } else {
-        groupedRows.push({
-          ...item,
-          sections: [item.sectionName],
-        });
-      }
+      if (existing) existing.sections.push(item.sectionName);
+      else groupedRows.push({ ...item, sections: [item.sectionName] });
     });
-
-    const printWindow = window.open("", "_blank");
 
     const rowsHtml = groupedRows
       .map(
         (item, index) => `
           <tr>
             <td>${index + 1}</td>
-            <td>${item.className} (${item.sections.join(", ")})</td>
-            <td>${item.subjectName}</td>
-            <td>${item.examDate}</td>
-            <td>${formatTime(item.startTime, item.endTime)}</td>
+            <td>${escapeHtml(item.className)} (${escapeHtml(item.sections.join(", "))})</td>
+            <td>${escapeHtml(item.subjectName)}</td>
+            <td>${escapeHtml(formatDate(item.examDate))}</td>
+            <td>${escapeHtml(formatTime(item.startTime, item.endTime))}</td>
           </tr>
         `
       )
       .join("");
 
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow pop-ups to print the timetable");
+      return;
+    }
+
     printWindow.document.write(`
       <html>
         <head>
           <title>Exam Timetable</title>
-
           <style>
-            @page {
-              size: A4 landscape;
-              margin: 12mm;
-            }
-
-            body {
-              font-family: Arial, sans-serif;
-              color: #111827;
-            }
-
-            .print-header {
-              text-align: center;
-              border-bottom: 2px solid #111827;
-              padding-bottom: 10px;
-              margin-bottom: 16px;
-            }
-
-            .print-header h1 {
-              margin: 0;
-              font-size: 22px;
-            }
-
-            .print-header p {
-              margin: 4px 0;
-              font-size: 13px;
-            }
-
-            .exam-title {
-              text-align: center;
-              margin: 12px 0;
-              font-size: 18px;
-              font-weight: bold;
-            }
-
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              font-size: 12px;
-            }
-
-            th,
-            td {
-              border: 1px solid #111827;
-              padding: 8px;
-              text-align: center;
-            }
-
-            th {
-              background: #f1f5f9;
-            }
+            @page { size: A4 landscape; margin: 12mm; }
+            body { font-family: Arial, sans-serif; color: #111827; }
+            .print-header { text-align: center; border-bottom: 2px solid #111827; padding-bottom: 10px; margin-bottom: 16px; }
+            .print-header h1 { margin: 0; font-size: 22px; }
+            .print-header p { margin: 4px 0; font-size: 13px; }
+            .exam-title { text-align: center; margin: 12px 0; font-size: 18px; font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+            th, td { border: 1px solid #111827; padding: 8px; text-align: center; }
+            th { background: #f1f5f9; }
           </style>
         </head>
 
         <body>
           <div class="print-header">
-            <h1>${schoolDetails.name}</h1>
-            <p>${schoolDetails.address}</p>
-            <p>Contact: ${schoolDetails.contact}</p>
+            <h1>${escapeHtml(schoolDetails.schoolName)}</h1>
+            <p>${escapeHtml(schoolDetails.address)}</p>
+            <p>${schoolDetails.phone ? `Contact: ${escapeHtml(schoolDetails.phone)}` : ""}</p>
           </div>
 
-          <div class="exam-title">
-            ${groupedRows[0]?.examName || "Exam Timetable"}
-          </div>
+          <div class="exam-title">${escapeHtml(groupedRows[0]?.examName || "Exam Timetable")}</div>
 
           <table>
             <thead>
@@ -571,9 +311,7 @@ function ExamTimetable() {
               </tr>
             </thead>
 
-            <tbody>
-              ${rowsHtml}
-            </tbody>
+            <tbody>${rowsHtml}</tbody>
           </table>
         </body>
       </html>
@@ -586,6 +324,7 @@ function ExamTimetable() {
   const handleClassSectionToggle = (value) => {
     setFormData((prev) => ({
       ...prev,
+      subjectName: "",
       selectedClassSections: prev.selectedClassSections.includes(value)
         ? prev.selectedClassSections.filter((item) => item !== value)
         : [...prev.selectedClassSections, value],
@@ -602,7 +341,7 @@ function ExamTimetable() {
               resetForm();
               setShowForm(false);
             } else {
-              window.location.href = "/exam-tools";
+              navigate("/exam-tools");
             }
           }}
         >
@@ -614,6 +353,7 @@ function ExamTimetable() {
           <p>Create and manage exam schedules</p>
         </div>
       </div>
+
       {!showForm && (
         <>
           <div className="common-card">
@@ -621,19 +361,11 @@ function ExamTimetable() {
               <div className="form-group">
                 <label>Exam Name</label>
 
-                <select
-                  value={filterData.examName}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      examName: e.target.value,
-                    })
-                  }
-                >
+                <select value={filterData.examId} onChange={(e) => setFilterData({ ...filterData, examId: e.target.value })}>
                   <option value="">All Exam</option>
 
-                  {schoolExams.map((exam) => (
-                    <option key={exam.id} value={exam.examName}>
+                  {meta.exams.map((exam) => (
+                    <option key={exam._id} value={exam._id}>
                       {exam.examName}
                     </option>
                   ))}
@@ -645,19 +377,13 @@ function ExamTimetable() {
 
                 <select
                   value={filterData.className}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      className: e.target.value,
-                      sectionName: "",
-                    })
-                  }
+                  onChange={(e) => setFilterData({ ...filterData, className: e.target.value, sectionName: "" })}
                 >
                   <option value="">All Class</option>
 
-                  {schoolClasses.map((cls) => (
-                    <option key={cls.id} value={cls.className}>
-                      Class {cls.className}
+                  {meta.classes.map((cls) => (
+                    <option key={cls.className} value={cls.className}>
+                      {cls.className}
                     </option>
                   ))}
                 </select>
@@ -668,18 +394,13 @@ function ExamTimetable() {
 
                 <select
                   value={filterData.sectionName}
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      sectionName: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setFilterData({ ...filterData, sectionName: e.target.value })}
                 >
                   <option value="">All Section</option>
 
-                  {filterSections.map((sec) => (
-                    <option key={sec.id} value={sec.sectionName}>
-                      {sec.sectionName}
+                  {(classInfo(filterData.className)?.sections || []).map((sec) => (
+                    <option key={sec} value={sec}>
+                      {sec}
                     </option>
                   ))}
                 </select>
@@ -714,11 +435,11 @@ function ExamTimetable() {
                   Print
                 </AppButton>
 
-                <AppButton type="primary" onClick={handleEdit}>
+                <AppButton type="primary" onClick={handleEdit} disabled={saving}>
                   Edit
                 </AppButton>
 
-                <AppButton type="delete" onClick={handleDelete}>
+                <AppButton type="delete" onClick={handleDelete} disabled={saving}>
                   Delete
                 </AppButton>
               </div>
@@ -731,19 +452,8 @@ function ExamTimetable() {
                     <th>
                       <input
                         type="checkbox"
-                        checked={
-                          filteredTimetable.length > 0 &&
-                          selectedIds.length === filteredTimetable.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedIds(
-                              filteredTimetable.map((item) => item.id)
-                            );
-                          } else {
-                            setSelectedIds([]);
-                          }
-                        }}
+                        checked={timetable.length > 0 && selectedIds.length === timetable.length}
+                        onChange={(e) => setSelectedIds(e.target.checked ? timetable.map((item) => item._id) : [])}
                       />
                     </th>
 
@@ -758,26 +468,30 @@ function ExamTimetable() {
                 </thead>
 
                 <tbody>
-                  {filteredTimetable.length === 0 ? (
+                  {loading ? (
+                    <tr>
+                      <td colSpan="8" style={{ padding: "4px 0", border: "none" }}>
+                        <SkeletonTable rows={5} columns={8} />
+                      </td>
+                    </tr>
+                  ) : timetable.length === 0 ? (
                     <tr>
                       <td colSpan="8" className="empty-row">
                         No timetable found
                       </td>
                     </tr>
                   ) : (
-                    filteredTimetable.map((item, index) => (
-                      <tr key={item.id}>
+                    timetable.map((item, index) => (
+                      <tr key={item._id}>
                         <td>
                           <input
                             type="checkbox"
-                            checked={selectedIds.includes(item.id)}
-                            onChange={() => {
+                            checked={selectedIds.includes(item._id)}
+                            onChange={() =>
                               setSelectedIds((prev) =>
-                                prev.includes(item.id)
-                                  ? prev.filter((id) => id !== item.id)
-                                  : [...prev, item.id]
-                              );
-                            }}
+                                prev.includes(item._id) ? prev.filter((id) => id !== item._id) : [...prev, item._id]
+                              )
+                            }
                           />
                         </td>
 
@@ -786,7 +500,7 @@ function ExamTimetable() {
                         <td>{item.className}</td>
                         <td>{item.sectionName}</td>
                         <td>{item.subjectName}</td>
-                        <td>{item.examDate}</td>
+                        <td>{formatDate(item.examDate)}</td>
                         <td>{formatTime(item.startTime, item.endTime)}</td>
                       </tr>
                     ))
@@ -797,43 +511,63 @@ function ExamTimetable() {
           </div>
         </>
       )}
+
       {showForm && (
         <div className="common-card">
-          <div className="mode-selection">
-            <label>
-              <input
-                type="radio"
-                name="mode"
-                value="Single"
-                checked={formData.mode === "Single"}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    mode: e.target.value,
-                  })
-                }
-              />
-              Single Class
-            </label>
+          {!editId && (
+            <div className="mode-selection">
+              <label>
+                <input
+                  type="radio"
+                  name="mode"
+                  value="Single"
+                  checked={formData.mode === "Single"}
+                  onChange={(e) => setFormData({ ...formData, mode: e.target.value, subjectName: "" })}
+                />
+                Single Class
+              </label>
 
-            <label>
-              <input
-                type="radio"
-                name="mode"
-                value="Multiple"
-                checked={formData.mode === "Multiple"}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    mode: e.target.value,
-                  })
-                }
-              />
-              Multiple Classes
-            </label>
-          </div>
+              <label>
+                <input
+                  type="radio"
+                  name="mode"
+                  value="Multiple"
+                  checked={formData.mode === "Multiple"}
+                  onChange={(e) => setFormData({ ...formData, mode: e.target.value, subjectName: "" })}
+                />
+                Multiple Classes
+              </label>
+            </div>
+          )}
 
           <div className="exam-form-grid">
+            <div className="form-group">
+              <label>Exam Name *</label>
+
+              <select
+                value={formData.examId}
+                disabled={Boolean(editId)}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    examId: e.target.value,
+                    className: "",
+                    sectionName: "",
+                    selectedClassSections: [],
+                    subjectName: "",
+                  })
+                }
+              >
+                <option value="">{meta.exams.length === 0 ? "No exam available" : "Select Exam"}</option>
+
+                {meta.exams.map((exam) => (
+                  <option key={exam._id} value={exam._id}>
+                    {exam.examName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {formData.mode === "Single" ? (
               <>
                 <div className="form-group">
@@ -841,23 +575,14 @@ function ExamTimetable() {
 
                   <select
                     value={formData.className}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        className: e.target.value,
-                        sectionName: "",
-                        subjectName: "",
-                      })
-                    }
+                    disabled={Boolean(editId)}
+                    onChange={(e) => setFormData({ ...formData, className: e.target.value, sectionName: "", subjectName: "" })}
                   >
                     <option value="">Select Class</option>
 
-                    {schoolClasses.map((cls) => (
-                      <option
-                        key={cls.id}
-                        value={cls.className}
-                      >
-                        Class {cls.className}
+                    {formClasses.map((cls) => (
+                      <option key={cls.className} value={cls.className}>
+                        {cls.className}
                       </option>
                     ))}
                   </select>
@@ -868,23 +593,14 @@ function ExamTimetable() {
 
                   <select
                     value={formData.sectionName}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sectionName: e.target.value,
-                      })
-                    }
+                    disabled={Boolean(editId)}
+                    onChange={(e) => setFormData({ ...formData, sectionName: e.target.value })}
                   >
-                    <option value="">
-                      Select Section
-                    </option>
+                    <option value="">Select Section</option>
 
-                    {formSections.map((sec) => (
-                      <option
-                        key={sec.id}
-                        value={sec.sectionName}
-                      >
-                        {sec.sectionName}
+                    {(classInfo(formData.className)?.sections || []).map((sec) => (
+                      <option key={sec} value={sec}>
+                        {sec}
                       </option>
                     ))}
                   </select>
@@ -892,104 +608,44 @@ function ExamTimetable() {
               </>
             ) : (
               <div className="multi-class-box">
-                <label>
-                  Select Class & Sections *
-                </label>
+                <label>Select Class & Sections *</label>
 
                 <div className="multi-class-grid">
-                 {classSectionOptions.length === 0 ? (
+                  {!formData.examId ? (
+                    <p className="empty-row">Select exam first</p>
+                  ) : classSectionOptions.length === 0 ? (
+                    <p className="empty-row">No class section found for this exam</p>
+                  ) : (
+                    classSectionOptions.map((item) => {
+                      const value = `${item.className}|${item.sectionName}`;
 
-  <p className="empty-row">
-    No class section found
-  </p>
-
-) : (
-
-  classSectionOptions.map((item) => {
-
-                    const value =
-                      `${item.className}-${item.sectionName}`;
-
-                    return (
-                      <label
-                        key={item.id}
-                        className="multi-checkbox"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={
-                            formData.selectedClassSections.includes(
-                              value
-                            )
-                          }
-                          onChange={() =>
-                            handleClassSectionToggle(
-                              value
-                            )
-                          }
-                        />
-
-                        Class {item.className}
-                        {" - "}
-                        {item.sectionName}
-                      </label>
-                    );
-                
-                  })
-                )}
+                      return (
+                        <label key={value} className="multi-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={formData.selectedClassSections.includes(value)}
+                            onChange={() => handleClassSectionToggle(value)}
+                          />
+                          {item.className}
+                          {" - "}
+                          {item.sectionName}
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             )}
 
             <div className="form-group">
-              <label>Exam Name *</label>
-
-              <select
-                value={formData.examName}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    examName: e.target.value,
-                  })
-                }
-              >
-                <option value="">
-                  Select Exam
-                </option>
-
-                {schoolExams.map((exam) => (
-                  <option
-                    key={exam.id}
-                    value={exam.examName}
-                  >
-                    {exam.examName}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="form-group">
               <label>Subject *</label>
 
-              <select
-                value={formData.subjectName}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    subjectName: e.target.value,
-                  })
-                }
-              >
-                <option value="">
-                  Select Subject
-                </option>
+              <select value={formData.subjectName} onChange={(e) => setFormData({ ...formData, subjectName: e.target.value })}>
+                <option value="">Select Subject</option>
 
                 {formSubjects.map((subject) => (
-                  <option
-                    key={subject.id}
-                    value={subject.subjectName}
-                  >
-                    {subject.subjectName}
+                  <option key={subject} value={subject}>
+                    {subject}
                   </option>
                 ))}
               </select>
@@ -998,55 +654,25 @@ function ExamTimetable() {
             <div className="form-group">
               <label>Exam Date *</label>
 
-              <input
-                type="date"
-                value={formData.examDate}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    examDate: e.target.value,
-                  })
-                }
-              />
+              <input type="date" value={formData.examDate} onChange={(e) => setFormData({ ...formData, examDate: e.target.value })} />
             </div>
 
             <div className="form-group">
               <label>Start Time *</label>
 
-              <input
-                type="time"
-                value={formData.startTime}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    startTime: e.target.value,
-                  })
-                }
-              />
+              <input type="time" value={formData.startTime} onChange={(e) => setFormData({ ...formData, startTime: e.target.value })} />
             </div>
 
             <div className="form-group">
               <label>End Time *</label>
 
-              <input
-                type="time"
-                value={formData.endTime}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    endTime: e.target.value,
-                  })
-                }
-              />
+              <input type="time" value={formData.endTime} onChange={(e) => setFormData({ ...formData, endTime: e.target.value })} />
             </div>
           </div>
 
           <div className="form-actions">
-            <AppButton
-              type="primary"
-              onClick={handleSave}
-            >
-              {editId ? "Update" : "Save"}
+            <AppButton type="primary" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : editId ? "Update" : "Save"}
             </AppButton>
 
             <AppButton

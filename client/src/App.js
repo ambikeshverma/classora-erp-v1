@@ -110,6 +110,7 @@ import HRReports from "./pages/hr/HRReports";
 import ExamSetup from "./pages/ExamSetup";
 import ExamMarksSetup from "./pages/ExamMarksSetup";
 import ExamTimetable from "./pages/ExamTimetable";
+import AdmitCard from "./pages/AdmitCard";
 
 import ScholasticMarksEntry from "./pages/ScholasticMarksEntry";
 import CoScholasticMarksEntry from "./pages/CoScholasticMarksEntry";
@@ -939,12 +940,7 @@ function App() {
           path="/admit-card"
           element={
             <ProtectedRoute moduleKey="exam_tools" subModuleKey="admit_card">
-              <SubModulePlaceholder
-                title="Admit Card and Deskslip"
-                moduleName="Exam Tools"
-                icon="🎫"
-                backRoute="/exam-tools"
-              />
+              <AdmitCard />
             </ProtectedRoute>
           }
         />

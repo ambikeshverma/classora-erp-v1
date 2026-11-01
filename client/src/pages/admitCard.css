@@ -1,0 +1,130 @@
+.admit-card-page {
+  min-height: 100vh;
+  padding: 20px;
+  background: #f4f7fb;
+  box-sizing: border-box;
+}
+
+.admit-card-page .common-page-header,
+.admit-card-page .common-card {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.admit-card-page .common-page-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.admit-card-page .common-page-header h1 {
+  margin: 0;
+  font-size: 26px;
+  color: #111827;
+}
+
+.admit-card-page .common-page-header p {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.admit-card-page .common-card {
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.admit-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.admit-card-page .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.admit-card-page .form-group label {
+  margin-bottom: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.admit-card-page .form-group select {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-size: 14px;
+  background: #ffffff;
+  outline: none;
+}
+
+.admit-action-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.admit-card-page .list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.admit-card-page .list-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.admit-card-page .list-action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admit-card-page .table-wrap {
+  overflow-x: auto;
+}
+
+.admit-card-page table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 560px;
+}
+
+.admit-card-page th,
+.admit-card-page td {
+  padding: 11px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.admit-card-page th {
+  background: #f8fafc;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admit-card-page .empty-row {
+  text-align: center;
+  padding: 24px;
+  font-weight: 700;
+  color: #6b7280;
+}
+
+@media (max-width: 640px) {
+  .admit-card-page {
+    padding: 10px;
+  }
+}

@@ -81,6 +81,7 @@ app.use("/api/attendance", schoolAuth, attendanceRoutes);
 app.use("/api/fee-manager", feeRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/finance", require("./routes/financeRoutes"));
+app.use("/api/exam-tools", require("./routes/examRoutes"));
 
 // 404 Handler
 app.use((req, res) => {
