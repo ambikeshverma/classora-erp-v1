@@ -116,6 +116,7 @@ import ScholasticMarksEntry from "./pages/ScholasticMarksEntry";
 import CoScholasticMarksEntry from "./pages/CoScholasticMarksEntry";
 import ResultGeneration from "./pages/ResultGeneration";
 import ReportCards from "./pages/ReportCards";
+import ReportCardReports from "./pages/reportcard/ReportCardReports";
 
 function App() {
   return (
@@ -992,12 +993,7 @@ function App() {
           path="/analytics-reports"
           element={
             <ProtectedRoute moduleKey="report_cards" subModuleKey="report_card_analytics">
-              <SubModulePlaceholder
-                title="Analytics and Reports"
-                moduleName="Report Card Management"
-                icon="📊"
-                backRoute="/report-card-management"
-              />
+              <ReportCardReports />
             </ProtectedRoute>
           }
         />

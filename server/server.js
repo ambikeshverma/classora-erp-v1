@@ -82,6 +82,7 @@ app.use("/api/fee-manager", feeRoutes);
 app.use("/api/transport", transportRoutes);
 app.use("/api/finance", require("./routes/financeRoutes"));
 app.use("/api/exam-tools", require("./routes/examRoutes"));
+app.use("/api/report-cards", require("./routes/reportCardRoutes"));
 
 // 404 Handler
 app.use((req, res) => {

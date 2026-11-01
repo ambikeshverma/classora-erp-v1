@@ -1,998 +1,401 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./resultGeneration.css";
 import AppButton from "../components/AppButton";
+import { Skeleton } from "../components/Skeleton";
+import { reportCardService } from "../services/api";
+
+const EMPTY_STATE = { session: "", studentCount: 0, isLocked: false, isClassLive: false, results: [] };
 
 function ResultGeneration() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const classes = [
-    { id: 1, schoolId: "SCH001", className: "9" },
-    { id: 2, schoolId: "SCH001", className: "10" },
-  ];
+  const [meta, setMeta] = useState({ classes: [] });
+  const [metaLoading, setMetaLoading] = useState(true);
 
-  const sections = [
-    { id: 1, schoolId: "SCH001", className: "9", sectionName: "A" },
-    { id: 2, schoolId: "SCH001", className: "9", sectionName: "B" },
-    { id: 3, schoolId: "SCH001", className: "10", sectionName: "A" },
-  ];
-
-  const exams = [
-    { id: 1, schoolId: "SCH001", examName: "Unit Test 1" },
-    { id: 2, schoolId: "SCH001", examName: "Half Yearly" },
-    { id: 3, schoolId: "SCH001", examName: "Annual Exam" },
-  ];
-
-  const students = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      rollNo: "01",
-      srNo: "SR001",
-      studentName: "Aarav Sharma",
-      fatherName: "Rajesh Sharma",
-      motherName: "Sunita Sharma",
-      photo: "",
-      className: "9",
-      sectionName: "A",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      rollNo: "02",
-      srNo: "SR002",
-      studentName: "Priya Singh",
-      fatherName: "Manoj Singh",
-      motherName: "Poonam Singh",
-      photo: "",
-      className: "9",
-      sectionName: "A",
-    },
-  ];
-
-  const studentSubjectMapping = [
-    {
-      studentId: 1,
-      className: "9",
-      sectionName: "A",
-      scholasticSubjects: ["Hindi", "English", "Math", "Science", "SST"],
-    },
-    {
-      studentId: 2,
-      className: "9",
-      sectionName: "A",
-      scholasticSubjects: ["Hindi", "English", "Math", "Science", "SST"],
-    },
-  ];
-
-  const examMarksSetup = [
-    { examName: "Unit Test 1", className: "9", sectionName: "A", subjectName: "Hindi", maximumMarks: 20, passingMarks: 7 },
-    { examName: "Unit Test 1", className: "9", sectionName: "A", subjectName: "English", maximumMarks: 20, passingMarks: 7 },
-    { examName: "Unit Test 1", className: "9", sectionName: "A", subjectName: "Math", maximumMarks: 20, passingMarks: 7 },
-    { examName: "Unit Test 1", className: "9", sectionName: "A", subjectName: "Science", maximumMarks: 20, passingMarks: 7 },
-    { examName: "Unit Test 1", className: "9", sectionName: "A", subjectName: "SST", maximumMarks: 20, passingMarks: 7 },
-
-    { examName: "Half Yearly", className: "9", sectionName: "A", subjectName: "Hindi", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Half Yearly", className: "9", sectionName: "A", subjectName: "English", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Half Yearly", className: "9", sectionName: "A", subjectName: "Math", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Half Yearly", className: "9", sectionName: "A", subjectName: "Science", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Half Yearly", className: "9", sectionName: "A", subjectName: "SST", maximumMarks: 100, passingMarks: 33 },
-
-    { examName: "Annual Exam", className: "9", sectionName: "A", subjectName: "Hindi", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Annual Exam", className: "9", sectionName: "A", subjectName: "English", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Annual Exam", className: "9", sectionName: "A", subjectName: "Math", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Annual Exam", className: "9", sectionName: "A", subjectName: "Science", maximumMarks: 100, passingMarks: 33 },
-    { examName: "Annual Exam", className: "9", sectionName: "A", subjectName: "SST", maximumMarks: 100, passingMarks: 33 },
-  ];
-
-  const scholasticMarks = [
-    { examName: "Unit Test 1", studentId: 1, subjectName: "Hindi", marks: 18 },
-    { examName: "Unit Test 1", studentId: 1, subjectName: "English", marks: 17 },
-    { examName: "Unit Test 1", studentId: 1, subjectName: "Math", marks: 19 },
-    { examName: "Unit Test 1", studentId: 1, subjectName: "Science", marks: 18 },
-    { examName: "Unit Test 1", studentId: 1, subjectName: "SST", marks: 18 },
-    { examName: "Half Yearly", studentId: 1, subjectName: "Hindi", marks: 82 },
-    { examName: "Half Yearly", studentId: 1, subjectName: "English", marks: 78 },
-    { examName: "Half Yearly", studentId: 1, subjectName: "Math", marks: 88 },
-    { examName: "Half Yearly", studentId: 1, subjectName: "Science", marks: 84 },
-    { examName: "Half Yearly", studentId: 1, subjectName: "SST", marks: 80 },
-    { examName: "Annual Exam", studentId: 1, subjectName: "Hindi", marks: 86 },
-    { examName: "Annual Exam", studentId: 1, subjectName: "English", marks: 82 },
-    { examName: "Annual Exam", studentId: 1, subjectName: "Math", marks: 91 },
-    { examName: "Annual Exam", studentId: 1, subjectName: "Science", marks: 88 },
-    { examName: "Annual Exam", studentId: 1, subjectName: "SST", marks: 84 },
-
-    { examName: "Unit Test 1", studentId: 2, subjectName: "Hindi", marks: 16 },
-    { examName: "Unit Test 1", studentId: 2, subjectName: "English", marks: 15 },
-    { examName: "Unit Test 1", studentId: 2, subjectName: "Math", marks: 17 },
-    { examName: "Unit Test 1", studentId: 2, subjectName: "Science", marks: 16 },
-    { examName: "Unit Test 1", studentId: 2, subjectName: "SST", marks: 17 },
-    { examName: "Half Yearly", studentId: 2, subjectName: "Hindi", marks: 72 },
-    { examName: "Half Yearly", studentId: 2, subjectName: "English", marks: 70 },
-    { examName: "Half Yearly", studentId: 2, subjectName: "Math", marks: 74 },
-    { examName: "Half Yearly", studentId: 2, subjectName: "Science", marks: 76 },
-    { examName: "Half Yearly", studentId: 2, subjectName: "SST", marks: 73 },
-    { examName: "Annual Exam", studentId: 2, subjectName: "Hindi", marks: 75 },
-    { examName: "Annual Exam", studentId: 2, subjectName: "English", marks: 72 },
-    { examName: "Annual Exam", studentId: 2, subjectName: "Math", marks: 78 },
-    { examName: "Annual Exam", studentId: 2, subjectName: "Science", marks: 79 },
-    { examName: "Annual Exam", studentId: 2, subjectName: "SST", marks: 76 },
-  ];
-
-  const [filterData, setFilterData] = useState({
-    className: "",
-    sectionName: "",
-    rankMode: "Section Wise Rank",
-  });
+  const [filterData, setFilterData] = useState({ className: "", sectionName: "", rankMode: "SECTION" });
+  const [calculationMode, setCalculationMode] = useState("Auto Calculate");
 
   const [searched, setSearched] = useState(false);
-  const [resultData, setResultData] = useState([]);
-  const [calculationMode, setCalculationMode] = useState("Auto Calculate");
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const [state, setState] = useState(EMPTY_STATE);
+  const [rows, setRows] = useState([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-  const [isLocked, setIsLocked] = useState(false);
-  const [isClassLive, setIsClassLive] = useState(false);
-  const [studentLiveIds, setStudentLiveIds] = useState([]);
 
-  const schoolClasses = classes.filter((item) => item.schoolId === schoolId);
+  useEffect(() => {
+    let active = true;
 
-  const filteredSections = sections.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!filterData.className || item.className === filterData.className)
-  );
-
-  const filteredStudents = students.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.className === filterData.className &&
-      item.sectionName === filterData.sectionName
-  );
-
-  const getStudentSubjects = (studentId) => {
-    const mapping = studentSubjectMapping.find(
-      (item) =>
-        item.studentId === studentId &&
-        item.className === filterData.className &&
-        item.sectionName === filterData.sectionName
-    );
-
-    return mapping ? mapping.scholasticSubjects : [];
-  };
-
-  const getDivision = (percentage) => {
-    if (percentage >= 60) return "First";
-    if (percentage >= 45) return "Second";
-    if (percentage >= 33) return "Third";
-    return "Fail";
-  };
-  const calculateStudentResult = (student) => {
-
-    const subjects =
-      getStudentSubjects(student.id);
-
-    let obtained = 0;
-    let maximum = 0;
-    let isFail = false;
-
-    exams.forEach((exam) => {
-
-      subjects.forEach((subjectName) => {
-
-        const maxSetup =
-          examMarksSetup.find(
-            (item) =>
-              item.examName ===
-                exam.examName &&
-              item.className ===
-                filterData.className &&
-              item.sectionName ===
-                filterData.sectionName &&
-              item.subjectName ===
-                subjectName
-          );
-
-        const markEntry =
-          scholasticMarks.find(
-            (item) =>
-              item.examName ===
-                exam.examName &&
-              item.studentId ===
-                student.id &&
-              item.subjectName ===
-                subjectName
-          );
-
-        if (maxSetup) {
-
-          maximum += Number(
-            maxSetup.maximumMarks || 0
-          );
-
-        }
-
-        if (
-          markEntry &&
-          markEntry.marks !== "AB" &&
-          markEntry.marks !== "ML" &&
-          !isNaN(markEntry.marks)
-        ) {
-
-          obtained += Number(
-            markEntry.marks
-          );
-
-          if (
-            maxSetup?.passingMarks &&
-            Number(markEntry.marks) <
-              Number(
-                maxSetup.passingMarks
-              )
-          ) {
-
-            isFail = true;
-
-          }
-
-        } else if (
-          maxSetup?.passingMarks
-        ) {
-
-          isFail = true;
-
-        }
-
+    reportCardService
+      .getMeta()
+      .then((res) => {
+        if (active) setMeta(res.data?.data || { classes: [] });
+      })
+      .catch((err) => {
+        console.error("Failed to load report card meta", err);
+      })
+      .finally(() => {
+        if (active) setMetaLoading(false);
       });
 
-    });
-
-    const percentage =
-      maximum > 0
-        ? Number(
-            (
-              (obtained / maximum) *
-              100
-            ).toFixed(2)
-          )
-        : 0;
-
-    return {
-      id: student.id,
-      rollNo: student.rollNo,
-      srNo: student.srNo,
-      studentName:
-        student.studentName,
-      fatherName:
-        student.fatherName,
-      motherName:
-        student.motherName,
-      className:
-        student.className,
-      sectionName:
-        student.sectionName,
-      photo:
-        student.photo,
-      totalMarks:
-        obtained,
-      maximumMarks:
-        maximum,
-      percentage,
-      division:
-        getDivision(
-          percentage
-        ),
-      rank: "",
-      result: isFail
-        ? "FAIL"
-        : "PASS",
+    return () => {
+      active = false;
     };
+  }, []);
 
+  const sectionOptions = meta.classes.find((item) => item.className === filterData.className)?.sections || [];
+
+  const applyResponse = (data) => {
+    setState(data);
+    setRows(data.results.map((item) => ({ ...item, rank: item.rank ?? "" })));
   };
 
-  const generateRanks = (
-    data
-  ) => {
+  const loadResults = async (showLoader = true) => {
+    try {
+      if (showLoader) setLoading(true);
 
-    const sorted = [...data].sort(
-      (a, b) =>
-        b.percentage -
-        a.percentage
-    );
+      const res = await reportCardService.getResults({
+        className: filterData.className,
+        sectionName: filterData.sectionName,
+      });
 
-    return data.map((item) => {
-
-      const rankIndex =
-        sorted.findIndex(
-          (student) =>
-            student.id === item.id
-        );
-
-      return {
-        ...item,
-        rank: rankIndex + 1,
-      };
-
-    });
-
+      applyResponse(res.data?.data || EMPTY_STATE);
+    } catch (err) {
+      applyResponse(EMPTY_STATE);
+      alert(err.response?.data?.message || "Failed to load results");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSearch = () => {
-
-    if (
-      !filterData.className ||
-      !filterData.sectionName
-    ) {
-
-      alert(
-        "Please select class and section"
-      );
-
+  const handleSearch = async () => {
+    if (!filterData.className || !filterData.sectionName) {
+      alert("Please select class and section");
       return;
-
     }
 
     setSearched(true);
-
+    setSelectedStudentIds([]);
+    await loadResults();
   };
 
-  const handleGenerateResult =
-    () => {
+  const runAction = async (action, successMessage) => {
+    try {
+      setBusy(true);
+      const res = await action();
+      alert(res?.data?.message || successMessage);
+      await loadResults(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Action failed");
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      if (
-        filteredStudents.length === 0
-      ) {
+  const scope = { className: filterData.className, sectionName: filterData.sectionName };
 
-        alert(
-          "No students found"
-        );
+  const handleGenerateResult = () => {
+    if (state.studentCount === 0) {
+      alert("No students found");
+      return;
+    }
 
-        return;
+    runAction(() => reportCardService.generateResults({ ...scope, rankMode: filterData.rankMode }), "Result generated successfully");
+  };
 
-      }
-
-      const calculated =
-        filteredStudents.map(
-          (student) =>
-            calculateStudentResult(
-              student
-            )
-        );
-
-      const ranked =
-        generateRanks(calculated);
-
-      setResultData(ranked);
-
-      alert(
-        "Result generated successfully"
-      );
-
-    };
-
-  const handleManualChange = (
-    studentId,
-    field,
-    value
-  ) => {
-
-    if (isLocked) return;
-
-    setResultData((prev) =>
-      prev.map((item) =>
-        item.id === studentId
-          ? {
-              ...item,
-              [field]: value,
-            }
-          : item
-      )
+  const handleSaveManual = () => {
+    runAction(
+      () =>
+        reportCardService.saveManualResults({
+          ...scope,
+          rows: rows.map((row) => ({
+            studentId: row.studentId,
+            totalMarks: row.totalMarks,
+            maximumMarks: row.maximumMarks,
+            percentage: row.percentage,
+            division: row.division,
+            rank: row.rank,
+            result: row.result,
+          })),
+        }),
+      "Result saved successfully"
     );
-
   };
 
-  const handleSelectStudent =
-    (studentId) => {
+  const handleToggleLock = () => runAction(() => reportCardService.setResultLock({ ...scope, locked: !state.isLocked }), "Done");
 
-      setSelectedStudentIds(
-        (prev) => {
+  const handleToggleClassLive = () =>
+    runAction(() => reportCardService.setResultLive({ ...scope, live: !state.isClassLive }), "Done");
 
-          if (
-            prev.includes(studentId)
-          ) {
+  const allSelectedLive =
+    selectedStudentIds.length > 0 &&
+    selectedStudentIds.every((id) => rows.find((row) => row.studentId === id)?.isLive);
 
-            return prev.filter(
-              (id) =>
-                id !== studentId
-            );
+  const handleToggleStudentLive = () => {
+    if (selectedStudentIds.length === 0) {
+      alert("Please select students");
+      return;
+    }
 
-          }
+    runAction(
+      () => reportCardService.setResultLive({ ...scope, studentIds: selectedStudentIds, live: !allSelectedLive }),
+      "Done"
+    );
+  };
 
-          return [
-            ...prev,
-            studentId,
-          ];
+  const handleManualChange = (studentId, field, value) => {
+    if (state.isLocked) return;
+    setRows((prev) => prev.map((item) => (item.studentId === studentId ? { ...item, [field]: value } : item)));
+  };
 
-        }
-      );
+  const manualDisabled = calculationMode === "Auto Calculate" || state.isLocked;
 
-    };
-
-  const handleToggleLock =
-    () => {
-
-      setIsLocked(
-        !isLocked
-      );
-
-    };
-
-  const handleToggleClassLive =
-    () => {
-
-      setIsClassLive(
-        !isClassLive
-      );
-
-    };
-
-  const handleToggleStudentLive =
-    () => {
-
-      if (
-        selectedStudentIds.length === 0
-      ) {
-
-        alert(
-          "Please select students"
-        );
-
-        return;
-
-      }
-
-      const allLive =
-        selectedStudentIds.every(
-          (id) =>
-            studentLiveIds.includes(
-              id
-            )
-        );
-
-      if (allLive) {
-
-        setStudentLiveIds(
-          (prev) =>
-            prev.filter(
-              (id) =>
-                !selectedStudentIds.includes(
-                  id
-                )
-            )
-        );
-
-      } else {
-
-        setStudentLiveIds(
-          (prev) => [
-            ...new Set([
-              ...prev,
-              ...selectedStudentIds,
-            ]),
-          ]
-        );
-
-      }
-
-    };
-    return (
-
+  return (
     <div className="result-generation-page">
-
-      {/* ================= HEADER ================= */}
-
       <div className="common-page-header">
-
-        <AppButton
-          type="back"
-          onClick={() =>
-            (window.location.href =
-              "/report-card-management")
-          }
-        >
+        <AppButton type="back" onClick={() => navigate("/report-card-management")}>
           ←
         </AppButton>
 
         <div>
-
-          <h1>
-            Result Generation
-          </h1>
-
-          <p>
-            Generate, manage, lock and publish results
-          </p>
-
+          <h1>Result Generation</h1>
+          <p>Generate, manage, lock and publish results</p>
         </div>
-
       </div>
 
-      {/* ================= FILTER ================= */}
-
       <div className="common-card">
-
-        <h2>
-          Filter Records
-        </h2>
+        <h2>Filter Records</h2>
 
         <div className="filter-grid">
-
           <div className="form-group">
-
-            <label>
-              Class
-            </label>
+            <label>Class</label>
 
             <select
-              value={
-                filterData.className
-              }
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  className:
-                    e.target.value,
-                  sectionName: "",
-                })
-              }
+              value={filterData.className}
+              disabled={metaLoading}
+              onChange={(e) => {
+                setFilterData({ ...filterData, className: e.target.value, sectionName: "" });
+                setSearched(false);
+              }}
             >
-              <option value="">
-                Select Class
-              </option>
+              <option value="">{metaLoading ? "Loading..." : "Select Class"}</option>
 
-              {schoolClasses.map(
-                (item) => (
-
-                  <option
-                    key={item.id}
-                    value={
-                      item.className
-                    }
-                  >
-                    {item.className}
-                  </option>
-
-                )
-              )}
-
+              {meta.classes.map((item) => (
+                <option key={item.className} value={item.className}>
+                  {item.className}
+                </option>
+              ))}
             </select>
-
-          </div>
-
-         <div className="form-group">
-
-  <label>
-    Section
-  </label>
-
-  <select
-    value={
-      filterData.sectionName
-    }
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  sectionName:
-                    e.target.value,
-                })
-              }
-            >
-              <option value="">
-                Select Section
-              </option>
-
-              {filteredSections.map(
-                (item) => (
-
-                  <option
-                    key={item.id}
-                    value={
-                      item.sectionName
-                    }
-                  >
-                    {item.sectionName}
-                  </option>
-
-                )
-              )}
-
-            </select>
-
           </div>
 
           <div className="form-group">
-
-            <label>
-              Rank Calculation Mode
-            </label>
+            <label>Section</label>
 
             <select
-              value={
-                filterData.rankMode
-              }
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  rankMode:
-                    e.target.value,
-                })
-              }
+              value={filterData.sectionName}
+              onChange={(e) => {
+                setFilterData({ ...filterData, sectionName: e.target.value });
+                setSearched(false);
+              }}
             >
-              <option>
-                Section Wise Rank
-              </option>
+              <option value="">Select Section</option>
 
-              <option>
-                Overall Class Rank
-              </option>
-
+              {sectionOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
-
           </div>
 
           <div className="form-group">
+            <label>Rank Calculation Mode</label>
 
-            <label>
-              Calculation Mode
-            </label>
-
-            <select
-              value={
-                calculationMode
-              }
-              onChange={(e) =>
-                setCalculationMode(
-                  e.target.value
-                )
-              }
-            >
-              <option>
-                Auto Calculate
-              </option>
-
-              <option>
-                Manual Entry
-              </option>
-
+            <select value={filterData.rankMode} onChange={(e) => setFilterData({ ...filterData, rankMode: e.target.value })}>
+              <option value="SECTION">Section Wise Rank</option>
+              <option value="CLASS">Overall Class Rank</option>
             </select>
-
           </div>
 
+          <div className="form-group">
+            <label>Calculation Mode</label>
+
+            <select value={calculationMode} onChange={(e) => setCalculationMode(e.target.value)}>
+              <option>Auto Calculate</option>
+              <option>Manual Entry</option>
+            </select>
+          </div>
         </div>
 
         <div className="form-actions">
-
-          <AppButton
-            type="primary"
-            onClick={
-              handleSearch
-            }
-          >
-            Search
+          <AppButton type="primary" onClick={handleSearch} disabled={loading}>
+            {loading ? "Loading..." : "Search"}
           </AppButton>
-
         </div>
-
       </div>
-
-      {/* ================= NOTICE ================= */}
 
       <div className="result-notice">
-
-        NOTE: Once the report card is locked, marks can no longer be edited. To make any corrections, unlock the report card first, update the marks, and then click the Generate Result button again to apply the latest changes.
-
+        NOTE: Once the report card is locked, marks can no longer be edited. To make any corrections, unlock the report card
+        first, update the marks, and then click the Generate Result button again to apply the latest changes.
       </div>
 
-      {/* ================= RESULT AREA ================= */}
-
       {searched && (
-
         <div className="common-card">
-
           <div className="result-top-actions">
-
-            <AppButton
-              type="primary"
-              onClick={
-                handleGenerateResult
-              }
-            >
+            <AppButton type="primary" onClick={handleGenerateResult} disabled={busy || loading || state.isLocked}>
               Generate Result
             </AppButton>
 
+            {calculationMode === "Manual Entry" && (
+              <AppButton type="primary" onClick={handleSaveManual} disabled={busy || loading || state.isLocked || rows.length === 0}>
+                Save Manual Result
+              </AppButton>
+            )}
+
             <AppButton
-              type={
-                isLocked
-                  ? "danger"
-                  : "primary"
-              }
-              onClick={
-                handleToggleLock
-              }
+              type={state.isLocked ? "danger" : "primary"}
+              onClick={handleToggleLock}
+              disabled={busy || loading}
             >
-              {isLocked
-                ? "Unlock Result"
-                : "Lock Result"}
+              {state.isLocked ? "Unlock Result" : "Lock Result"}
             </AppButton>
 
             <AppButton
-              type={
-                isClassLive
-                  ? "danger"
-                  : "success"
-              }
-              onClick={
-                handleToggleClassLive
-              }
+              type={state.isClassLive ? "danger" : "success"}
+              onClick={handleToggleClassLive}
+              disabled={busy || loading}
             >
-              {isClassLive
-                ? "Remove Class Live"
-                : "Make Class Live"}
+              {state.isClassLive ? "Remove Class Live" : "Make Class Live"}
             </AppButton>
 
-            <AppButton
-              type="success"
-              onClick={
-                handleToggleStudentLive
-              }
-            >
-              {selectedStudentIds.every(
-                (id) =>
-                  studentLiveIds.includes(
-                    id
-                  )
-              ) &&
-              selectedStudentIds.length > 0
-                ? "Remove Selected Students Live"
-                : "Make Selected Students Live"}
+            <AppButton type="success" onClick={handleToggleStudentLive} disabled={busy || loading}>
+              {allSelectedLive ? "Remove Selected Students Live" : "Make Selected Students Live"}
             </AppButton>
-
           </div>
 
-          {resultData.length === 0 ? (
-
+          {loading ? (
+            <Skeleton variant="rectangular" height={110} count={3} />
+          ) : rows.length === 0 ? (
             <div className="empty-row">
-              No result generated
+              {state.studentCount === 0 ? "No students found" : "No result generated"}
             </div>
-
           ) : (
-
             <div className="result-list">
+              {rows.map((student) => (
+                <div className="student-result-card" key={student.studentId}>
+                  <div className="student-result-top">
+                    <div className="student-left">
+                      <input
+                        type="checkbox"
+                        checked={selectedStudentIds.includes(student.studentId)}
+                        onChange={() =>
+                          setSelectedStudentIds((prev) =>
+                            prev.includes(student.studentId)
+                              ? prev.filter((id) => id !== student.studentId)
+                              : [...prev, student.studentId]
+                          )
+                        }
+                      />
 
-              {resultData.map(
-                (student) => (
+                      <div>
+                        <h3>
+                          {student.rollNo || "-"} | {student.srNo || "-"} | {student.studentName}
+                        </h3>
 
-                  <div
-                    className="student-result-card"
-                    key={student.id}
-                  >
+                        <p>Father : {student.fatherName || "-"}</p>
 
-                    <div className="student-result-top">
-
-                      <div className="student-left">
-
-                        <input
-                          type="checkbox"
-                          checked={selectedStudentIds.includes(
-                            student.id
-                          )}
-                          onChange={() =>
-                            handleSelectStudent(
-                              student.id
-                            )
-                          }
-                        />
-
-                        <div>
-
-                          <h3>
-                            {student.rollNo}
-                            {" | "}
-                            {student.srNo}
-                            {" | "}
-                            {student.studentName}
-                          </h3>
-
-                          <p>
-                            Father :
-                            {" "}
-                            {student.fatherName}
-                          </p>
-
-                          <p>
-                            Mother :
-                            {" "}
-                            {student.motherName}
-                          </p>
-
-                        </div>
-
+                        <p>Mother : {student.motherName || "-"}</p>
                       </div>
-
-                      <div className="live-status-wrap">
-
-                        {isClassLive ||
-                        studentLiveIds.includes(
-                          student.id
-                        ) ? (
-
-                          <span className="live-badge">
-                            LIVE
-                          </span>
-
-                        ) : (
-
-                          <span className="offline-badge">
-                            NOT LIVE
-                          </span>
-
-                        )}
-
-                      </div>
-
                     </div>
 
-                    <div className="result-grid">
-
-                      <div className="result-field">
-
-                        <label>
-                          Total Marks
-                        </label>
-
-                        <input
-                          type="text"
-                          disabled={
-                            calculationMode ===
-                              "Auto Calculate" ||
-                            isLocked
-                          }
-                          value={`${student.totalMarks} / ${student.maximumMarks}`}
-                          onChange={(e) =>
-                            handleManualChange(
-                              student.id,
-                              "totalMarks",
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      <div className="result-field">
-
-                        <label>
-                          Percentage
-                        </label>
-
-                        <input
-                          type="text"
-                          disabled={
-                            calculationMode ===
-                              "Auto Calculate" ||
-                            isLocked
-                          }
-                          value={
-                            student.percentage
-                          }
-                          onChange={(e) =>
-                            handleManualChange(
-                              student.id,
-                              "percentage",
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      <div className="result-field">
-
-                        <label>
-                          Division
-                        </label>
-
-                        <input
-                          type="text"
-                          disabled={
-                            calculationMode ===
-                              "Auto Calculate" ||
-                            isLocked
-                          }
-                          value={
-                            student.division
-                          }
-                          onChange={(e) =>
-                            handleManualChange(
-                              student.id,
-                              "division",
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      <div className="result-field">
-
-                        <label>
-                          Rank
-                        </label>
-
-                        <input
-                          type="text"
-                          disabled={
-                            calculationMode ===
-                              "Auto Calculate" ||
-                            isLocked
-                          }
-                          value={
-                            student.rank
-                          }
-                          onChange={(e) =>
-                            handleManualChange(
-                              student.id,
-                              "rank",
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
-                      <div className="result-field">
-
-                        <label>
-                          Result
-                        </label>
-
-                        <input
-                          type="text"
-                          disabled={
-                            calculationMode ===
-                              "Auto Calculate" ||
-                            isLocked
-                          }
-                          value={
-                            student.result
-                          }
-                          onChange={(e) =>
-                            handleManualChange(
-                              student.id,
-                              "result",
-                              e.target.value
-                            )
-                          }
-                        />
-
-                      </div>
-
+                    <div className="live-status-wrap">
+                      {state.isClassLive || student.isLive ? (
+                        <span className="live-badge">LIVE</span>
+                      ) : (
+                        <span className="offline-badge">NOT LIVE</span>
+                      )}
                     </div>
-
                   </div>
 
-                )
-              )}
+                  <div className="result-grid">
+                    <div className="result-field">
+                      <label>Total Marks (out of {student.maximumMarks})</label>
 
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={manualDisabled}
+                        value={student.totalMarks}
+                        onChange={(e) => handleManualChange(student.studentId, "totalMarks", e.target.value)}
+                      />
+                    </div>
+
+                    <div className="result-field">
+                      <label>Percentage</label>
+
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        disabled={manualDisabled}
+                        value={student.percentage}
+                        onChange={(e) => handleManualChange(student.studentId, "percentage", e.target.value)}
+                      />
+                    </div>
+
+                    <div className="result-field">
+                      <label>Division</label>
+
+                      <select
+                        disabled={manualDisabled}
+                        value={student.division}
+                        onChange={(e) => handleManualChange(student.studentId, "division", e.target.value)}
+                      >
+                        {["First", "Second", "Third", "Fail", "-"].map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="result-field">
+                      <label>Rank</label>
+
+                      <input
+                        type="number"
+                        min="1"
+                        disabled={manualDisabled}
+                        value={student.rank}
+                        onChange={(e) => handleManualChange(student.studentId, "rank", e.target.value)}
+                      />
+                    </div>
+
+                    <div className="result-field">
+                      <label>Result</label>
+
+                      <select
+                        disabled={manualDisabled}
+                        value={student.result}
+                        onChange={(e) => handleManualChange(student.studentId, "result", e.target.value)}
+                      >
+                        {["PASS", "FAIL", "NA"].map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-
           )}
-
         </div>
-
       )}
-
     </div>
-
   );
-
 }
 
 export default ResultGeneration;

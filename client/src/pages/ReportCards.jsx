@@ -1,866 +1,417 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./reportCards.css";
 import AppButton from "../components/AppButton";
+import { Skeleton } from "../components/Skeleton";
+import { reportCardService } from "../services/api";
 
 function ReportCards() {
+  const navigate = useNavigate();
 
-  const schoolId =
-    localStorage.getItem("schoolId") || "SCH001";
+  const [meta, setMeta] = useState({ classes: [], schoolInfo: {} });
+  const [metaLoading, setMetaLoading] = useState(true);
 
-  /* =========================
-     MASTER DATA
-  ========================= */
+  const [filterData, setFilterData] = useState({ className: "", sectionName: "" });
+  const [loadedExams, setLoadedExams] = useState([]);
+  const [examsLoaded, setExamsLoaded] = useState(false);
+  const [selectedExamIds, setSelectedExamIds] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const classes = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      className: "9",
-    },
-  ];
+  const [previewMode, setPreviewMode] = useState(false);
+  const [preview, setPreview] = useState(null);
 
-  const sections = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      className: "9",
-      sectionName: "A",
-    },
-  ];
+  useEffect(() => {
+    let active = true;
 
-  const exams = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      className: "9",
-      sectionName: "A",
-      examName: "Unit Test 1",
-    },
+    reportCardService
+      .getMeta()
+      .then((res) => {
+        if (active) setMeta(res.data?.data || { classes: [], schoolInfo: {} });
+      })
+      .catch((err) => {
+        console.error("Failed to load report card meta", err);
+      })
+      .finally(() => {
+        if (active) setMetaLoading(false);
+      });
 
-    {
-      id: 2,
-      schoolId: "SCH001",
-      className: "9",
-      sectionName: "A",
-      examName: "Half Yearly",
-    },
+    return () => {
+      active = false;
+    };
+  }, []);
 
-    {
-      id: 3,
-      schoolId: "SCH001",
-      className: "9",
-      sectionName: "A",
-      examName: "Annual Exam",
-    },
-  ];
+  const sectionOptions = meta.classes.find((item) => item.className === filterData.className)?.sections || [];
 
-  const students = [
-    {
-      id: 1,
-      rollNo: "01",
-      srNo: "SR001",
-      studentName: "Aarav Sharma",
-      fatherName: "Rajesh Sharma",
-      motherName: "Sunita Sharma",
-      className: "9",
-      sectionName: "A",
-    },
+  const handleLoadExams = async () => {
+    if (!filterData.className || !filterData.sectionName) {
+      alert("Please select class and section");
+      return;
+    }
 
-    {
-      id: 2,
-      rollNo: "02",
-      srNo: "SR002",
-      studentName: "Priya Singh",
-      fatherName: "Manoj Singh",
-      motherName: "Poonam Singh",
-      className: "9",
-      sectionName: "A",
-    },
-  ];
+    try {
+      setLoading(true);
+      const res = await reportCardService.getReportCardExams(filterData);
+      const exams = res.data?.data || [];
 
-  const subjects = [
-    "Hindi",
-    "English",
-    "Math",
-    "Science",
-    "SST",
-  ];
+      setLoadedExams(exams);
+      setSelectedExamIds(exams.map((item) => item._id));
+      setExamsLoaded(true);
+      setPreviewMode(false);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load exams");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const reportData = [
-    {
-      studentId: 1,
-      examName: "Unit Test 1",
-      subjectName: "Hindi",
-      marks: 18,
-    },
+  const handlePreview = async () => {
+    if (selectedExamIds.length === 0) {
+      alert("Please select at least one exam");
+      return;
+    }
 
-    {
-      studentId: 1,
-      examName: "Unit Test 1",
-      subjectName: "English",
-      marks: 17,
-    },
+    try {
+      setLoading(true);
 
-    {
-      studentId: 1,
-      examName: "Unit Test 1",
-      subjectName: "Math",
-      marks: 19,
-    },
+      // Keep the exams in the order they are listed
+      const orderedIds = loadedExams.filter((exam) => selectedExamIds.includes(exam._id)).map((exam) => exam._id);
 
-    {
-      studentId: 1,
-      examName: "Half Yearly",
-      subjectName: "Hindi",
-      marks: 82,
-    },
+      const res = await reportCardService.getReportCardData({ ...filterData, examIds: orderedIds.join(",") });
+      setPreview(res.data?.data || null);
+      setPreviewMode(true);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to load report cards");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    {
-      studentId: 1,
-      examName: "Half Yearly",
-      subjectName: "English",
-      marks: 78,
-    },
+  const markOf = (student, examId, subjectName) => student.marks?.[examId]?.[subjectName] ?? "-";
 
-    {
-      studentId: 1,
-      examName: "Annual Exam",
-      subjectName: "Hindi",
-      marks: 86,
-    },
+  const examTotals = (student, examId) => {
+    let obtained = 0;
+    let maximum = 0;
 
-    {
-      studentId: 1,
-      examName: "Annual Exam",
-      subjectName: "English",
-      marks: 82,
-    },
+    student.subjects.forEach((subjectName) => {
+      const max = preview.maxMarks?.[examId]?.[subjectName];
+      const mark = student.marks?.[examId]?.[subjectName];
+      if (max === undefined || mark === "ML") return;
 
-    {
-      studentId: 2,
-      examName: "Unit Test 1",
-      subjectName: "Hindi",
-      marks: 16,
-    },
-
-    {
-      studentId: 2,
-      examName: "Half Yearly",
-      subjectName: "Hindi",
-      marks: 72,
-    },
-
-    {
-      studentId: 2,
-      examName: "Annual Exam",
-      subjectName: "Hindi",
-      marks: 75,
-    },
-  ];
-
-  /* =========================
-     STATES
-  ========================= */
-
-  const [filterData, setFilterData] =
-    useState({
-      className: "",
-      sectionName: "",
+      maximum += max;
+      if (mark !== undefined && mark !== "AB") obtained += Number(mark);
     });
 
-  const [loadedExams, setLoadedExams] =
-    useState([]);
+    return { obtained, maximum };
+  };
 
-  const [selectedExams, setSelectedExams] =
-    useState([]);
+  const coSubjectsOf = (student) => [
+    ...new Set(Object.values(student.coScholastic || {}).flatMap((byExam) => Object.keys(byExam))),
+  ];
 
-  const [previewMode, setPreviewMode] =
-    useState(false);
+  const schoolInfo = preview?.schoolInfo || {};
 
-  /* =========================
-     FILTERED DATA
-  ========================= */
-
-  const schoolClasses =
-    classes.filter(
-      (item) =>
-        item.schoolId === schoolId
-    );
-
-  const filteredSections =
-    sections.filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.className ===
-          filterData.className
-    );
-
-  const filteredStudents =
-    students
-      .filter(
-        (item) =>
-          item.className ===
-            filterData.className &&
-          item.sectionName ===
-            filterData.sectionName
-      )
-      .sort(
-        (a, b) =>
-          Number(a.rollNo) -
-          Number(b.rollNo)
-      );
-      /* =========================
-     LOAD EXAMS
-  ========================= */
-
-  const handleLoadExams =
-    () => {
-
-      if (
-        !filterData.className ||
-        !filterData.sectionName
-      ) {
-
-        alert(
-          "Please select class and section"
-        );
-
-        return;
-
-      }
-
-      const filteredExamList =
-        exams.filter(
-          (item) =>
-            item.schoolId ===
-              schoolId &&
-            item.className ===
-              filterData.className &&
-            item.sectionName ===
-              filterData.sectionName
-        );
-
-      setLoadedExams(
-        filteredExamList
-      );
-
-      setSelectedExams(
-        filteredExamList.map(
-          (item) =>
-            item.examName
-        )
-      );
-
-      setPreviewMode(false);
-
-    };
-
-  /* =========================
-     EXAM CHECKBOX
-  ========================= */
-
-  const handleExamSelection =
-    (examName) => {
-
-      if (
-        selectedExams.includes(
-          examName
-        )
-      ) {
-
-        setSelectedExams(
-          selectedExams.filter(
-            (item) =>
-              item !== examName
-          )
-        );
-
-      } else {
-
-        setSelectedExams([
-          ...selectedExams,
-          examName,
-        ]);
-
-      }
-
-    };
-
-  /* =========================
-     PREVIEW
-  ========================= */
-
-  const handlePreview =
-    () => {
-
-      if (
-        selectedExams.length === 0
-      ) {
-
-        alert(
-          "Please select at least one exam"
-        );
-
-        return;
-
-      }
-
-      setPreviewMode(true);
-
-    };
-
-  /* =========================
-     PRINT
-  ========================= */
-
-  const handlePrint =
-    () => {
-
-      window.print();
-
-    };
-
-  /* =========================
-     DOWNLOAD
-  ========================= */
-
-  const handleDownload =
-    () => {
-
-      alert(
-        "PDF download logic here"
-      );
-
-    };
-
-  /* =========================
-     HELPERS
-  ========================= */
-
-  const getStudentMarks =
-    (
-      studentId,
-      examName,
-      subjectName
-    ) => {
-
-      const found =
-        reportData.find(
-          (item) =>
-            item.studentId ===
-              studentId &&
-            item.examName ===
-              examName &&
-            item.subjectName ===
-              subjectName
-        );
-
-      return found
-        ? found.marks
-        : "-";
-
-    };
-
-  const calculateExamTotal =
-    (
-      studentId,
-      examName
-    ) => {
-
-      let total = 0;
-
-      reportData.forEach(
-        (item) => {
-
-          if (
-            item.studentId ===
-              studentId &&
-            item.examName ===
-              examName
-          ) {
-
-            total += Number(
-              item.marks || 0
-            );
-
-          }
-
-        }
-      );
-
-      return total;
-
-    };
-
-  const calculateGrandTotal =
-    (studentId) => {
-
-      let total = 0;
-
-      selectedExams.forEach(
-        (examName) => {
-
-          total +=
-            calculateExamTotal(
-              studentId,
-              examName
-            );
-
-        }
-      );
-
-      return total;
-
-    };
-    return (
-
+  return (
     <div className="report-cards-page">
-
-      {/* ================= HEADER ================= */}
-
       <div className="common-page-header">
-
-        <AppButton
-          type="back"
-          onClick={() =>
-            (window.location.href =
-              "/report-card-management")
-          }
-        >
+        <AppButton type="back" onClick={() => navigate("/report-card-management")}>
           ←
         </AppButton>
 
         <div>
-
-          <h1>
-            Report Cards
-          </h1>
-
-          <p>
-            Print generated report cards
-          </p>
-
+          <h1>Report Cards</h1>
+          <p>Print generated report cards</p>
         </div>
-
       </div>
 
-      {/* ================= FILTER AREA ================= */}
-
       {!previewMode && (
-
         <>
-
           <div className="common-card">
-
-            <h2>
-              Filter Records
-            </h2>
+            <h2>Filter Records</h2>
 
             <div className="filter-grid">
-
               <div className="form-group">
-
-                <label>
-                  Class
-                </label>
+                <label>Class</label>
 
                 <select
-                  value={
-                    filterData.className
-                  }
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      className:
-                        e.target.value,
-                      sectionName: "",
-                    })
-                  }
+                  value={filterData.className}
+                  disabled={metaLoading}
+                  onChange={(e) => {
+                    setFilterData({ className: e.target.value, sectionName: "" });
+                    setExamsLoaded(false);
+                    setLoadedExams([]);
+                  }}
                 >
-                  <option value="">
-                    Select Class
-                  </option>
+                  <option value="">{metaLoading ? "Loading..." : "Select Class"}</option>
 
-                  {schoolClasses.map(
-                    (item) => (
-
-                      <option
-                        key={item.id}
-                        value={
-                          item.className
-                        }
-                      >
-                        {item.className}
-                      </option>
-
-                    )
-                  )}
-
+                  {meta.classes.map((item) => (
+                    <option key={item.className} value={item.className}>
+                      {item.className}
+                    </option>
+                  ))}
                 </select>
-
               </div>
 
               <div className="form-group">
-
-                <label>
-                  Section
-                </label>
+                <label>Section</label>
 
                 <select
-                  value={
-                    filterData.sectionName
-                  }
-                  onChange={(e) =>
-                    setFilterData({
-                      ...filterData,
-                      sectionName:
-                        e.target.value,
-                    })
-                  }
+                  value={filterData.sectionName}
+                  onChange={(e) => {
+                    setFilterData({ ...filterData, sectionName: e.target.value });
+                    setExamsLoaded(false);
+                    setLoadedExams([]);
+                  }}
                 >
-                  <option value="">
-                    Select Section
-                  </option>
+                  <option value="">Select Section</option>
 
-                  {filteredSections.map(
-                    (item) => (
-
-                      <option
-                        key={item.id}
-                        value={
-                          item.sectionName
-                        }
-                      >
-                        {item.sectionName}
-                      </option>
-
-                    )
-                  )}
-
+                  {sectionOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
                 </select>
-
               </div>
-
             </div>
 
             <div className="form-actions">
-
-              <AppButton
-                type="primary"
-                onClick={
-                  handleLoadExams
-                }
-              >
-                Load Exams
+              <AppButton type="primary" onClick={handleLoadExams} disabled={loading}>
+                {loading && !examsLoaded ? "Loading..." : "Load Exams"}
               </AppButton>
-
             </div>
-
           </div>
 
-          {loadedExams.length > 0 && (
-
+          {loading && examsLoaded && (
             <div className="common-card">
-
-              <div className="list-header">
-
-                <h2>
-                  Select Exams
-                </h2>
-
-              </div>
-
-              <div className="exam-selection-grid">
-
-                {loadedExams.map((exam) => (
-
-                  <label
-                    className="exam-check-card"
-                    key={exam.id}
-                  >
-
-                    <input
-                      type="checkbox"
-                      checked={selectedExams.includes(
-                        exam.examName
-                      )}
-                      onChange={() =>
-                        handleExamSelection(
-                          exam.examName
-                        )
-                      }
-                    />
-
-                    <span>
-                      {exam.examName}
-                    </span>
-
-                  </label>
-
-                ))}
-
-              </div>
-
-              <div className="form-actions">
-
-                <AppButton
-                  type="primary"
-                  onClick={
-                    handlePreview
-                  }
-                >
-                  Preview
-                </AppButton>
-
-              </div>
-
+              <Skeleton variant="rectangular" height={60} count={2} />
             </div>
-
           )}
 
+          {examsLoaded && !loading && (
+            <div className="common-card">
+              <div className="list-header">
+                <h2>Select Exams</h2>
+              </div>
+
+              {loadedExams.length === 0 ? (
+                <div className="empty-row">
+                  No exam has marks set up for this class and section. Set it up in Exam Tools → Exam Marks Setup.
+                </div>
+              ) : (
+                <>
+                  <div className="exam-selection-grid">
+                    {loadedExams.map((exam) => (
+                      <label className="exam-check-card" key={exam._id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedExamIds.includes(exam._id)}
+                          onChange={() =>
+                            setSelectedExamIds((prev) =>
+                              prev.includes(exam._id) ? prev.filter((id) => id !== exam._id) : [...prev, exam._id]
+                            )
+                          }
+                        />
+
+                        <span>{exam.examName}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="form-actions">
+                    <AppButton type="primary" onClick={handlePreview} disabled={loading}>
+                      Preview
+                    </AppButton>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
-
       )}
-      {/* ================= PREVIEW ================= */}
 
-      {previewMode && (
-
+      {previewMode && preview && (
         <div className="preview-wrapper">
-
           <div className="preview-top-bar">
+            <AppButton type="secondary" onClick={() => setPreviewMode(false)}>
+              Back
+            </AppButton>
 
-            <AppButton
-              type="primary"
-              onClick={
-                handlePrint
-              }
-            >
+            <AppButton type="primary" onClick={() => window.print()}>
               Print
             </AppButton>
-
-            <AppButton
-              type="success"
-              onClick={
-                handleDownload
-              }
-            >
-              Download
-            </AppButton>
-
           </div>
 
-          {filteredStudents.map(
-            (student) => (
+          {preview.students.length === 0 ? (
+            <div className="common-card">
+              <div className="empty-row">No active student found in this class and section</div>
+            </div>
+          ) : (
+            preview.students.map((student) => {
+              const coSubjects = coSubjectsOf(student);
 
-              <div
-                className="report-card-sheet"
-                key={student.id}
-              >
+              return (
+                <div className="report-card-sheet" key={student._id}>
+                  <div className="school-header">
+                    {schoolInfo.logo && <img src={schoolInfo.logo} alt="School Logo" style={{ height: 56 }} />}
 
-                {/* ===== SCHOOL HEADER ===== */}
+                    <h1>{schoolInfo.schoolName}</h1>
 
-                <div className="school-header">
+                    <p>{schoolInfo.address}</p>
 
-                  <h1>
-                    CHANDRA SHEKHAR AZAD
-                    INTER COLLEGE
-                  </h1>
-
-                  <p>
-                    Rasouli, Barabanki
-                  </p>
-
-                  <h2>
-                    Report Card
-                  </h2>
-
-                </div>
-
-                {/* ===== STUDENT DETAILS ===== */}
-
-                <div className="student-details-grid">
-
-                  <div>
-
-                    <p>
-                      <strong>
-                        Roll No :
-                      </strong>
-                      {" "}
-                      {student.rollNo}
-                    </p>
-
-                    <p>
-                      <strong>
-                        SR No :
-                      </strong>
-                      {" "}
-                      {student.srNo}
-                    </p>
-
-                    <p>
-                      <strong>
-                        Student :
-                      </strong>
-                      {" "}
-                      {student.studentName}
-                    </p>
-
+                    <h2>Report Card ({preview.session})</h2>
                   </div>
 
-                  <div>
+                  <div className="student-details-grid">
+                    <div>
+                      <p>
+                        <strong>Roll No :</strong> {student.rollNo || "-"}
+                      </p>
 
-                    <p>
-                      <strong>
-                        Father :
-                      </strong>
-                      {" "}
-                      {student.fatherName}
-                    </p>
+                      <p>
+                        <strong>SR No :</strong> {student.srNo || "-"}
+                      </p>
 
-                    <p>
-                      <strong>
-                        Mother :
-                      </strong>
-                      {" "}
-                      {student.motherName}
-                    </p>
+                      <p>
+                        <strong>Student :</strong> {student.studentName}
+                      </p>
+                    </div>
 
-                    <p>
-                      <strong>
-                        Class :
-                      </strong>
-                      {" "}
-                      {student.className}
-                      {" "}
-                      (
-                      {student.sectionName}
-                      )
-                    </p>
+                    <div>
+                      <p>
+                        <strong>Father :</strong> {student.fatherName || "-"}
+                      </p>
 
+                      <p>
+                        <strong>Mother :</strong> {student.motherName || "-"}
+                      </p>
+
+                      <p>
+                        <strong>Class :</strong> {filterData.className} ({filterData.sectionName})
+                      </p>
+                    </div>
                   </div>
 
-                </div>
+                  <div className="report-table-wrap">
+                    <table className="report-table">
+                      <thead>
+                        <tr>
+                          <th>Subject</th>
 
-                {/* ===== REPORT TABLE ===== */}
+                          {preview.exams.map((exam) => (
+                            <th key={exam._id}>{exam.examName}</th>
+                          ))}
+                        </tr>
+                      </thead>
 
-                <div className="report-table-wrap">
+                      <tbody>
+                        {student.subjects.length === 0 ? (
+                          <tr>
+                            <td colSpan={preview.exams.length + 1}>No subjects assigned</td>
+                          </tr>
+                        ) : (
+                          student.subjects.map((subjectName) => (
+                            <tr key={subjectName}>
+                              <td>{subjectName}</td>
 
-                  <table className="report-table">
+                              {preview.exams.map((exam) => {
+                                const max = preview.maxMarks?.[exam._id]?.[subjectName];
 
-                    <thead>
-
-                      <tr>
-
-                        <th>
-                          Subject
-                        </th>
-
-                        {selectedExams.map(
-                          (examName) => (
-
-                            <th
-                              key={examName}
-                            >
-                              {examName}
-                            </th>
-
-                          )
+                                return (
+                                  <td key={exam._id}>
+                                    {max === undefined ? "-" : `${markOf(student, exam._id, subjectName)} / ${max}`}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))
                         )}
 
-                      </tr>
+                        <tr className="grand-total-row">
+                          <td>Total</td>
 
-                    </thead>
+                          {preview.exams.map((exam) => {
+                            const totals = examTotals(student, exam._id);
+                            return (
+                              <td key={exam._id}>
+                                {totals.obtained} / {totals.maximum}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
 
-                    <tbody>
+                  {coSubjects.length > 0 && (
+                    <div className="report-table-wrap">
+                      <table className="report-table">
+                        <thead>
+                          <tr>
+                            <th>Co-Scholastic</th>
 
-                      {subjects.map(
-                        (subjectName) => (
-
-                          <tr
-                            key={subjectName}
-                          >
-
-                            <td>
-                              {subjectName}
-                            </td>
-
-                            {selectedExams.map(
-                              (examName) => (
-
-                                <td
-                                  key={
-                                    examName
-                                  }
-                                >
-                                  {getStudentMarks(
-                                    student.id,
-                                    examName,
-                                    subjectName
-                                  )}
-                                </td>
-
-                              )
-                            )}
-
+                            {preview.exams.map((exam) => (
+                              <th key={exam._id}>{exam.examName}</th>
+                            ))}
                           </tr>
+                        </thead>
 
-                        )
-                      )}
+                        <tbody>
+                          {coSubjects.map((subjectName) => (
+                            <tr key={subjectName}>
+                              <td>{subjectName}</td>
 
-                      {/* ===== GRAND TOTAL ===== */}
+                              {preview.exams.map((exam) => (
+                                <td key={exam._id}>{student.coScholastic?.[exam._id]?.[subjectName] || "-"}</td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-                      <tr className="grand-total-row">
+                  {student.result ? (
+                    <div className="student-details-grid">
+                      <div>
+                        <p>
+                          <strong>Total Marks :</strong> {student.result.totalMarks} / {student.result.maximumMarks}
+                        </p>
 
-                        <td>
-                          Grand Total
-                        </td>
+                        <p>
+                          <strong>Percentage :</strong> {student.result.percentage}%
+                        </p>
+                      </div>
 
-                        <td
-                          colSpan={
-                            selectedExams.length
-                          }
-                        >
-                          {calculateGrandTotal(
-                            student.id
-                          )}
-                        </td>
+                      <div>
+                        <p>
+                          <strong>Division :</strong> {student.result.division}
+                        </p>
 
-                      </tr>
+                        <p>
+                          <strong>Rank :</strong> {student.result.rank ?? "-"}
+                        </p>
 
-                    </tbody>
+                        <p>
+                          <strong>Result :</strong> {student.result.result}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="empty-message">Result is not generated yet for this student.</p>
+                  )}
 
-                  </table>
+                  <div className="report-footer">
+                    <div>Class Teacher</div>
 
-                </div>
-
-                {/* ===== FOOTER ===== */}
-
-                <div className="report-footer">
-
-                  <div>
-                    Class Teacher
+                    <div>Principal</div>
                   </div>
-
-                  <div>
-                    Principal
-                  </div>
-
                 </div>
-
-              </div>
-
-            )
+              );
+            })
           )}
-
         </div>
-
       )}
-
     </div>
-
   );
-
 }
 
 export default ReportCards;

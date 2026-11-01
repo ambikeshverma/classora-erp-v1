@@ -627,6 +627,28 @@ export const examService = {
   getAdmitCards: (params) => api.get("/api/exam-tools/admit-cards", { params }),
 };
 
+// 📄 Report Card Management Endpoints
+export const reportCardService = {
+  getMeta: () => api.get("/api/report-cards/meta"),
+
+  getMarksEntry: (params) => api.get("/api/report-cards/marks-entry", { params }),
+  saveMarksEntry: (data) => api.post("/api/report-cards/marks-entry", data),
+
+  getCoScholasticEntry: (params) => api.get("/api/report-cards/co-scholastic-entry", { params }),
+  saveCoScholasticEntry: (data) => api.post("/api/report-cards/co-scholastic-entry", data),
+
+  getResults: (params) => api.get("/api/report-cards/results", { params }),
+  generateResults: (data) => api.post("/api/report-cards/results/generate", data),
+  saveManualResults: (data) => api.put("/api/report-cards/results/manual", data),
+  setResultLock: (data) => api.patch("/api/report-cards/results/lock", data),
+  setResultLive: (data) => api.patch("/api/report-cards/results/live", data),
+
+  getReportCardExams: (params) => api.get("/api/report-cards/report-cards/exams", { params }),
+  getReportCardData: (params) => api.get("/api/report-cards/report-cards/data", { params }),
+
+  getAnalytics: () => api.get("/api/report-cards/analytics"),
+};
+
 // 🚌 Transport Endpoints (routes feed the Transport Fee in Fee Manager)
 export const transportService = {
   getMeta: () => api.get("/api/transport/meta"),

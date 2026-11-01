@@ -1,655 +1,324 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./coScholasticMarksEntry.css";
 import AppButton from "../components/AppButton";
+import { Skeleton } from "../components/Skeleton";
+import { reportCardService } from "../services/api";
+
+const VALID_GRADES = ["A+", "A", "B+", "B", "C", "D"];
+const EMPTY_FILTERS = { examId: "", className: "", sectionName: "", subjectFilter: "All Subjects" };
 
 function CoScholasticMarksEntry() {
-  const schoolId = localStorage.getItem("schoolId") || "SCH001";
+  const navigate = useNavigate();
 
-  const exams = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      examName: "Unit Test 1",
-      applicableClasses: ["9"],
-      allowCoScholastic: false,
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      examName: "Half-Yearly Examination",
-      applicableClasses: ["9"],
-      allowCoScholastic: true,
-    },
-    {
-      id: 3,
-      schoolId: "SCH001",
-      examName: "Annual Examination",
-      applicableClasses: ["9", "10"],
-      allowCoScholastic: true,
-    },
-  ];
+  const [meta, setMeta] = useState({ exams: [], classes: [] });
+  const [metaLoading, setMetaLoading] = useState(true);
 
-  const classes = [
-    { id: 1, schoolId: "SCH001", className: "9" },
-    { id: 2, schoolId: "SCH001", className: "10" },
-  ];
-
-  const sections = [
-    { id: 1, schoolId: "SCH001", className: "9", sectionName: "A" },
-    { id: 2, schoolId: "SCH001", className: "9", sectionName: "B" },
-    { id: 3, schoolId: "SCH001", className: "10", sectionName: "A" },
-  ];
-
-  const students = [
-    {
-      id: 1,
-      schoolId: "SCH001",
-      rollNo: "02",
-      studentName: "Priya Singh",
-      className: "9",
-      sectionName: "A",
-    },
-    {
-      id: 2,
-      schoolId: "SCH001",
-      rollNo: "01",
-      studentName: "Aarav Sharma",
-      className: "9",
-      sectionName: "A",
-    },
-  ];
-
-  const studentSubjectMapping = [
-    {
-      studentId: 1,
-      className: "9",
-      sectionName: "A",
-      scholasticSubjects: ["Hindi", "English", "Math", "Science", "SST"],
-      coScholasticSubjects: ["Discipline", "Art Education", "Sports"],
-    },
-    {
-      studentId: 2,
-      className: "9",
-      sectionName: "A",
-      scholasticSubjects: ["Hindi", "English", "Math", "Science", "SST"],
-      coScholasticSubjects: ["Discipline", "Health Education"],
-    },
-  ];
-
-  const examMarksSetup = [
-    { examName: "Half-Yearly Examination", className: "9", sectionName: "A", subjectName: "Hindi", maximumMarks: 100 },
-    { examName: "Half-Yearly Examination", className: "9", sectionName: "A", subjectName: "English", maximumMarks: 100 },
-    { examName: "Half-Yearly Examination", className: "9", sectionName: "A", subjectName: "Math", maximumMarks: 100 },
-    { examName: "Half-Yearly Examination", className: "9", sectionName: "A", subjectName: "Science", maximumMarks: 100 },
-    { examName: "Half-Yearly Examination", className: "9", sectionName: "A", subjectName: "SST", maximumMarks: 100 },
-  ];
-
-  const scholasticMarks = [
-    { studentId: 1, subjectName: "Hindi", marks: 70 },
-    { studentId: 1, subjectName: "English", marks: 68 },
-    { studentId: 1, subjectName: "Math", marks: 75 },
-    { studentId: 1, subjectName: "Science", marks: 69 },
-    { studentId: 1, subjectName: "SST", marks: 70 },
-
-    { studentId: 2, subjectName: "Hindi", marks: 78 },
-    { studentId: 2, subjectName: "English", marks: 80 },
-    { studentId: 2, subjectName: "Math", marks: 72 },
-    { studentId: 2, subjectName: "Science", marks: 85 },
-    { studentId: 2, subjectName: "SST", marks: 81 },
-  ];
-
-  const resultLocks = [
-    {
-      schoolId: "SCH001",
-      examName: "Half-Yearly Examination",
-      className: "9",
-      sectionName: "A",
-      isLocked: false,
-    },
-  ];
-
-  const [filterData, setFilterData] = useState({
-    examName: "",
-    className: "",
-    sectionName: "",
-    subjectFilter: "All Subjects",
-  });
-
+  const [filterData, setFilterData] = useState(EMPTY_FILTERS);
   const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [entry, setEntry] = useState({ students: [], subjectOptions: [], locked: false });
   const [gradeData, setGradeData] = useState({});
 
-  const schoolExams = exams.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.allowCoScholastic
-  );
+  useEffect(() => {
+    let active = true;
 
-  const selectedExam = schoolExams.find(
-    (item) => item.examName === filterData.examName
-  );
-
-  const schoolClasses = classes.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!filterData.examName ||
-        selectedExam?.applicableClasses?.includes(item.className))
-  );
-
-  const filteredSections = sections.filter(
-    (item) =>
-      item.schoolId === schoolId &&
-      (!filterData.className || item.className === filterData.className)
-  );
-
-  const filteredStudents = students
-    .filter(
-      (item) =>
-        item.schoolId === schoolId &&
-        item.className === filterData.className &&
-        item.sectionName === filterData.sectionName
-    )
-    .sort((a, b) => {
-      const rollA = Number(a.rollNo);
-      const rollB = Number(b.rollNo);
-
-      if (!isNaN(rollA) && !isNaN(rollB)) {
-        return rollA - rollB;
-      }
-
-      return a.studentName.localeCompare(b.studentName);
-    });
-
-  const isResultLocked = resultLocks.some(
-    (item) =>
-      item.schoolId === schoolId &&
-      item.examName === filterData.examName &&
-      item.className === filterData.className &&
-      item.sectionName === filterData.sectionName &&
-      item.isLocked
-  );
-
-  const validGrades = ["A+", "A", "B+", "B", "C", "D"];
-
-  const getStudentMapping = (studentId) => {
-    return studentSubjectMapping.find(
-      (item) =>
-        item.studentId === studentId &&
-        item.className === filterData.className &&
-        item.sectionName === filterData.sectionName
-    );
-  };
-
-  const getStudentCoSubjects = (studentId) => {
-    const mapping = getStudentMapping(studentId);
-
-    if (!mapping) return [];
-
-    if (filterData.subjectFilter === "All Subjects") {
-      return mapping.coScholasticSubjects;
-    }
-
-    return mapping.coScholasticSubjects.filter(
-      (subject) => subject === filterData.subjectFilter
-    );
-  };
-
-  const getAllCoSubjectsForFilter = () => {
-    const subjectSet = new Set();
-
-    studentSubjectMapping
-      .filter(
-        (item) =>
-          item.className === filterData.className &&
-          item.sectionName === filterData.sectionName
-      )
-      .forEach((item) => {
-        item.coScholasticSubjects.forEach((subject) => subjectSet.add(subject));
+    reportCardService
+      .getMeta()
+      .then((res) => {
+        if (active) setMeta(res.data?.data || { exams: [], classes: [] });
+      })
+      .catch((err) => {
+        console.error("Failed to load report card meta", err);
+      })
+      .finally(() => {
+        if (active) setMetaLoading(false);
       });
 
-    return Array.from(subjectSet);
-  };
-
-  const getScholasticTotal = (studentId) => {
-    const mapping = getStudentMapping(studentId);
-
-    if (!mapping) {
-      return {
-        obtained: 0,
-        maximum: 0,
-      };
-    }
-
-    let obtained = 0;
-    let maximum = 0;
-
-    mapping.scholasticSubjects.forEach((subjectName) => {
-      const mark = scholasticMarks.find(
-        (item) =>
-          item.studentId === studentId &&
-          item.subjectName === subjectName
-      );
-
-      const maxMark = examMarksSetup.find(
-        (item) =>
-          item.examName === filterData.examName &&
-          item.className === filterData.className &&
-          item.sectionName === filterData.sectionName &&
-          item.subjectName === subjectName
-      );
-
-      if (mark && !isNaN(mark.marks)) {
-        obtained += Number(mark.marks);
-      }
-
-      if (maxMark && !isNaN(maxMark.maximumMarks)) {
-        maximum += Number(maxMark.maximumMarks);
-      }
-    });
-
-    return {
-      obtained,
-      maximum,
+    return () => {
+      active = false;
     };
-  };
+  }, []);
 
-  const handleSearch = () => {
-    if (
-      !filterData.examName ||
-      !filterData.className ||
-      !filterData.sectionName
-    ) {
+  // Only exams that allow co-scholastic entry are offered
+  const coExams = meta.exams.filter((item) => item.allowCoScholastic);
+  const selectedExam = coExams.find((item) => item._id === filterData.examId);
+
+  const classOptions = selectedExam
+    ? meta.classes.filter((item) => selectedExam.applicableClasses.includes(item.className))
+    : [];
+
+  const sectionOptions = meta.classes.find((item) => item.className === filterData.className)?.sections || [];
+
+  const visibleStudents = useMemo(
+    () =>
+      entry.students.map((student) => ({
+        ...student,
+        subjects:
+          filterData.subjectFilter === "All Subjects"
+            ? student.subjects
+            : student.subjects.filter((subject) => subject.subjectName === filterData.subjectFilter),
+      })),
+    [entry.students, filterData.subjectFilter]
+  );
+
+  const keyOf = (studentId, subjectName) => `${studentId}_${subjectName}`;
+
+  const handleSearch = async () => {
+    if (!filterData.examId || !filterData.className || !filterData.sectionName) {
       alert("Please select exam, class and section");
       return;
     }
 
-    setSearched(true);
+    try {
+      setLoading(true);
+      setSearched(true);
+
+      const res = await reportCardService.getCoScholasticEntry({
+        examId: filterData.examId,
+        className: filterData.className,
+        sectionName: filterData.sectionName,
+      });
+
+      const data = res.data?.data || { students: [], subjectOptions: [], locked: false };
+      setEntry(data);
+
+      const saved = {};
+      data.students.forEach((student) =>
+        student.subjects.forEach((subject) => {
+          saved[keyOf(student._id, subject.subjectName)] = subject.grade;
+        })
+      );
+      setGradeData(saved);
+    } catch (err) {
+      setEntry({ students: [], subjectOptions: [], locked: false });
+      alert(err.response?.data?.message || "Failed to load students");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGradeChange = (
-    studentId,
-    subjectName,
-    value
-  ) => {
-    if (isResultLocked) return;
+  const handleGradeChange = (studentId, subjectName, value) => {
+    if (entry.locked) return;
 
     const upperValue = value.toUpperCase();
+    if (upperValue !== "" && !VALID_GRADES.includes(upperValue)) return;
 
-    if (
-      upperValue !== "" &&
-      !validGrades.includes(upperValue)
-    ) {
-      return;
-    }
-
-    setGradeData((prev) => ({
-      ...prev,
-
-      [`${studentId}_${subjectName}`]:
-        upperValue,
-    }));
+    setGradeData((prev) => ({ ...prev, [keyOf(studentId, subjectName)]: upperValue }));
   };
 
-  const handleSave = () => {
-    if (isResultLocked) {
-      alert(
-        "Result is locked. Grades cannot be edited."
-      );
-
+  const handleSave = async () => {
+    if (entry.locked) {
+      alert("Result is locked. Grades cannot be edited.");
       return;
     }
 
-    alert(
-      "Co-Scholastic grades saved successfully"
+    const grades = [];
+    entry.students.forEach((student) =>
+      student.subjects.forEach((subject) =>
+        grades.push({
+          studentId: student._id,
+          subjectName: subject.subjectName,
+          grade: gradeData[keyOf(student._id, subject.subjectName)] ?? "",
+        })
+      )
     );
+
+    try {
+      setSaving(true);
+      await reportCardService.saveCoScholasticEntry({
+        examId: filterData.examId,
+        className: filterData.className,
+        sectionName: filterData.sectionName,
+        grades,
+      });
+
+      alert("Co-Scholastic grades saved successfully");
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to save grades");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="co-scholastic-page">
-
       <div className="common-page-header">
-
-        <AppButton
-          type="back"
-          onClick={() =>
-            (window.location.href =
-              "/report-card-management")
-          }
-        >
+        <AppButton type="back" onClick={() => navigate("/report-card-management")}>
           ←
         </AppButton>
 
         <div>
-
-          <h1>
-            Co-Scholastic Marks Entry
-          </h1>
-
-          <p>
-            Enter and manage co-scholastic grades
-          </p>
-
+          <h1>Co-Scholastic Marks Entry</h1>
+          <p>Enter and manage co-scholastic grades</p>
         </div>
-
       </div>
 
       <div className="common-card">
-
-        <h2>
-          Filter Records
-        </h2>
+        <h2>Filter Records</h2>
 
         <div className="filter-grid">
-
           <div className="form-group">
-
-            <label>
-              Exam
-            </label>
+            <label>Exam</label>
 
             <select
-              value={filterData.examName}
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  examName: e.target.value,
-                  className: "",
-                  sectionName: "",
-                  subjectFilter: "All Subjects",
-                })
-              }
+              value={filterData.examId}
+              disabled={metaLoading}
+              onChange={(e) => {
+                setFilterData({ ...EMPTY_FILTERS, examId: e.target.value });
+                setSearched(false);
+              }}
             >
               <option value="">
-                Select Exam
+                {metaLoading ? "Loading..." : coExams.length === 0 ? "No exam allows co-scholastic" : "Select Exam"}
               </option>
 
-              {schoolExams.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.examName}
-                >
+              {coExams.map((item) => (
+                <option key={item._id} value={item._id}>
                   {item.examName}
                 </option>
               ))}
-
             </select>
-
           </div>
 
           <div className="form-group">
-
-            <label>
-              Class
-            </label>
+            <label>Class</label>
 
             <select
               value={filterData.className}
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  className:
-                    e.target.value,
-                  sectionName: "",
-                  subjectFilter: "All Subjects",
-                })
-              }
+              onChange={(e) => {
+                setFilterData({ ...filterData, className: e.target.value, sectionName: "", subjectFilter: "All Subjects" });
+                setSearched(false);
+              }}
             >
-              <option value="">
-                Select Class
-              </option>
+              <option value="">Select Class</option>
 
-              {schoolClasses.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.className}
-                >
+              {classOptions.map((item) => (
+                <option key={item.className} value={item.className}>
                   {item.className}
                 </option>
               ))}
-
             </select>
-
           </div>
 
           <div className="form-group">
-
-            <label>
-              Section
-            </label>
+            <label>Section</label>
 
             <select
               value={filterData.sectionName}
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  sectionName:
-                    e.target.value,
-                  subjectFilter: "All Subjects",
-                })
-              }
+              onChange={(e) => {
+                setFilterData({ ...filterData, sectionName: e.target.value, subjectFilter: "All Subjects" });
+                setSearched(false);
+              }}
             >
-              <option value="">
-                Select Section
-              </option>
+              <option value="">Select Section</option>
 
-              {filteredSections.map((item) => (
-                <option
-                  key={item.id}
-                  value={item.sectionName}
-                >
-                  {item.sectionName}
+              {sectionOptions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
                 </option>
               ))}
-
             </select>
-
           </div>
 
           <div className="form-group">
-
-            <label>
-              Subject Filter
-            </label>
+            <label>Subject Filter</label>
 
             <select
-              value={
-                filterData.subjectFilter
-              }
-              onChange={(e) =>
-                setFilterData({
-                  ...filterData,
-                  subjectFilter:
-                    e.target.value,
-                })
-              }
+              value={filterData.subjectFilter}
+              onChange={(e) => setFilterData({ ...filterData, subjectFilter: e.target.value })}
             >
-              <option value="All Subjects">
-                All Subjects
-              </option>
+              <option value="All Subjects">All Subjects</option>
 
-              {getAllCoSubjectsForFilter().map(
-                (subject) => (
-                  <option
-                    key={subject}
-                    value={subject}
-                  >
-                    {subject}
-                  </option>
-                )
-              )}
-
+              {entry.subjectOptions.map((subject) => (
+                <option key={subject} value={subject}>
+                  {subject}
+                </option>
+              ))}
             </select>
-
           </div>
-
         </div>
 
         <div className="form-actions">
-
-          <AppButton
-            type="primary"
-            onClick={handleSearch}
-          >
-            Search
+          <AppButton type="primary" onClick={handleSearch} disabled={loading}>
+            {loading ? "Loading..." : "Search"}
           </AppButton>
-
         </div>
-
       </div>
 
       <div className="grade-notice">
         Note: Allowed Grades → A+, A, B+, B, C, D | Blank = Pending | Invalid grade not allowed
       </div>
 
-      {isResultLocked && (
-
+      {searched && entry.locked && (
         <div className="lock-warning-card">
-
-          <p>
-            Result is locked. Grades cannot be edited.
-          </p>
-
+          <p>Result is locked. Grades cannot be edited.</p>
         </div>
-
       )}
 
       {searched && (
-
         <div className="common-card">
-
           <div className="list-header">
-
-            <h2>
-              Grade Entry List
-            </h2>
-
+            <h2>Grade Entry List</h2>
           </div>
 
           <div className="grade-entry-list">
-
-            {filteredStudents.length === 0 ? (
-
-              <div className="empty-row">
-                No students found
-              </div>
-
+            {loading ? (
+              <Skeleton variant="rectangular" height={110} count={3} />
+            ) : visibleStudents.length === 0 ? (
+              <div className="empty-row">No students found</div>
             ) : (
+              visibleStudents.map((student) => (
+                <div className="student-grade-card" key={student._id}>
+                  <div className="student-top">
+                    <div>
+                      <span className="student-roll">Roll No: {student.rollNo || "-"}</span>
 
-              filteredStudents.map((student) => {
-
-                const scholasticTotal =
-                  getScholasticTotal(student.id);
-
-                const coSubjects =
-                  getStudentCoSubjects(student.id);
-
-                return (
-
-                  <div
-                    className="student-grade-card"
-                    key={student.id}
-                  >
-
-                    <div className="student-top">
-
-                      <div>
-
-                        <span className="student-roll">
-                          Roll No:
-                          {" "}
-                          {student.rollNo}
-                        </span>
-
-                        <h3>
-                          {student.studentName}
-                        </h3>
-
-                      </div>
-
-                      <div className="scholastic-total-box">
-
-                        Scholastic Total
-
-                        <strong>
-                          {scholasticTotal.obtained}
-                          {" / "}
-                          {scholasticTotal.maximum}
-                        </strong>
-
-                      </div>
-
+                      <h3>{student.studentName}</h3>
                     </div>
 
-                    {coSubjects.length === 0 ? (
-
-                      <p className="empty-message">
-                        No co-scholastic subjects mapped for this student.
-                      </p>
-
-                    ) : (
-
-                      <div className="subject-entry-grid">
-
-                        {coSubjects.map((subject) => (
-
-                          <div
-                            className="subject-input-box"
-                            key={subject}
-                          >
-
-                            <label>
-                              {subject}
-                            </label>
-
-                            <input
-                              type="text"
-                              value={
-                                gradeData[
-                                  `${student.id}_${subject}`
-                                ] || ""
-                              }
-                              disabled={isResultLocked}
-                              onChange={(e) =>
-                                handleGradeChange(
-                                  student.id,
-                                  subject,
-                                  e.target.value
-                                )
-                              }
-                              placeholder="A+ / A / B+ / B / C / D"
-                            />
-
-                          </div>
-
-                        ))}
-
-                      </div>
-
-                    )}
-
+                    <div className="scholastic-total-box">
+                      Scholastic Total
+                      <strong>
+                        {student.scholasticTotal.obtained} / {student.scholasticTotal.maximum}
+                      </strong>
+                    </div>
                   </div>
 
-                );
+                  {student.subjects.length === 0 ? (
+                    <p className="empty-message">No co-scholastic subjects mapped for this student.</p>
+                  ) : (
+                    <div className="subject-entry-grid">
+                      {student.subjects.map((subject) => (
+                        <div className="subject-input-box" key={subject.subjectName}>
+                          <label>{subject.subjectName}</label>
 
-              })
-
+                          <input
+                            type="text"
+                            value={gradeData[keyOf(student._id, subject.subjectName)] ?? ""}
+                            disabled={entry.locked}
+                            onChange={(e) => handleGradeChange(student._id, subject.subjectName, e.target.value)}
+                            placeholder="A+ / A / B+ / B / C / D"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))
             )}
-
           </div>
 
-          <div className="form-actions">
-
-            <AppButton
-              type="primary"
-              onClick={handleSave}
-              disabled={isResultLocked}
-            >
-              Save Grades
-            </AppButton>
-
-          </div>
-
+          {!loading && entry.students.length > 0 && (
+            <div className="form-actions">
+              <AppButton type="primary" onClick={handleSave} disabled={saving || entry.locked}>
+                {saving ? "Saving..." : "Save Grades"}
+              </AppButton>
+            </div>
+          )}
         </div>
-
       )}
     </div>
   );
