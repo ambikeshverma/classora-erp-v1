@@ -75,7 +75,7 @@ const SAActivity = () => {
       {error ? (
         <ErrorState message={error} onRetry={load} />
       ) : loading ? (
-        <SkeletonTable rows={8} columns={5} theme="dark" />
+        <SkeletonTable rows={8} columns={5} />
       ) : rows.length === 0 ? (
         <div className="sa2-card">
           <EmptyState message="No activity has been recorded for this filter yet." />

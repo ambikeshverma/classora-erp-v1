@@ -102,7 +102,7 @@ const SASubscriptions = () => {
       {error ? (
         <ErrorState message={error} onRetry={load} />
       ) : loading ? (
-        <SkeletonTable rows={7} columns={7} theme="dark" />
+        <SkeletonTable rows={7} columns={7} />
       ) : visible.length === 0 ? (
         <div className="sa2-card">
           <EmptyState message="No schools match this filter." />
@@ -293,7 +293,7 @@ const SchoolBillingModal = ({ schoolId, notify, onChanged, onClose }) => {
   return (
     <Modal title={data ? `${data.school.schoolName} · Subscription & Billing` : "Subscription & Billing"} wide onClose={onClose}>
       {loading ? (
-        <SkeletonForm fields={4} theme="dark" />
+        <SkeletonForm fields={4} />
       ) : error ? (
         <ErrorState message={error} onRetry={load} />
       ) : (

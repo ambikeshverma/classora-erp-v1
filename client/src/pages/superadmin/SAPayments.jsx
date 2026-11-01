@@ -152,7 +152,7 @@ const SAPayments = () => {
       {error ? (
         <ErrorState message={error} onRetry={load} />
       ) : loading ? (
-        <SkeletonTable rows={6} columns={7} theme="dark" />
+        <SkeletonTable rows={6} columns={7} />
       ) : rows.length === 0 ? (
         <div className="sa2-card">
           <EmptyState message="No payments match this filter." />

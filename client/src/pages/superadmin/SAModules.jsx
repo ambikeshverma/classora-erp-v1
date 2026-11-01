@@ -110,13 +110,13 @@ const SAModules = () => {
       {error ? (
         <ErrorState message={error} onRetry={load} />
       ) : loading ? (
-        <SkeletonList count={5} theme="dark" />
+        <SkeletonList count={5} />
       ) : schools.length === 0 ? (
         <div className="sa2-card">
           <EmptyState message="Register a school first to manage its module access." />
         </div>
       ) : (
-        <div className="sa2-grid" style={{ gridTemplateColumns: "minmax(240px, 320px) minmax(0, 1fr)", alignItems: "start" }}>
+        <div className="sa2-grid sa2-modules-layout">
           <div className="sa2-card">
             <input className="sa2-input" placeholder="Search schools..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ marginBottom: 12 }} />
             <ul className="sa2-list">

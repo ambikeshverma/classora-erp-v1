@@ -8,6 +8,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.15.2",
+    "es-toolkit": "^1.53.1",
     "exceljs": "^4.4.0",
     "file-saver": "^2.0.5",
     "file-server": "^2.2.1",
@@ -20,6 +21,7 @@
     "react-router-dom": "^7.14.2",
     "react-scripts": "5.0.1",
     "react-select": "^5.10.2",
+    "recharts": "^3.10.1",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },

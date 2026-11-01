@@ -134,7 +134,7 @@ const SASettings = () => {
     return (
       <>
         <PageHeader title="Platform Settings" />
-        <SkeletonForm fields={6} theme="dark" />
+        <SkeletonForm fields={6} />
       </>
     );
   }
