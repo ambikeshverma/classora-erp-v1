@@ -41,6 +41,9 @@ const feePlanSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    // Totals of every amount in the matrices. Always computed by the server on save.
+    newTotal: { type: Number, default: 0 },
+    oldTotal: { type: Number, default: 0 },
     createdBy: {
       type: String,
       default: "School Admin",
@@ -51,4 +54,27 @@ const feePlanSchema = new mongoose.Schema(
 
 feePlanSchema.index({ campusId: 1, className: 1, feePlanName: 1 }, { unique: true });
 
-module.exports = mongoose.model("FeePlan", feePlanSchema);
+// Sum of every numeric amount in a { feeHead: { column: amount } } matrix
+const sumAmounts = (matrix) => {
+  let total = 0;
+  Object.values(matrix || {}).forEach((columns) => {
+    Object.values(columns || {}).forEach((value) => {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) total += n;
+    });
+  });
+  return Math.round(total * 100) / 100;
+};
+
+// Plans saved before totals were stored have none: derive them from the amounts
+const withTotals = (plan) => ({
+  ...plan,
+  newTotal: Number.isFinite(plan.newTotal) ? plan.newTotal : sumAmounts(plan.newStudentAmounts),
+  oldTotal: Number.isFinite(plan.oldTotal) ? plan.oldTotal : sumAmounts(plan.oldStudentAmounts),
+});
+
+const FeePlan = mongoose.models.FeePlan || mongoose.model("FeePlan", feePlanSchema);
+FeePlan.sumAmounts = sumAmounts;
+FeePlan.withTotals = withTotals;
+
+module.exports = FeePlan;

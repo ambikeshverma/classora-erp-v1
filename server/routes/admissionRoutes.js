@@ -79,7 +79,7 @@ router.get("/meta", async (req, res) => {
       enquirySourceDocs,
     ] = await Promise.all([
       Class.find({ campusId }).select("className classCode sections").sort({ className: 1 }).lean(),
-      FeePlan.find({ campusId }).select("className feePlanName feeScheme newTotal oldTotal").sort({ className: 1 }).lean(),
+      FeePlan.find({ campusId }).select("className feePlanName feeScheme newTotal oldTotal newStudentAmounts oldStudentAmounts").sort({ className: 1 }).lean(),
       Concession.find({ campusId, isActive: true }).select("concessionName type value applicableFeeHeads").sort({ concessionName: 1 }).lean(),
       SiblingGroup.find({ campusId }).select("groupName students").sort({ groupName: 1 }).lean(),
       Medium.find({ campusId }).select("mediumName mediumCode").sort({ mediumName: 1 }).lean(),
@@ -97,7 +97,11 @@ router.get("/meta", async (req, res) => {
       success: true,
       data: {
         classes: classes || [],
-        feePlans: feePlans || [],
+        // Totals only (derived for plans saved before totals were stored); the matrices stay out of this payload
+        feePlans: (feePlans || []).map((plan) => {
+          const { newStudentAmounts, oldStudentAmounts, ...rest } = FeePlan.withTotals(plan);
+          return rest;
+        }),
         concessions: concessions || [],
         siblingGroups: siblingGroups || [],
         mediums: mediums || [],

@@ -368,7 +368,7 @@ router.get("/fee-plans", async (req, res) => {
       .sort({ className: 1, feePlanName: 1 })
       .lean();
 
-    res.status(200).json({ success: true, data: plans });
+    res.status(200).json({ success: true, data: plans.map(FeePlan.withTotals) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -393,6 +393,7 @@ router.post("/fee-plans", async (req, res) => {
       });
     }
 
+    // Totals are derived from the amounts here, never taken from the client
     const plan = await FeePlan.findOneAndUpdate(
       { campusId: req.campusId, className, feePlanName },
       {
@@ -402,6 +403,8 @@ router.post("/fee-plans", async (req, res) => {
         feeScheme: feeScheme || "Monthly",
         newStudentAmounts: newStudentAmounts || {},
         oldStudentAmounts: oldStudentAmounts || {},
+        newTotal: FeePlan.sumAmounts(newStudentAmounts),
+        oldTotal: FeePlan.sumAmounts(oldStudentAmounts),
         createdBy: createdBy || "School Admin",
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -426,15 +429,20 @@ router.post("/fee-plans", async (req, res) => {
 // COPY fee plan to another class / plan
 router.post("/fee-plans/copy", async (req, res) => {
   try {
-    const { sourcePlanId, targetClass, targetPlanName } = req.body;
-    if (!sourcePlanId || !targetClass || !targetPlanName) {
+    // The page identifies the source by class + plan name; sourcePlanId is accepted too
+    const { sourcePlanId, sourceClass, sourcePlanName, targetClass, targetPlanName } = req.body;
+    if ((!sourcePlanId && !(sourceClass && sourcePlanName)) || !targetClass || !targetPlanName) {
       return res.status(400).json({
         success: false,
         message: "Source plan, target class, and target plan name are required.",
       });
     }
 
-    const source = await FeePlan.findOne({ _id: sourcePlanId, campusId: req.campusId });
+    const source = await FeePlan.findOne(
+      sourcePlanId
+        ? { _id: sourcePlanId, campusId: req.campusId }
+        : { campusId: req.campusId, className: sourceClass, feePlanName: sourcePlanName }
+    );
     if (!source) {
       return res.status(404).json({ success: false, message: "Source fee plan not found" });
     }
@@ -448,6 +456,8 @@ router.post("/fee-plans/copy", async (req, res) => {
         feeScheme: source.feeScheme,
         newStudentAmounts: source.newStudentAmounts,
         oldStudentAmounts: source.oldStudentAmounts,
+        newTotal: FeePlan.sumAmounts(source.newStudentAmounts),
+        oldTotal: FeePlan.sumAmounts(source.oldStudentAmounts),
         createdBy: "School Admin",
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
