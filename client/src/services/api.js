@@ -87,10 +87,44 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // 🛑 Check if user was Force Logged Out by Super Admin (kill session on very next API call)
+    if (error.response?.status === 401 && error.response?.data?.isForceLoggedOut) {
+      const isSuperAdmin = originalRequest?.url && originalRequest.url.includes("/api/superAdmin");
+      if (isSuperAdmin) {
+        localStorage.removeItem("superAdminToken");
+        localStorage.removeItem("superAdminUser");
+        localStorage.removeItem("role");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userInfo");
+        window.dispatchEvent(new CustomEvent("auth:change", { detail: null }));
+        if (!window.location.pathname.includes("/super-admin/login")) {
+          window.location.href = "/super-admin/login";
+        }
+      } else {
+        localStorage.removeItem("token");
+        localStorage.removeItem("schoolId");
+        localStorage.removeItem("campusId");
+        localStorage.removeItem("userName");
+        localStorage.removeItem("enabledModules");
+        localStorage.removeItem("enabledSubModules");
+        localStorage.removeItem("role");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userInfo");
+        window.dispatchEvent(new CustomEvent("auth:change", { detail: null }));
+        if (window.location.pathname !== "/") {
+          window.location.href = "/";
+        }
+      }
+      return Promise.reject(error);
+    }
+
     // Handle 401 Token Expiration (Silent Refresh)
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
+      !error.response?.data?.isForceLoggedOut &&
       (error.response?.data?.isExpired ||
         error.response?.data?.message?.toLowerCase().includes("expired"))
     ) {
@@ -252,6 +286,11 @@ export const superAdminService = {
   updateSettings: (data) => api.put("/api/superAdmin/settings", data),
   getAuditLogs: (params) => api.get("/api/superAdmin/audit-logs", { params }),
   broadcastAnnouncement: (data) => api.post("/api/superAdmin/announcements", data),
+  // Active Sessions & Live Login Status
+  getSessions: (params) => api.get("/api/superAdmin/sessions", { params }),
+  forceLogoutSession: (id) => api.post(`/api/superAdmin/sessions/${id}/force-logout`),
+  reactivateSession: (id) => api.post(`/api/superAdmin/sessions/${id}/reactivate`),
+  deleteSession: (id) => api.delete(`/api/superAdmin/sessions/${id}`),
 };
 
 // 🏫 School Endpoints

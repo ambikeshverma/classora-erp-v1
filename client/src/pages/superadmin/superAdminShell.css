@@ -345,7 +345,11 @@
 .sa2-badge.green { background: rgba(5, 150, 105, 0.1); color: #059669; border: 1px solid rgba(5, 150, 105, 0.25); }
 .sa2-badge.amber { background: rgba(217, 119, 6, 0.1); color: #d97706; border: 1px solid rgba(217, 119, 6, 0.25); }
 .sa2-badge.red   { background: rgba(220, 38, 38, 0.1); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.25); }
-.sa2-badge.gray  { background: rgba(100, 116, 139, 0.1); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.25); }
+.sa2-badge.gray     { background: rgba(100, 116, 139, 0.1); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.25); }
+.sa2-badge.blue     { background: rgba(37, 99, 168, 0.1); color: #1e3a5f; border: 1px solid rgba(37, 99, 168, 0.28); }
+.sa2-badge.navy     { background: rgba(15, 38, 69, 0.1); color: #0f2645; border: 1px solid rgba(15, 38, 69, 0.28); }
+.sa2-badge.burgundy { background: rgba(124, 29, 62, 0.12); color: #7c1d3e; border: 1px solid rgba(124, 29, 62, 0.3); font-weight: 700; }
+.sa2-badge.purple   { background: rgba(109, 40, 217, 0.1); color: #6d28d9; border: 1px solid rgba(109, 40, 217, 0.25); }
 
 /* ── Pagination ── */
 .sa2-pagination {
@@ -628,4 +632,142 @@
   .sa2-table .sa2-actions .sa2-btn { flex: 0 0 auto; }
   .sa2-kv { grid-template-columns: 1fr 1fr; }
   .sa2-menu { right: -8px; min-width: 200px; max-width: calc(100vw - 24px); }
+}
+
+/* ── Live status animations ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+.spin-anim {
+  animation: spin 1s linear infinite;
+}
+.pulse-anim {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ── Session Cards for Mobile Responsiveness ── */
+.sa2-session-cards-mobile {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+}
+.sa2-session-card {
+  background: #ffffff;
+  border: 1px solid #d1dae7;
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(30, 58, 95, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sa2-session-card.terminated {
+  background: #fff8f8;
+  border-color: #fca5a5;
+}
+.sa2-session-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sa2-session-card-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+.sa2-session-card-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.sa2-session-card-info {
+  min-width: 0;
+  flex: 1;
+}
+.sa2-session-card-info strong {
+  display: block;
+  font-size: 14px;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sa2-session-card-info span {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.sa2-session-card-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sa2-session-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+}
+.sa2-session-card-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sa2-session-card-item .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+.sa2-session-card-item .val {
+  color: #1e293b;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sa2-session-card-actions {
+  display: flex;
+  gap: 8px;
+}
+.sa2-session-card-actions .sa2-btn {
+  flex: 1;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .sa2-session-table-desktop {
+    display: none !important;
+  }
+  .sa2-session-cards-mobile {
+    display: flex !important;
+  }
 }

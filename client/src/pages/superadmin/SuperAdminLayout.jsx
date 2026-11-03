@@ -9,6 +9,7 @@ import {
   Receipt,
   Wallet,
   Activity,
+  Radio,
   Settings,
   ChevronRight,
   ChevronDown,
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/super-admin", label: "Dashboard", icon: LayoutDashboard, end: true, title: "Dashboard" },
   { to: "/super-admin/schools", label: "Schools", icon: School, title: "Schools" },
   { to: "/super-admin/modules", label: "Modules & Permissions", icon: Layers, title: "Modules & Permissions" },
+  { to: "/super-admin/login-status", label: "Login Status", icon: Radio, title: "Login Status" },
   {
     label: "Subscription & Billing",
     icon: Wallet,

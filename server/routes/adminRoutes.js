@@ -3,6 +3,8 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const Admin = require("../models/Admin");
 const SchoolAdmin = require("../models/schoolAdminSchema");
+const UserSession = require("../models/UserSession");
+const { recordUserSession, validateAndTouchSession, forceLogoutSession, voluntaryLogoutSession } = require("../utils/sessionService");
 const { DEFAULT_MODULES, DEFAULT_SUB_MODULES } = require("../models/schoolAdminSchema");
 const superAdminAuth = require("../middleware/superAdminAuth");
 const { logAudit } = require("../utils/audit");
@@ -154,7 +156,20 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const { accessToken, refreshToken } = generateSuperAdminTokens(admin);
+    // 📝 Record/Update User Session (modifies existing document, no duplicate rows)
+    const sessionResult = await recordUserSession({
+      userId: admin._id,
+      role: admin.role || "superAdmin",
+      name: admin.name,
+      email: admin.email,
+      schoolId: null,
+      campusId: "",
+      schoolName: "Classora Super Admin",
+      req,
+    });
+    const sessionId = sessionResult?.sessionId;
+
+    const { accessToken, refreshToken } = generateSuperAdminTokens(admin, { sessionId });
 
     admin.refreshToken = refreshToken;
     await admin.save();
@@ -215,7 +230,7 @@ router.post("/refresh", async (req, res) => {
       });
     }
 
-    const { accessToken } = generateSuperAdminTokens(admin);
+    const { accessToken } = generateSuperAdminTokens(admin, { sessionId: decoded.sessionId });
 
     const adminRole = admin.role || "superAdmin";
     const adminData = {
@@ -779,6 +794,147 @@ router.delete("/schools/:id/notices/:noticeId", superAdminAuth, async (req, res)
     await school.save();
 
     res.json({ success: true, message: "Notice deleted successfully ✅" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+/* ==========================================================
+   📡 LOGIN STATUS & ACTIVE SESSIONS GOVERNANCE
+   ========================================================== */
+
+// 📋 Get all user sessions with live status, IP, last activity, and filtering
+router.get("/sessions", superAdminAuth, async (req, res) => {
+  try {
+    const { search, role, status, page = 1, limit = 25 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 25));
+
+    const filter = {};
+
+    if (search && search.trim()) {
+      const regex = new RegExp(search.trim(), "i");
+      filter.$or = [
+        { name: regex },
+        { email: regex },
+        { campusId: regex },
+        { schoolName: regex },
+        { ipAddress: regex },
+        { role: regex },
+        { device: regex },
+      ];
+    }
+
+    if (role && role.trim() && role !== "all") {
+      filter.role = role.trim();
+    }
+
+    if (status === "active") {
+      filter.isActive = true;
+      filter.forceLoggedOut = false;
+    } else if (status === "force_logged_out") {
+      filter.forceLoggedOut = true;
+    } else if (status === "inactive") {
+      filter.isActive = false;
+    }
+
+    const [sessions, total, activeCount, forceLoggedOutCount, totalTracked] = await Promise.all([
+      UserSession.find(filter)
+        .sort({ lastActivityAt: -1, updatedAt: -1 })
+        .skip((pageNum - 1) * limitNum)
+        .limit(limitNum)
+        .lean(),
+      UserSession.countDocuments(filter),
+      UserSession.countDocuments({ isActive: true, forceLoggedOut: false }),
+      UserSession.countDocuments({ forceLoggedOut: true }),
+      UserSession.countDocuments(),
+    ]);
+
+    res.json({
+      success: true,
+      data: sessions,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum) || 1,
+      },
+      summary: {
+        totalTrackedUsers: totalTracked,
+        activeSessions: activeCount,
+        forceLoggedOut: forceLoggedOutCount,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🛑 Force Logout an active user session immediately
+router.post("/sessions/:id/force-logout", superAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.admin?.email || "superAdmin";
+
+    const session = await forceLogoutSession(id, adminEmail);
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session record not found" });
+    }
+
+    // Invalidate refreshToken on school or admin to kill silent refresh
+    if (session.schoolId) {
+      await SchoolAdmin.findByIdAndUpdate(session.schoolId, { refreshToken: null }).catch(() => {});
+    } else if (session.role === "superAdmin") {
+      await Admin.findByIdAndUpdate(session.userId, { refreshToken: null }).catch(() => {});
+    }
+
+    res.json({
+      success: true,
+      message: `Session for "${session.name || session.email}" has been force terminated. Next API call will be rejected immediately.`,
+      session,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🔄 Reactivate a terminated session (optional recovery)
+router.post("/sessions/:id/reactivate", superAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await UserSession.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          forceLoggedOut: false,
+          isActive: true,
+          lastActivityAt: new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (!session) {
+      return res.status(404).json({ success: false, message: "Session not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Session reactivated successfully",
+      session,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🗑️ Delete session record
+router.delete("/sessions/:id", superAdminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await UserSession.findByIdAndDelete(id);
+    res.json({ success: true, message: "Session record deleted" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

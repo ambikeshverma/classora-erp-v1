@@ -8,6 +8,7 @@ import ToastHost from "./components/ToastHost";
 import SuperAdminLayout from "./pages/superadmin/SuperAdminLayout";
 import SADashboard from "./pages/superadmin/SADashboard";
 import SAModules from "./pages/superadmin/SAModules";
+import SALoginStatus from "./pages/superadmin/SALoginStatus";
 import SASubscriptions from "./pages/superadmin/SASubscriptions";
 import SAPayments from "./pages/superadmin/SAPayments";
 import SAActivity from "./pages/superadmin/SAActivity";
@@ -147,6 +148,7 @@ function App() {
           <Route index element={<SADashboard />} />
           <Route path="schools" element={<SuperAdminDashboard embedded />} />
           <Route path="modules" element={<SAModules />} />
+          <Route path="login-status" element={<SALoginStatus />} />
           <Route path="billing" element={<SASubscriptions />} />
           <Route path="payments" element={<SAPayments />} />
           <Route path="activity" element={<SAActivity />} />

@@ -1,4 +1,5 @@
 const { verifyAccessToken } = require("../utils/tokenService");
+const { validateAndTouchSession } = require("../utils/sessionService");
 const Admin = require("../models/Admin");
 
 const superAdminAuth = async (req, res, next) => {
@@ -13,6 +14,18 @@ const superAdminAuth = async (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
     const decoded = verifyAccessToken(token);
+
+    // 🛑 Check Session Status in UserSession collection (Force-Logout Enforcement)
+    if (decoded && decoded.sessionId) {
+      const sessionCheck = await validateAndTouchSession(decoded.sessionId, decoded, req);
+      if (!sessionCheck.valid && sessionCheck.isForceLoggedOut) {
+        return res.status(401).json({
+          success: false,
+          isForceLoggedOut: true,
+          message: sessionCheck.reason || "Super Admin session terminated. Please log in again.",
+        });
+      }
+    }
 
     if (decoded.role !== "superAdmin") {
       return res.status(403).json({

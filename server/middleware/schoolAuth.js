@@ -1,4 +1,5 @@
 const { verifyAccessToken } = require("../utils/tokenService");
+const { validateAndTouchSession } = require("../utils/sessionService");
 const SchoolAdmin = require("../models/schoolAdminSchema");
 
 const schoolAuth = async (req, res, next) => {
@@ -21,6 +22,18 @@ const schoolAuth = async (req, res, next) => {
     }
 
     const decoded = verifyAccessToken(token);
+
+    // 🛑 Check Session Status in UserSession collection (Force-Logout Enforcement)
+    if (decoded && decoded.sessionId) {
+      const sessionCheck = await validateAndTouchSession(decoded.sessionId, decoded, req);
+      if (!sessionCheck.valid && sessionCheck.isForceLoggedOut) {
+        return res.status(401).json({
+          success: false,
+          isForceLoggedOut: true,
+          message: sessionCheck.reason || "Your session has been terminated by Super Admin. Please log in again.",
+        });
+      }
+    }
 
     if (!decoded || !decoded.schoolId) {
       return res.status(401).json({

@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const getAccessSecret = () =>
   process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || "classora_access_default_secret_key_2026";
@@ -9,8 +10,12 @@ const getRefreshSecret = () =>
 const ACCESS_EXPIRES_IN = process.env.JWT_ACCESS_EXPIRES_IN || "15m";
 const REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
 
-const generateSchoolTokens = (school) => {
+const newSessionId = () => (crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString("hex"));
+
+const generateSchoolTokens = (school, options = {}) => {
   const role = school.role || "schoolAdmin";
+  const sessionId = typeof options === "string" ? options : (options?.sessionId || newSessionId());
+
   const payload = {
     id: school._id.toString(),
     schoolId: school._id.toString(),
@@ -19,6 +24,7 @@ const generateSchoolTokens = (school) => {
     schoolName: school.schoolName,
     name: school.schoolName,
     role: role,
+    sessionId: sessionId,
   };
 
   const accessToken = jwt.sign(payload, getAccessSecret(), {
@@ -30,23 +36,27 @@ const generateSchoolTokens = (school) => {
       id: school._id.toString(),
       schoolId: school._id.toString(),
       role: role,
+      sessionId: sessionId,
       type: "refresh",
     },
     getRefreshSecret(),
     { expiresIn: REFRESH_EXPIRES_IN }
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, sessionId };
 };
 
-const generateSuperAdminTokens = (admin) => {
+const generateSuperAdminTokens = (admin, options = {}) => {
   const role = admin.role || "superAdmin";
+  const sessionId = typeof options === "string" ? options : (options?.sessionId || newSessionId());
+
   const payload = {
     id: admin._id.toString(),
     adminId: admin._id.toString(),
     email: admin.email,
     name: admin.name,
     role: role,
+    sessionId: sessionId,
   };
 
   const accessToken = jwt.sign(payload, getAccessSecret(), {
@@ -58,19 +68,21 @@ const generateSuperAdminTokens = (admin) => {
       id: admin._id.toString(),
       adminId: admin._id.toString(),
       role: role,
+      sessionId: sessionId,
       type: "refresh",
     },
     getRefreshSecret(),
     { expiresIn: REFRESH_EXPIRES_IN }
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, sessionId };
 };
 
 // Generic token generator for any user role (e.g. teacher, student, accountant, receptionist)
 const generateUserTokens = (user, customRole, extraPayload = {}) => {
   const role = customRole || user.role || "user";
   const userId = user._id ? user._id.toString() : (user.id ? user.id.toString() : "");
+  const sessionId = extraPayload.sessionId || newSessionId();
 
   const payload = {
     id: userId,
@@ -78,6 +90,7 @@ const generateUserTokens = (user, customRole, extraPayload = {}) => {
     email: user.email || "",
     name: user.name || user.schoolName || user.username || user.employeeName || "",
     role: role,
+    sessionId: sessionId,
     ...(user.schoolId ? { schoolId: user.schoolId.toString() } : {}),
     ...(user.campusId ? { campusId: user.campusId } : {}),
     ...extraPayload,
@@ -91,13 +104,14 @@ const generateUserTokens = (user, customRole, extraPayload = {}) => {
     {
       id: userId,
       role: role,
+      sessionId: sessionId,
       type: "refresh",
     },
     getRefreshSecret(),
     { expiresIn: REFRESH_EXPIRES_IN }
   );
 
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, sessionId };
 };
 
 const verifyAccessToken = (token) => {

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const SchoolAdmin = require("../models/schoolAdminSchema");
+const { recordUserSession, validateAndTouchSession, voluntaryLogoutSession } = require("../utils/sessionService");
 const schoolAuth = require("../middleware/schoolAuth");
 const {
   generateSchoolTokens,
@@ -59,7 +60,21 @@ router.post("/login", async (req, res) => {
     }
 
     // 🔑 Generate short-term Access Token & long-term Refresh Token
-    const { accessToken, refreshToken } = generateSchoolTokens(school);
+    // 📝 Record/Update User Session (modifies existing document for this school, no duplicate rows)
+    const sessionResult = await recordUserSession({
+      userId: school._id,
+      role: school.role || "schoolAdmin",
+      name: school.schoolName,
+      email: school.email,
+      schoolId: school._id,
+      campusId: school.campusId,
+      schoolName: school.schoolName,
+      req,
+    });
+    const sessionId = sessionResult?.sessionId;
+
+    // 🔑 Generate short-term Access Token & long-term Refresh Token with sessionId
+    const { accessToken, refreshToken } = generateSchoolTokens(school, { sessionId });
 
     // Save refresh token reference
     school.refreshToken = refreshToken;
