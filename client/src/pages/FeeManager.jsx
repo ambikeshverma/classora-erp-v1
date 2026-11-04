@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./feeManager.css";
 import { MODULES_REGISTRY } from "../constants/modulesRegistry";
 import { useModulePermissions } from "../hooks/useModulePermissions";
+import SubModuleCard from "../components/SubModuleCard";
 
 function FeeManager() {
   const navigate = useNavigate();
@@ -37,16 +38,13 @@ function FeeManager() {
         {cards.map((card) => {
           const enabled = isSubModuleEnabled(card.key);
           return (
-            <div
-              className={`fee-card ${!enabled ? "submodule-card-locked" : ""}`}
+            <SubModuleCard
               key={card.key}
+              title={card.name}
+              icon={card.icon}
+              enabled={enabled}
               onClick={() => handleCardClick(card)}
-              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
-            >
-              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
-              <div className="fee-icon">{card.icon}</div>
-              <h3>{card.name}</h3>
-            </div>
+            />
           );
         })}
       </div>

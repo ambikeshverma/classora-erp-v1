@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./studentHub.css";
 import { MODULES_REGISTRY } from "../constants/modulesRegistry";
 import { useModulePermissions } from "../hooks/useModulePermissions";
+import SubModuleCard from "../components/SubModuleCard";
 import { SkeletonStats } from "../components/Skeleton";
 import { studentHubService } from "../services/api";
 
@@ -152,16 +153,13 @@ function StudentHub() {
         {cards.map((card) => {
           const enabled = isSubModuleEnabled(card.key);
           return (
-            <div
-              className={`student-hub-card ${!enabled ? "submodule-card-locked" : ""}`}
+            <SubModuleCard
               key={card.key}
+              title={card.name}
+              icon={card.icon}
+              enabled={enabled}
               onClick={() => handleCardClick(card)}
-              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
-            >
-              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
-              <div className="student-hub-icon">{card.icon}</div>
-              <h3>{card.name}</h3>
-            </div>
+            />
           );
         })}
       </div>

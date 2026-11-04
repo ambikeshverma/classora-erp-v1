@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import "./transportSystem.css";
 import { MODULES_REGISTRY } from "../constants/modulesRegistry";
 import { useModulePermissions } from "../hooks/useModulePermissions";
+import SubModuleCard from "../components/SubModuleCard";
 
 function TransportSystem() {
   const navigate = useNavigate();
@@ -37,16 +38,13 @@ function TransportSystem() {
         {cards.map((card) => {
           const enabled = isSubModuleEnabled(card.key);
           return (
-            <div
-              className={`transport-card ${!enabled ? "submodule-card-locked" : ""}`}
+            <SubModuleCard
               key={card.key}
+              title={card.name}
+              icon={card.icon}
+              enabled={enabled}
               onClick={() => handleCardClick(card)}
-              title={enabled ? card.name : `${card.name} — Locked by Super Admin`}
-            >
-              {!enabled && <span className="submodule-lock-badge">🔒 Locked</span>}
-              <div className="transport-icon">{card.icon}</div>
-              <h3>{card.name}</h3>
-            </div>
+            />
           );
         })}
       </div>
